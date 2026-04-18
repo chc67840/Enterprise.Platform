@@ -177,60 +177,63 @@
 **Project:** `src/Core/Enterprise.Platform.Application/`
 
 ### 4.1 Messaging abstractions
-- [ ] `Abstractions/Messaging/ICommand.cs` / `ICommand<TResult>`
-- [ ] `Abstractions/Messaging/ICommandHandler.cs`
-- [ ] `Abstractions/Messaging/IQuery.cs`
-- [ ] `Abstractions/Messaging/IQueryHandler.cs`
-- [ ] `Abstractions/Messaging/IDispatcher.cs`
+- [x] `Abstractions/Messaging/ICommand.cs` — `ICommand` (no-payload) + `ICommand<TResult>` (payload-returning); both marker interfaces with `[SuppressMessage("Design","CA1040")]`
+- [x] `Abstractions/Messaging/ICommandHandler.cs` — two arities (`ICommandHandler<TCommand>` void + `ICommandHandler<TCommand, TResult>`)
+- [x] `Abstractions/Messaging/IQuery.cs` — `IQuery<TResult>` marker
+- [x] `Abstractions/Messaging/IQueryHandler.cs` — `IQueryHandler<TQuery, TResult>`
+- [x] `Abstractions/Messaging/IDispatcher.cs` — `SendAsync(ICommand)`, `SendAsync<TResult>(ICommand<TResult>)`, `QueryAsync<TResult>(IQuery<TResult>)`
 
 ### 4.2 Behavior abstractions (marker interfaces)
-- [ ] `Abstractions/Behaviors/IPipelineBehavior.cs`
-- [ ] `Abstractions/Behaviors/ITransactional.cs`
-- [ ] `Abstractions/Behaviors/ICacheable.cs`
-- [ ] `Abstractions/Behaviors/IRequiresAudit.cs`
-- [ ] `Abstractions/Behaviors/IIdempotent.cs`
-- [ ] `Abstractions/Behaviors/IRequiresDualApproval.cs`
+- [x] `Abstractions/Behaviors/IPipelineBehavior.cs` — `IPipelineBehavior<in TRequest, TResponse>` + `RequestHandlerDelegate<TResponse>` (CA1711 suppressed inline — naming mirrors MediatR for reader familiarity)
+- [x] `Abstractions/Behaviors/ITransactional.cs` — empty marker
+- [x] `Abstractions/Behaviors/ICacheable.cs` — exposes `CacheKey` + `Ttl?` + `CacheRegion?` (non-empty, caller contributes deterministic key)
+- [x] `Abstractions/Behaviors/IRequiresAudit.cs` — `AuditAction` + `AuditSubject?`
+- [x] `Abstractions/Behaviors/IIdempotent.cs` — `IdempotencyKey` + `IdempotencyWindow` (default 24h)
+- [x] `Abstractions/Behaviors/IRequiresDualApproval.cs` — empty marker; workflow lands later
 
 ### 4.3 Persistence abstraction (for Dapper-style raw read path)
-- [ ] `Abstractions/Persistence/IDbConnectionFactory.cs`
+- [x] `Abstractions/Persistence/IDbConnectionFactory.cs` — `CreateConnectionAsync(logicalName)` returning `DbConnection`
 
 ### 4.4 Dispatcher
-- [ ] `Dispatcher/Dispatcher.cs` — lightweight mediator, pipeline-aware
+- [x] `Dispatcher/Dispatcher.cs` — lightweight mediator. Single reflection hop to re-enter a strongly-typed generic method (`SendInternalAsync<TCommand,TResult>` etc.), then a typed delegate chain builds bottom-up from behaviors + handler. Also defines `Unit` struct for the void command path. Hot-path delegate caching is a future optimization.
 
 ### 4.5 Common services
-- [ ] `Common/Interfaces/IDateTimeProvider.cs`
-- [ ] `Common/Interfaces/IFileStorageService.cs`
-- [ ] `Common/Interfaces/IEmailService.cs`
-- [ ] `Common/Interfaces/INotificationService.cs`
+- [x] `Common/Interfaces/IDateTimeProvider.cs` — `UtcNow`, `Today`
+- [x] `Common/Interfaces/IFileStorageService.cs` — `UploadAsync`, `DownloadAsync`, `DeleteAsync`, `GetPresignedUrlAsync`
+- [x] `Common/Interfaces/IEmailService.cs` — `SendAsync(EmailMessage)` + `EmailMessage` record (To/Cc/Bcc/Subject/Body/IsHtml/TemplateId/TemplateData)
+- [x] `Common/Interfaces/INotificationService.cs` — `NotifyAsync` + `NotificationChannel` enum (InApp/Email/Sms/Push)
+- [+] `Common/Interfaces/IAuditWriter.cs` — **beyond original TODO**; `WriteAsync(AuditEntry)` + `AuditEntry` record. Required by `AuditBehavior`.
+- [+] `Common/Interfaces/IIdempotencyStore.cs` — **beyond original TODO**; `TryGetAsync<T>` + `SetAsync<T>(ttl)`. Required by `IdempotencyBehavior`.
 
 ### 4.6 Common models
-- [ ] `Common/Models/PagedRequest.cs` (offset pagination)
-- [ ] `Common/Models/CursorPagedRequest.cs`
-- [ ] `Common/Models/PagedResult.cs`
-- [ ] `Common/Models/CursorPagedResult.cs`
-- [ ] `Common/Models/SortDescriptor.cs`
-- [ ] `Common/Models/FilterDescriptor.cs`
+- [x] `Common/Models/PagedRequest.cs` — offset pagination with property-setter clamping to `AppConstants.Paging.MaxPageSize`
+- [x] `Common/Models/CursorPagedRequest.cs` — opaque cursor + clamped page size
+- [x] `Common/Models/PagedResult.cs` — `Items` + `TotalCount?` + derived `TotalPages`
+- [x] `Common/Models/CursorPagedResult.cs` — `Items` + `NextCursor?` + `PreviousCursor?`
+- [x] `Common/Models/SortDescriptor.cs` — `Field` + `Direction` (reuses `SortDirection` from Shared)
+- [x] `Common/Models/FilterDescriptor.cs` — `Field` + `Operator` (reuses `FilterOperator`) + `Value`
 
 ### 4.7 Common extensions
-- [ ] `Common/Extensions/QueryableExtensions.cs` — `ApplyPaging`, `ApplySorting`, `ApplyFilters`
-- [ ] `Common/Extensions/StringExtensions.cs`
+- [x] `Common/Extensions/QueryableExtensions.cs` — `ApplyPaging`, `ApplySorting` (OrderBy → ThenBy chain), `ApplyFilters` (expression-tree translator supporting Eq / Neq / Gt / Gte / Lt / Lte / Like / In / Between); throws `NotSupportedException` for unknown operators
+- [x] `Common/Extensions/StringExtensions.cs` — `ToSha256Hex` (cache/idempotency key building), `ToInvariantTitleCase`
 
 ### 4.8 Mapping contracts
-- [ ] `Common/Mappings/IMappable.cs` _(if D2 = Mapster this may be redundant)_
+- [–] `Common/Mappings/IMappable.cs` — **deferred/skipped**: D2 = Mapster + DtoGen-emitted `TypeAdapterConfig`s. Per-DTO mapping contract is redundant.
 
 ### 4.9 Pipeline behaviors (ordered 1→7)
-- [ ] `Behaviors/LoggingBehavior.cs` (order 1 — structured entry/exit + elapsed)
-- [ ] `Behaviors/ValidationBehavior.cs` (order 2 — FluentValidation)
-- [ ] `Behaviors/TenantFilterBehavior.cs` (order 3 — sets tenant context)
-- [ ] `Behaviors/AuditBehavior.cs` (order 4 — audit trail creation)
-- [ ] `Behaviors/TransactionBehavior.cs` (order 5 — begin/commit/rollback)
-- [ ] `Behaviors/CachingBehavior.cs` (order 6 — cache-aside for queries)
-- [ ] `Behaviors/IdempotencyBehavior.cs` (order 7 — idempotency-key check)
+- [x] `Behaviors/LoggingBehavior.cs` — order 1; structured entry/exit + elapsed; OperationCanceled is re-thrown without logging
+- [x] `Behaviors/ValidationBehavior.cs` — order 2; runs every `IValidator<TRequest>` in parallel-ish (sequential for determinism), throws `FluentValidation.ValidationException` with aggregated failures
+- [x] `Behaviors/TenantFilterBehavior.cs` — order 3; when `RequireResolvedTenant`+no tenant, throws `TenantMismatchException`
+- [x] `Behaviors/AuditBehavior.cs` — order 4; activates only on `IRequiresAudit`; captures success **and** failure paths via try/finally; writer errors are swallowed (audit is best-effort)
+- [x] `Behaviors/TransactionBehavior.cs` — order 5; activates only on `ITransactional`; rollback failures log but re-throw the original exception
+- [x] `Behaviors/CachingBehavior.cs` — order 6; activates only on `ICacheable` (typically `IQuery`); short-circuits on hit (`next()` never invoked)
+- [x] `Behaviors/IdempotencyBehavior.cs` — order 7 innermost; activates only on `IIdempotent`; store key = SHA256(requestType + principalId + suppliedKey)
+- [+] `Behaviors/LogMessages.cs` — **beyond TODO**; source-generated `LoggerMessage` extensions for all 10 behavior log sites (CA1848-compliant lazy evaluation)
 
 ### 4.10 DI
-- [ ] `DependencyInjection.cs` — `AddApplication(IServiceCollection, IConfiguration)`: scans handlers, registers behaviors, dispatcher, FluentValidation
+- [x] `DependencyInjection.cs` — `AddApplication(IServiceCollection, IConfiguration)`: binds `MultiTenancySettings` + `CacheSettings`, registers `Dispatcher` (scoped), the 7 behaviors as open-generic `IPipelineBehavior<,>` in pipeline order, every handler via assembly scan (`ICommandHandler<>`, `ICommandHandler<,>`, `IQueryHandler<,>`), and FluentValidation's `AddValidatorsFromAssembly`.
 
-- [ ] **Checkpoint 4:** `dotnet build src/Core/Enterprise.Platform.Application` green
+- [x] **Checkpoint 4:** `dotnet build src/Core/Enterprise.Platform.Application` green (0 warnings / 0 errors); full-solution build also green.
 
 ---
 
@@ -506,6 +509,7 @@
 - **2026-04-17** — **Phase 1 complete.** All 13 Shared-tier files landed (Results, Guards, Constants, Extensions, Enumerations). Added `<NoWarn>CA1716</NoWarn>` to `Directory.Build.props` — C#-only solution, VB-interop naming rules don't apply, which let us keep the mandated `Error` type name and `Shared` namespace. `Guard` uses the Ardalis-style `IGuardClause` marker + extension methods so later tiers can plug in domain-specific guards. Full-solution build: 0 warnings, 0 errors.
 - **2026-04-18** — **Phase 2 complete (Settings + Responses).** 8 new Settings POCOs (+ pre-existing `DatabaseSettings`) and 2 Response types landed. **2.3 Requests and 2.4 DTOs deferred `[–]`** to stay consistent with D4 — platform-identity contracts will arrive with PlatformDb. One analyzer hiccup (CA1000 on a static factory inside `ApiResponse<T>`) — resolved idiomatically by moving `Ok<T>(...)` to the non-generic `ApiResponse` helper (callers get type inference, analyzer happy). Full-solution build: 0 warnings, 0 errors. Repo pushed to `https://github.com/chc67840/Enterprise.Platform.git` (`main`).
 - **2026-04-18** — **Phase 3 complete (Domain — zero-NuGet core).** All 31 files across 3.1–3.8 landed. Notable design calls: (a) `IWriteDbContext` is deliberately EF-free (only `SaveChangesAsync`) so Domain never sees `DbSet<T>`; handlers write through `IGenericRepository<T>`. (b) Value-object factories return `Result<T>` from Shared — first real use of the Result pattern outside tests. (c) `AggregateRoot.AddDomainEvent` is `protected`, `ClearDomainEvents` is `public` — aggregates raise, dispatcher drains. (d) Added `AsSplitQuery` to `ISpecification<T>` beyond the TODO — needed to avoid cartesian blow-ups on multi-collection includes. `dotnet list package` on Domain returns zero — D1 invariant holds manually until Phase 12 adds the architecture test.
+- **2026-04-18** — **Phase 4 complete (Application — CQRS skeleton).** 35 files total: 5 messaging + 6 behavior markers + 1 persistence abstraction + 1 dispatcher + 6 common interfaces (+2 beyond TODO: `IAuditWriter`, `IIdempotencyStore`) + 6 common models + 2 common extensions + 7 pipeline behaviors (+1 beyond TODO: `LogMessages.cs` source-generated `LoggerMessage` extensions) + DI helper. **Skipped `IMappable` (4.8)** per D2 = Mapster. **CPM additions:** `Microsoft.Extensions.DependencyInjection.Abstractions`, `.Logging.Abstractions`, `.Caching.Abstractions`, `.Configuration.Abstractions`, `.Options`, `.Options.ConfigurationExtensions` — all abstractions-only, no runtime impl leaks. Analyzer battles worth keeping as replay landmines: (a) **CA1848 + CA1873** swept every `logger.LogX(...)` call — resolved properly by a consolidated source-gen `LogMessages` partial class rather than suppression; (b) **CA1711** on `RequestHandlerDelegate` suppressed inline (naming parity with MediatR is worth more than analyzer purity); (c) **CA1805** `Unit.Value = default` — removed redundant init; (d) **CA1859** on two expression-builder helpers — tightened return types to `MethodCallExpression` / `BinaryExpression`.
 
 ---
 
