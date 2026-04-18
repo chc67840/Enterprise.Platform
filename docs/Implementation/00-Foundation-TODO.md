@@ -81,36 +81,39 @@
 **Project:** `src/Contracts/Enterprise.Platform.Contracts/`
 
 ### 2.1 Settings POCOs
-- [ ] `Settings/AppSettings.cs`
-- [ ] `Settings/JwtSettings.cs` (Issuer, Audience, SigningKey, AccessTokenLifetime, RefreshTokenLifetime)
-- [ ] `Settings/CorsSettings.cs` (AllowedOrigins[])
-- [ ] `Settings/RateLimitSettings.cs` (per-tenant + global thresholds)
-- [ ] `Settings/CacheSettings.cs` (InMemory vs Redis, TTLs per region)
-- [ ] `Settings/AzureSettings.cs` (KeyVaultUri, BlobAccount, AppConfigEndpoint)
-- [ ] `Settings/MultiTenancySettings.cs` (`IsolationMode` enum, `ResolutionStrategy` enum)
-- [ ] `Settings/ObservabilitySettings.cs` (OtelEndpoint, ServiceName, Sampling)
-- [ ] `Settings/DatabaseSettings.cs` **(multi-DB registry — depends on D3/D4)**
-  - `Dictionary<string, DatabaseConnection>` where `DatabaseConnection { Name, Provider, ConnectionString, CommandTimeout, IsReadReplica }`
+- [x] `Settings/AppSettings.cs` — Name / Environment / Version / Description / DeveloperMode + `SectionName = "App"`
+- [x] `Settings/JwtSettings.cs` — Issuer, Audience, SigningKey, AccessTokenLifetime (15m), RefreshTokenLifetime (14d), ClockSkew (30s), RotateRefreshTokens (true)
+- [x] `Settings/CorsSettings.cs` — AllowedOrigins / AllowedMethods / AllowedHeaders / ExposedHeaders / AllowCredentials / PreflightMaxAge
+- [x] `Settings/RateLimitSettings.cs` — Global / PerTenant / PerUser permits-per-window + Window + QueueLimit + EmitRetryAfterHeader
+- [x] `Settings/CacheSettings.cs` — `CacheProvider` enum (InMemory / Redis) + RedisConnectionString + KeyPrefix + DefaultTtl + `Dictionary<string,TimeSpan>` Regions
+- [x] `Settings/AzureSettings.cs` — KeyVaultUri / BlobAccount / AppConfigEndpoint / ManagedIdentityClientId
+- [x] `Settings/MultiTenancySettings.cs` — `TenantIsolationMode` (reused from Shared) + new `TenantResolutionStrategy` enum (Claim / Header / Subdomain / RouteSegment) + DefaultTenantId + RequireResolvedTenant
+- [x] `Settings/ObservabilitySettings.cs` — ServiceName / ServiceVersion / OtelEndpoint / SamplingRatio / EnableDatabaseInstrumentation / EnableHttpInstrumentation / SeqEndpoint
+- [x] `Settings/DatabaseSettings.cs` — **landed in Phase 0.3** (Dictionary<string, DatabaseConnectionSettings> + DatabaseProvider enum). Kept as-is; no changes needed.
 
 ### 2.2 Responses
-- [ ] `Responses/ApiResponse.cs` (`{ data, success, errors, meta }`)
-- [ ] `Responses/ProblemDetailsExtended.cs` (RFC 7807 + `correlationId`, `tenantId`, `errors[]`)
+- [x] `Responses/ApiResponse.cs` — generic `ApiResponse<T>` envelope (Data / Success / Meta / Warnings) + non-generic `ApiResponse.Ok<T>(data, meta, warnings)` factory (hosts the factory on the non-generic type to satisfy CA1000) + `ResponseMeta` (CorrelationId, TenantId, ServerTime, ApiVersion, Pagination) + `PaginationMeta` (supports both offset and cursor shapes).
+- [x] `Responses/ProblemDetailsExtended.cs` — RFC 7807 base (Type / Title / Status / Detail / Instance) + platform extensions (CorrelationId / TenantId / Errors `IReadOnlyList<Error>` / `FieldErrors` dictionary / Timestamp).
 
-### 2.3 Core Requests (platform)
-- [ ] `Requests/LoginRequest.cs`
-- [ ] `Requests/RefreshTokenRequest.cs`
-- [ ] `Requests/CreateTenantRequest.cs`
-- [ ] `Requests/RegisterUserRequest.cs`
+### 2.3 Core Requests (platform) — **[–] deferred with D4**
+- [–] `Requests/LoginRequest.cs`
+- [–] `Requests/RefreshTokenRequest.cs`
+- [–] `Requests/CreateTenantRequest.cs`
+- [–] `Requests/RegisterUserRequest.cs`
 
-### 2.4 Core DTOs (platform — placeholders until Phase 5 migration runs)
-- [ ] `DTOs/UserDto.cs`
-- [ ] `DTOs/RoleDto.cs`
-- [ ] `DTOs/TenantDto.cs`
-- [ ] `DTOs/AuditLogDto.cs`
+> Request DTOs for the platform-identity surface (login, refresh, tenant create, user register) depend on PlatformDb going live. Deferred to stay consistent with **D4** — we don't want contract stubs for a subsystem we're not about to wire. They'll land when PlatformDb is revisited.
+
+### 2.4 Core DTOs (platform) — **[–] deferred with D4**
+- [–] `DTOs/UserDto.cs`
+- [–] `DTOs/RoleDto.cs`
+- [–] `DTOs/TenantDto.cs`
+- [–] `DTOs/AuditLogDto.cs`
+
+> Same rationale as 2.3. These DTOs belong to the PlatformDb entities and will be generated (or hand-written, TBD at the time) alongside the platform migration.
 
 > **EventShopper DTOs are generated in Phase 6.** Do not hand-write them here.
 
-- [ ] **Checkpoint 2:** `dotnet build src/Contracts/Enterprise.Platform.Contracts` green
+- [x] **Checkpoint 2:** `dotnet build src/Contracts/Enterprise.Platform.Contracts` green (0 warnings / 0 errors); full-solution build also green.
 
 ---
 
@@ -501,6 +504,7 @@
 - **2026-04-17** — **PlatformDb deferred**: per user direction, we're not building the platform control-plane DB in this pass. EventShopperDb (MSSQL, DB-first) is the active target. Platform entities, code-first migrations, identity store, audit log persistence, outbox persistence, and Auth/BFF login flows are all marked `[–]` deferred until PlatformDb is revisited. Phase 5 retains the multi-DB routing scaffolding (needed for EventShopperDb anyway); Platform-specific items inside Phase 5/7/8/9/10/11 are skipped for now.
 - **2026-04-17** — **Phase 0 complete.** DbSettings POCO, connection strings (Api+Worker), DtoGen skeleton, dotnet-ef local tool, Mapster CPM entries all landed. Build clean.
 - **2026-04-17** — **Phase 1 complete.** All 13 Shared-tier files landed (Results, Guards, Constants, Extensions, Enumerations). Added `<NoWarn>CA1716</NoWarn>` to `Directory.Build.props` — C#-only solution, VB-interop naming rules don't apply, which let us keep the mandated `Error` type name and `Shared` namespace. `Guard` uses the Ardalis-style `IGuardClause` marker + extension methods so later tiers can plug in domain-specific guards. Full-solution build: 0 warnings, 0 errors.
+- **2026-04-18** — **Phase 2 complete (Settings + Responses).** 8 new Settings POCOs (+ pre-existing `DatabaseSettings`) and 2 Response types landed. **2.3 Requests and 2.4 DTOs deferred `[–]`** to stay consistent with D4 — platform-identity contracts will arrive with PlatformDb. One analyzer hiccup (CA1000 on a static factory inside `ApiResponse<T>`) — resolved idiomatically by moving `Ok<T>(...)` to the non-generic `ApiResponse` helper (callers get type inference, analyzer happy). Full-solution build: 0 warnings, 0 errors. Repo pushed to `https://github.com/chc67840/Enterprise.Platform.git` (`main`).
 
 ---
 
