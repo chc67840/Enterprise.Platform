@@ -122,53 +122,53 @@
 **Project:** `src/Core/Enterprise.Platform.Domain/`
 
 ### 3.1 Marker interfaces
-- [ ] `Interfaces/IAuditableEntity.cs` (`CreatedBy`, `CreatedAt`, `ModifiedBy`, `ModifiedAt`)
-- [ ] `Interfaces/ISoftDeletable.cs` (`IsDeleted`, `DeletedAt`, `DeletedBy`)
-- [ ] `Interfaces/ITenantEntity.cs` (`TenantId`)
+- [x] `Interfaces/IAuditableEntity.cs` — `CreatedBy` / `CreatedAt` / `ModifiedBy?` / `ModifiedAt?` (all get+set; populated by `AuditableEntityInterceptor`)
+- [x] `Interfaces/ISoftDeletable.cs` — `IsDeleted` / `DeletedAt?` / `DeletedBy?`
+- [x] `Interfaces/ITenantEntity.cs` — `TenantId : Guid`
 
 ### 3.2 Base classes
-- [ ] `Entities/BaseEntity.cs` (`Id : Guid`, `RowVersion : byte[]`)
-- [ ] `Entities/AuditableEntity.cs` (implements `IAuditableEntity`)
-- [ ] `Entities/TenantAuditableEntity.cs` (implements `ITenantEntity` + `IAuditableEntity`)
-- [ ] `Aggregates/AggregateRoot.cs` (`_domainEvents`, `AddDomainEvent`, `ClearDomainEvents`)
+- [x] `Entities/BaseEntity.cs` — `Guid Id { get; protected set; }` (protected so EF reflection works, no public reassignment), `byte[] RowVersion`, `IEquatable<BaseEntity>` equality by `(ConcreteType, Id)`, `==` / `!=` operators
+- [x] `Entities/AuditableEntity.cs` — abstract `: BaseEntity, IAuditableEntity`
+- [x] `Entities/TenantAuditableEntity.cs` — abstract `: AuditableEntity, ITenantEntity`
+- [x] `Aggregates/AggregateRoot.cs` — abstract `: TenantAuditableEntity`. `private readonly List<IDomainEvent> _domainEvents`, exposes `IReadOnlyCollection<IDomainEvent> DomainEvents`. `AddDomainEvent` is **protected** (only aggregate raises its own events); `ClearDomainEvents` is **public** (dispatcher drains).
 
 ### 3.3 Events
-- [ ] `Events/IDomainEvent.cs` (`OccurredOn`)
-- [ ] `Events/IIntegrationEvent.cs` (`EventId`, `OccurredOn`, `EventType`)
+- [x] `Events/IDomainEvent.cs` — `DateTimeOffset OccurredOn { get; }`
+- [x] `Events/IIntegrationEvent.cs` — `Guid EventId`, `DateTimeOffset OccurredOn`, `string EventType` (versioned like `"UserRegistered.v1"` for schema evolution)
 
 ### 3.4 Value Objects
-- [ ] `ValueObjects/ValueObject.cs` (equality by value via `GetEqualityComponents`)
-- [ ] `ValueObjects/Email.cs`
-- [ ] `ValueObjects/PhoneNumber.cs`
-- [ ] `ValueObjects/Money.cs` (Amount + Currency)
-- [ ] `ValueObjects/Address.cs`
-- [ ] `ValueObjects/DateRange.cs` (Start/End with invariants)
+- [x] `ValueObjects/ValueObject.cs` — abstract; `GetEqualityComponents()` drives `Equals` / `GetHashCode` / operators. Reference type (not struct) so nested collections are legal.
+- [x] `ValueObjects/Email.cs` — `sealed partial`, `Create(string?)` returns `Result<Email>`, normalized lowercase, `[GeneratedRegex]` with 500ms timeout
+- [x] `ValueObjects/PhoneNumber.cs` — E.164-normalized (`^\+[1-9][0-9]{7,14}$`); strips whitespace/hyphens/parens before validating; `Create` → `Result<PhoneNumber>`
+- [x] `ValueObjects/Money.cs` — `Amount (decimal) + Currency (ISO 4217, upper-cased)`; `Add` / `Subtract` / `Multiply`; `EnsureSameCurrency` throws — mid-calc conversion is a policy decision that belongs in a service
+- [x] `ValueObjects/Address.cs` — Street / City / Region? / PostalCode / Country (ISO 3166-1 alpha-2); `Create` → `Result<Address>`
+- [x] `ValueObjects/DateRange.cs` — `Start <= End` invariant enforced by `Create`; `Contains(instant)`, `Overlaps(other)`, `Duration`
 
 ### 3.5 Enumerations
-- [ ] `Enumerations/Enumeration.cs` (smart enum base, reflection-based `GetAll`)
+- [x] `Enumerations/Enumeration.cs` — smart-enum base; `Id` + `Name`; `GetAll<T>()`, `FromId<T>(id)`, `FromName<T>(name)` via reflection; `IComparable` + `IEquatable` + full operator set (`==` / `!=` / `<` / `<=` / `>` / `>=`)
 
 ### 3.6 Exceptions
-- [ ] `Exceptions/DomainException.cs` (abstract base, `ErrorCode`)
-- [ ] `Exceptions/EntityNotFoundException.cs`
-- [ ] `Exceptions/BusinessRuleViolationException.cs`
-- [ ] `Exceptions/ConcurrencyConflictException.cs`
-- [ ] `Exceptions/AccessDeniedException.cs`
-- [ ] `Exceptions/TenantMismatchException.cs`
+- [x] `Exceptions/DomainException.cs` — abstract base, `ErrorCode` property set via ctor, two ctors (message / message+inner)
+- [x] `Exceptions/EntityNotFoundException.cs` — `ErrorCodes.NotFound`; convenience ctor `(entityName, key)`
+- [x] `Exceptions/BusinessRuleViolationException.cs` — `ErrorCodes.Conflict`
+- [x] `Exceptions/ConcurrencyConflictException.cs` — `ErrorCodes.Conflict`; convenience ctor `(entityName, key)` → "modified by another process" message
+- [x] `Exceptions/AccessDeniedException.cs` — `ErrorCodes.Forbidden`; static factory `ForPermission(string)`
+- [x] `Exceptions/TenantMismatchException.cs` — `ErrorCodes.Forbidden`; convenience ctor `(expectedTenantId, actualTenantId)`
 
 ### 3.7 Specifications
-- [ ] `Specifications/ISpecification.cs` (`Criteria`, `Includes`, `OrderBy`, paging)
-- [ ] `Specifications/Specification.cs` (base implementation)
+- [x] `Specifications/ISpecification.cs` — `Criteria` / `Includes` / `IncludeStrings` / `OrderBy` / `OrderByDescending` / `Skip` / `Take` / `IsPagingEnabled` / `AsNoTracking` / `AsSplitQuery` (last one added beyond the TODO — needed for include-heavy specs to avoid cartesian explosions)
+- [x] `Specifications/Specification.cs` — protected `SetCriteria` / `AddInclude` / `ApplyPaging` / `ApplyOrderBy` / `ApplyOrderByDescending` / `UseNoTracking` / `UseSplitQuery`
 
 ### 3.8 Abstractions (implemented by Infrastructure)
-- [ ] `Interfaces/IGenericRepository.cs` (CRUD + specification-aware)
-- [ ] `Interfaces/IUnitOfWork.cs`
-- [ ] `Interfaces/IReadDbContext.cs` (exposes `IQueryable<T>` read-only, NoTracking)
-- [ ] `Interfaces/IWriteDbContext.cs`
-- [ ] `Interfaces/ICurrentUserService.cs` (`UserId`, `Email`, `IsAuthenticated`, `HasPermission`)
-- [ ] `Interfaces/ICurrentTenantService.cs` (`TenantId`, `IsolationMode`)
-- [ ] `Interfaces/IDomainEventDispatcher.cs`
+- [x] `Interfaces/IGenericRepository.cs` — `GetByIdAsync`, `GetSingleOrDefaultAsync`, `ListAsync`, `CountAsync`, `AnyAsync`, `AddAsync` / `AddRangeAsync`, `Update`, `Remove` / `RemoveRange`
+- [x] `Interfaces/IUnitOfWork.cs` — `: IAsyncDisposable`; `SaveChangesAsync`, `Begin/Commit/RollbackTransactionAsync`
+- [x] `Interfaces/IReadDbContext.cs` — `IQueryable<T> Set<T>() where T : class` (implementation globally `AsNoTracking`)
+- [x] `Interfaces/IWriteDbContext.cs` — **EF-free**: only `SaveChangesAsync`. No `DbSet<T>` surface on Domain.
+- [x] `Interfaces/ICurrentUserService.cs` — `UserId?`, `Email?`, `IsAuthenticated`, `HasPermission(string)`, `IsInRole(string)`
+- [x] `Interfaces/ICurrentTenantService.cs` — `TenantId?`, `IsolationMode` (reuses `Shared` enum)
+- [x] `Interfaces/IDomainEventDispatcher.cs` — single-event and batch `DispatchAsync` overloads
 
-- [ ] **Checkpoint 3:** `dotnet build src/Core/Enterprise.Platform.Domain` green; Architecture tests (if added) confirm Domain has zero NuGet deps
+- [x] **Checkpoint 3:** `dotnet build src/Core/Enterprise.Platform.Domain` green (0 warnings / 0 errors); full-solution build also green. **`dotnet list src/Core/Enterprise.Platform.Domain package` confirms zero NuGet deps** — the D1 invariant holds manually until Phase 12 lands the automated architecture test.
 
 ---
 
@@ -505,6 +505,7 @@
 - **2026-04-17** — **Phase 0 complete.** DbSettings POCO, connection strings (Api+Worker), DtoGen skeleton, dotnet-ef local tool, Mapster CPM entries all landed. Build clean.
 - **2026-04-17** — **Phase 1 complete.** All 13 Shared-tier files landed (Results, Guards, Constants, Extensions, Enumerations). Added `<NoWarn>CA1716</NoWarn>` to `Directory.Build.props` — C#-only solution, VB-interop naming rules don't apply, which let us keep the mandated `Error` type name and `Shared` namespace. `Guard` uses the Ardalis-style `IGuardClause` marker + extension methods so later tiers can plug in domain-specific guards. Full-solution build: 0 warnings, 0 errors.
 - **2026-04-18** — **Phase 2 complete (Settings + Responses).** 8 new Settings POCOs (+ pre-existing `DatabaseSettings`) and 2 Response types landed. **2.3 Requests and 2.4 DTOs deferred `[–]`** to stay consistent with D4 — platform-identity contracts will arrive with PlatformDb. One analyzer hiccup (CA1000 on a static factory inside `ApiResponse<T>`) — resolved idiomatically by moving `Ok<T>(...)` to the non-generic `ApiResponse` helper (callers get type inference, analyzer happy). Full-solution build: 0 warnings, 0 errors. Repo pushed to `https://github.com/chc67840/Enterprise.Platform.git` (`main`).
+- **2026-04-18** — **Phase 3 complete (Domain — zero-NuGet core).** All 31 files across 3.1–3.8 landed. Notable design calls: (a) `IWriteDbContext` is deliberately EF-free (only `SaveChangesAsync`) so Domain never sees `DbSet<T>`; handlers write through `IGenericRepository<T>`. (b) Value-object factories return `Result<T>` from Shared — first real use of the Result pattern outside tests. (c) `AggregateRoot.AddDomainEvent` is `protected`, `ClearDomainEvents` is `public` — aggregates raise, dispatcher drains. (d) Added `AsSplitQuery` to `ISpecification<T>` beyond the TODO — needed to avoid cartesian blow-ups on multi-collection includes. `dotnet list package` on Domain returns zero — D1 invariant holds manually until Phase 12 adds the architecture test.
 
 ---
 
