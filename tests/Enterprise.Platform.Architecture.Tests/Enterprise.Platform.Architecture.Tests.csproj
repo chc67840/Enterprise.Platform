@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Enterprise.Platform.Domain\Enterprise.Platform.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Core\Enterprise.Platform.Application\Enterprise.Platform.Application.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Enterprise.Platform.Infrastructure\Enterprise.Platform.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,578 @@
+# 01 — Enterprise Architecture Overview
+
+> Redesigned architecture for RIMS — targeting Healthcare, Finance, and Social Services  
+> HIPAA-compliant · .NET 8 · Production-ready
+
+---
+
+## Table of Contents
+
+1. [Current vs. Redesigned Architecture](#1-current-vs-redesigned-architecture)
+2. [Tier-by-Tier Breakdown](#2-tier-by-tier-breakdown)
+3. [Redesigned Request Flow](#3-redesigned-request-flow)
+4. [Project Dependency Map](#4-project-dependency-map)
+5. [Cross-Cutting Concerns](#5-cross-cutting-concerns)
+6. [HIPAA Compliance Mapping](#6-hipaa-compliance-mapping)
+7. [Configuration & Environment Strategy](#7-configuration--environment-strategy)
+
+---
+
+## 1. Current vs. Redesigned Architecture
+
+### Current State (As-Is)
+
+```
+Browser ? Web.UI (BFF+JWT) ? Web.ServiceClient (HttpClient) ? App.WebApi (Negotiate)
+                                                                    ?
+                                                            Assembler (Business)
+                                                                    ?
+                                                            Domain (EF Core + Raw SQL)
+                                                                 + SOAP Services
+```
+
+**Issues identified**:
+- Assemblers are God-classes (800+ lines) mixing orchestration, mapping, raw SQL building, and reference lookups
+- Dual data access paths (`QueryHelper` AND `GenericRepository` + `UnitOfWork`)
+- `AsNoTracking()` bug — result is discarded (tracked queries everywhere)
+- SQL injection via string-interpolated raw SQL in filter building
+- `.GetAwaiter().GetResult()` causing potential deadlocks
+- No read/write context separation
+- No structured logging or telemetry
+- Property injection in factories violates encapsulation
+- 60+ parameter UnitOfWork constructor
+- Validation scattered across 3 layers
+
+### Redesigned State (To-Be)
+
+```
+????????????????
+? Angular SPA  ?  ? Standalone components, lazy-loaded routes
+????????????????
+       ? HTTPS + JWT + XSRF + CSP
+????????????????????????????????????????????????????????
+?              PRESENTATION TIER                        ?
+?  Web.UI (BFF)                                        ?
+?  ??? Controllers (MVC + Minimal APIs)                ?
+?  ??? JwtOAuthProvider                                ?
+?  ??? Anti-forgery token pipeline                     ?
+?  ??? Web.ServiceClient (typed HttpClient wrappers)   ?
+????????????????????????????????????????????????????????
+       ? Windows Negotiate + Session Headers (signed)
+????????????????????????????????????????????????????????
+?              API TIER                                 ?
+?  App.WebApi                                          ?
+?  ??? Endpoints (Minimal API groups)                  ?
+?  ??? Middleware: Global exception, security headers   ?
+?  ??? Filters: Logging, Validation, Rate limiting      ?
+?  ??? API Versioning                                   ?
+?  ??? Health checks                                    ?
+????????????????????????????????????????????????????????
+       ? DI-resolved services (scoped)
+????????????????????????????????????????????????????????
+?              APPLICATION TIER (CQRS)                  ?
+?  App.Application (NEW — replaces Assembler)          ?
+?  ??? Commands/                                        ?
+?  ?   ??? SaveReferralSectionCommand.cs               ?
+?  ?   ??? SaveReferralSectionHandler.cs               ?
+?  ?   ??? SaveReferralSectionValidator.cs             ?
+?  ??? Queries/                                         ?
+?  ?   ??? FetchAllReferralsQuery.cs                   ?
+?  ?   ??? FetchAllReferralsHandler.cs                 ?
+?  ?   ??? FetchAllReferralsResponse.cs                ?
+?  ??? Behaviors/ (pipeline: validation, logging, tx)  ?
+?  ??? Factories/ (processor resolution)               ?
+?  ??? Processors/ (strategy per page/report)          ?
+?  ??? Services/ (domain services, helpers)            ?
+?  ??? Mappings/ (entity ? DTO)                        ?
+????????????????????????????????????????????????????????
+       ?                    ?
+???????????????????  ???????????????????????????????????
+?  DOMAIN TIER    ?  ?  INFRASTRUCTURE TIER             ?
+?  App.Domain     ?  ?  App.Infrastructure (NEW)        ?
+?  ??? Entities   ?  ?  ??? Persistence/                ?
+?  ??? ValueObjs  ?  ?  ?   ??? RimsWriteDbContext     ?
+?  ??? Interfaces ?  ?  ?   ??? RimsReadDbContext      ?
+?  ??? Enums      ?  ?  ?   ??? UnitOfWork              ?
+?  ??? Events     ?  ?  ?   ??? Repositories/           ?
+?  ??? Specs      ?  ?  ??? ExternalServices/           ?
+?                 ?  ?  ?   ??? ChipSearchService       ?
+?                 ?  ?  ?   ??? SsoService               ?
+?                 ?  ?  ?   ??? ...                       ?
+?                 ?  ?  ??? Caching/                      ?
+?                 ?  ?  ??? Email/                        ?
+?                 ?  ?  ??? FileStorage/                  ?
+?                 ?  ?  ??? Security/                     ?
+?                 ?  ?      ??? DataEncryption            ?
+?                 ?  ?      ??? PHIProtection             ?
+???????????????????  ??????????????????????????????????????
+```
+
+### Key Architectural Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Split Read/Write DbContext** | HIPAA audit: Write context tracks all changes. Read context uses `AsNoTracking()` for performance. |
+| **CQRS (without event sourcing)** | Complex read models (list pages with 200+ queries) vs. simple writes. Separate optimization per side. |
+| **Merge Assembler + QueryHelper ? Application layer** | Eliminate dual data access paths. Single responsibility per handler. |
+| **Extract Infrastructure project** | Domain layer has zero infrastructure dependencies. Clean Architecture inversion. |
+| **Parameterized queries only** | Eliminate SQL injection. All raw SQL uses `SqlParameter` objects. |
+| **Constructor injection everywhere** | Remove property injection from factories. Immutable dependencies. |
+
+---
+
+## 2. Tier-by-Tier Breakdown
+
+### 2.1 Presentation Tier
+
+**Projects**: `Dss.Rims.Web.UI`, `Dss.Rims.Web.ServiceClient`, Angular SPA
+
+**Responsibilities**:
+- Serve Angular SPA and static assets
+- Manage JWT authentication (dual-scheme: NoAuth + Auth)
+- Anti-forgery token generation and validation
+- Route authorization via `RolesAuthorizationHandler`
+- Forward API calls to App.WebApi with session headers
+- Response compression (Brotli/Gzip)
+
+**Security**:
+- XSRF tokens on every mutating request
+- `HttpOnly`, `Secure`, `SameSite=Strict` cookie settings
+- CSP with nonce-based script policies
+- JWT tokens with short expiration (configurable)
+- Refresh token rotation via `JwtOAuthRefreshTokenHandler`
+
+### 2.2 API Tier
+
+**Project**: `Dss.Rims.App.WebApi`
+
+**Responsibilities**:
+- Minimal API endpoints grouped by domain (`ReferralApi`, `CaseManagementApi`, etc.)
+- Windows Negotiate authentication (intranet)
+- Request validation pipeline via `WithValidation<T>()` endpoint filter
+- Request/response logging via `LogEndpointFilter`
+- Global exception handling middleware
+- Security header middleware
+- Rate limiting (NEW)
+- API versioning (NEW)
+- Health checks (NEW)
+
+**Redesigned Pipeline**:
+```
+Request ? Rate Limiter ? Auth ? Validation Filter ? Endpoint Handler
+                                                          ?
+                                                    Resolve Command/Query
+                                                          ?
+                                                    Pipeline Behaviors
+                                                    (Validation ? Logging ? Transaction)
+                                                          ?
+                                                    Handler execution
+                                                          ?
+Response ? Exception Middleware ? Logging Filter ? Result
+```
+
+### 2.3 Application Tier (CQRS)
+
+**Project**: `Dss.Rims.App.Application` (renamed from Assembler)
+
+This is the core change. Every operation becomes either a **Command** (write) or **Query** (read):
+
+```csharp
+// COMMAND example — SaveReferralSection
+public record SaveReferralSectionCommand(IReferralCdto Data) : ICommand<ReferralBaseCdto>;
+
+public class SaveReferralSectionHandler(
+    IFactory<IReferralProcessor, ReferralApplicationPageCodes> factory,
+    IUnitOfWork unitOfWork,
+    ILogHandler logger) : ICommandHandler<SaveReferralSectionCommand, ReferralBaseCdto>
+{
+    public async Task<ReferralBaseCdto> Handle(SaveReferralSectionCommand command, CancellationToken ct)
+    {
+        var processor = factory.Create((ReferralApplicationPageCodes)command.Data.ReferralDetails.PageCode);
+        var result = await processor.SavePageData(command.Data, ct);
+        await unitOfWork.CommitAsync(ct);
+        await logger.LogActionAsync(ActionType.AddOrUpdate, 
+            $"Referral section saved for AppId: {result.ApplicationId}");
+        return new ReferralBaseCdto { ReferralDetails = result };
+    }
+}
+
+// QUERY example — FetchAllReferrals
+public record FetchAllReferralsQuery(LazyLoadCdto Filters) : IQuery<ManageReferralCdto>;
+
+public class FetchAllReferralsHandler(
+    IReferralQueryService queryService,
+    IDataHelper dataHelper) : IQueryHandler<FetchAllReferralsQuery, ManageReferralCdto>
+{
+    public async Task<ManageReferralCdto> Handle(FetchAllReferralsQuery query, CancellationToken ct)
+    {
+        // Uses read-only context, parameterized queries, batch loading
+        var (referrals, totalCount) = await queryService.SearchReferrals(query.Filters, ct);
+        return new ManageReferralCdto
+        {
+            Referrals = referrals,
+            TotalRecords = totalCount,
+            References = await dataHelper.GetReferenceValues((int)ReferenceCodeEnum.ReferralType, ct: ct)
+        };
+    }
+}
+```
+
+### 2.4 Domain Tier
+
+**Project**: `Dss.Rims.App.Domain`
+
+**Responsibilities**:
+- Entity definitions (EF Core models)
+- Domain interfaces (`IGenericRepository<T>`, `IRimsDbContext`, `IUnitOfWork`)
+- Domain enumerations
+- Value objects (e.g., `Address`, `SSN`, `AlienNumber`)
+- Audit interfaces (`IAuditable`, `IAuditableUser`)
+- Domain events (NEW)
+- Specification pattern interfaces (NEW)
+
+**Key principle**: Zero infrastructure dependencies. No EF Core, no SQL, no HTTP.
+
+### 2.5 Infrastructure Tier
+
+**Project**: `Dss.Rims.App.Infrastructure` (NEW — extracted from Assembler + Domain)
+
+**Responsibilities**:
+- `RimsWriteDbContext` — change tracking, audit stamps, transactions
+- `RimsReadDbContext` — `AsNoTracking()` globally, optimized for reads
+- `GenericRepository<T>` implementation
+- `UnitOfWork` implementation (simplified — see CQRS document)
+- External service handlers (CHIP, SSO, SMS, Wage, Cryptography, SCOSA)
+- File storage service
+- Email service
+- Caching provider
+- Data encryption for PHI fields
+
+---
+
+## 3. Redesigned Request Flow
+
+### 3.1 Read Operation (FetchAllReferrals)
+
+```
+Angular SPA
+  ? POST /api/Referral/FetchAllReferral (JWT + XSRF token)
+Web.UI ReferralController
+  ? Validates anti-forgery token
+  ? Extracts session ID from JWT claims
+  ? Calls IReferralService.InvokeRimsApi<LazyLoadCdto, Response<ManageReferralCdto>>()
+Web.ServiceClient
+  ? HTTP POST to App.WebApi with Windows Negotiate + session headers
+App.WebApi
+  ? Rate Limiter checks
+  ? Negotiate auth validates Windows identity
+  ? LogEndpointFilter starts timer
+  ? WithValidation<LazyLoadCdto> validates input via FluentValidation
+  ? Endpoint handler resolves FetchAllReferralsQuery
+Application Tier
+  ? ValidationBehavior validates query (pipeline)
+  ? LoggingBehavior logs entry (pipeline)
+  ? FetchAllReferralsHandler executes
+    ? IReferralQueryService.SearchReferrals() uses RimsReadDbContext
+      ? Parameterized SQL via SqlQueryRaw with SqlParameter[]
+      ? Batch loads members, users, statuses in 3 queries (not N+1)
+    ? Maps to ManageReferralCdto
+  ? LoggingBehavior logs exit + elapsed time
+  ? LogEndpointFilter logs HTTP status + elapsed time
+Response flows back: App.WebApi ? Web.ServiceClient ? Web.UI ? Angular
+```
+
+### 3.2 Write Operation (SaveReferralSection)
+
+```
+Angular SPA
+  ? POST /api/Referral/SaveReferralSection (JWT + XSRF + request body)
+Web.UI ReferralController
+  ? Anti-forgery + JWT validation
+  ? Forwards to App.WebApi
+App.WebApi
+  ? Rate Limiter ? Negotiate Auth ? LogEndpointFilter
+  ? Endpoint handler resolves SaveReferralSectionCommand
+Application Tier
+  ? ValidationBehavior: resolves correct validator by PageCode (keyed DI)
+  ? LoggingBehavior: logs command entry
+  ? TransactionBehavior: begins IDbContextTransaction
+  ? SaveReferralSectionHandler:
+    ? Factory resolves IReferralProcessor by PageCode
+    ? Processor.SavePageData() uses RimsWriteDbContext
+    ? Change tracking captures IAuditable stamps
+    ? HIPAA audit log entry created
+  ? TransactionBehavior: commits transaction
+  ? LoggingBehavior: logs success + elapsed time
+  ? PHI fields are encrypted before response
+Response flows back through all layers
+```
+
+### 3.3 Authentication Flow (Full)
+
+```
+1. Browser ? Web.UI GET /api/antiforgery/token (NoAuth JWT)
+   ? Returns XSRF token in response header
+
+2. Browser ? Web.UI POST /api/Account/Login (NoAuth JWT + XSRF)
+   Body: { userName, password }
+   Web.UI ? App.WebApi POST /api/Account/Login (Negotiate)
+   App.WebApi ? SSO SOAP service (validates AD credentials)
+   ? Returns Auth JWT + Refresh Token + User roles
+
+3. Browser ? Web.UI POST /api/Referral/FetchAllReferral (Auth JWT + XSRF)
+   ? Validated by dual JWT scheme + roles authorization handler
+   ? XSRF validated by anti-forgery middleware
+
+4. Token Refresh:
+   Browser detects 401 ? calls /api/Account/RefreshToken
+   ? New Auth JWT + Refresh Token (rotation)
+```
+
+---
+
+## 4. Project Dependency Map
+
+### 4.1 Redesigned Project References
+
+```
+Dss.Rims.Web.UI
+  ??? Dss.Rims.Web.ServiceClient
+  ??? Dss.Rims.App.Contracts (DTOs + Interfaces — replaces Cdto + Dto)
+  ??? Dss.Rims.Common
+
+Dss.Rims.Web.ServiceClient
+  ??? Dss.Rims.App.Contracts
+  ??? Dss.Rims.Common
+
+Dss.Rims.App.WebApi
+  ??? Dss.Rims.App.Application
+  ??? Dss.Rims.App.Infrastructure  ? for DI registration only
+  ??? Dss.Rims.App.Contracts
+  ??? Dss.Rims.Common
+
+Dss.Rims.App.Application
+  ??? Dss.Rims.App.Domain
+  ??? Dss.Rims.App.Contracts
+  ??? Dss.Rims.Common
+
+Dss.Rims.App.Infrastructure
+  ??? Dss.Rims.App.Domain
+  ??? Dss.Rims.App.Contracts
+  ??? Dss.Rims.Common
+
+Dss.Rims.App.Domain
+  ??? (no project references — pure domain)
+
+Dss.Rims.App.Contracts
+  ??? Dss.Rims.Common
+
+Dss.Rims.Common
+  ??? (no project references — shared constants/enums)
+```
+
+### 4.2 Dependency Inversion
+
+```
+                    ????????????????????????
+                    ?     App.Domain       ? ? Interfaces live here
+                    ?  (no dependencies)   ?
+                    ????????????????????????
+                               ? implements
+          ?????????????????????????????????????????????
+          ?                    ?                      ?
+??????????????????  ??????????????????  ????????????????????
+? App.Application ?  ? App.Infra      ?  ?  App.WebApi      ?
+? (business)      ?  ? (persistence)  ?  ?  (host)          ?
+???????????????????  ??????????????????  ????????????????????
+```
+
+The **Domain** project defines interfaces. **Infrastructure** implements them. **Application** consumes them. **WebApi** wires them together via DI.
+
+---
+
+## 5. Cross-Cutting Concerns
+
+### 5.1 Audit Trail (HIPAA §164.312(b))
+
+```csharp
+// Automatic audit via SaveChangesAsync override (EXISTING — enhanced)
+public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+{
+    var auditEntries = new List<AuditEntry>();
+    foreach (var entry in ChangeTracker.Entries<IAuditable>()
+        .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+    {
+        var auditEntry = new AuditEntry
+        {
+            TableName = entry.Entity.GetType().Name,
+            Action = entry.State.ToString(),
+            Timestamp = DateTime.UtcNow,
+            UserId = UserSessionId.GetValueOrDefault(),
+            AccountId = UserAccountId.GetValueOrDefault()
+        };
+
+        foreach (var property in entry.Properties)
+        {
+            if (property.IsModified || entry.State == EntityState.Added)
+            {
+                auditEntry.Changes[property.Metadata.Name] = new
+                {
+                    Old = entry.State == EntityState.Modified ? property.OriginalValue : null,
+                    New = property.CurrentValue
+                };
+            }
+        }
+
+        // Flag PHI fields for enhanced audit
+        if (entry.Entity is IContainsPHI phi)
+        {
+            auditEntry.ContainsPHI = true;
+            auditEntry.PHIFieldsAccessed = phi.GetPHIFieldNames();
+        }
+
+        auditEntries.Add(auditEntry);
+    }
+
+    // Persist audit entries
+    await AuditLogs.AddRangeAsync(auditEntries, ct);
+    return await base.SaveChangesAsync(ct);
+}
+```
+
+### 5.2 Exception Handling Pipeline
+
+```csharp
+// Global exception handler middleware (EXISTING — enhanced)
+app.UseGlobalExceptionHandler(); // Framework middleware
+
+// PLUS: Domain-specific exception types
+public class DomainException : Exception { }
+public class ValidationException : DomainException { }
+public class ReferralNotFoundException : DomainException { }
+public class PHIAccessDeniedException : DomainException { }
+public class ConcurrencyConflictException : DomainException { }
+
+// Exception-to-HTTP mapping in middleware:
+// DomainException      ? 400 Bad Request
+// NotFoundException    ? 404 Not Found
+// PHIAccessDenied      ? 403 Forbidden (+ HIPAA audit entry)
+// ConcurrencyConflict  ? 409 Conflict
+// Unhandled            ? 500 Internal Server Error (no details leaked)
+```
+
+### 5.3 Correlation ID
+
+```csharp
+// NEW: Track requests across all tiers
+public class CorrelationIdMiddleware
+{
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+    {
+        var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+            ?? Guid.NewGuid().ToString();
+        context.Items["CorrelationId"] = correlationId;
+        context.Response.Headers["X-Correlation-ID"] = correlationId;
+
+        using (logger.BeginScope(new Dictionary<string, object>
+        {
+            ["CorrelationId"] = correlationId
+        }))
+        {
+            await next(context);
+        }
+    }
+}
+```
+
+---
+
+## 6. HIPAA Compliance Mapping
+
+### 6.1 Technical Safeguards (§164.312)
+
+| HIPAA Requirement | Implementation | Status |
+|---|---|---|
+| **Access Control (a)(1)** | JWT auth + role-based authorization + `RolesAuthorizationHandler` | ? Exists |
+| **Unique User ID (a)(2)(i)** | `UserSessionId` + `UserAccountId` tracked on every operation | ? Exists |
+| **Emergency Access (a)(2)(ii)** | Admin override with enhanced audit logging | ?? NEW |
+| **Automatic Logoff (a)(2)(iii)** | JWT token expiration + `JwtOAuthRefreshTokenHandler` cleanup | ? Exists |
+| **Encryption (a)(2)(iv)** | HTTPS + `ICryptographyServiceHandler` for SSN/Alien# | ? Exists |
+| **Audit Controls (b)** | `SaveChangesAsync` audit trail + `LoggingAssembler` | ?? Enhance |
+| **Integrity Controls (c)(1)** | Anti-forgery tokens + input validation + EF concurrency | ? Exists |
+| **Person Authentication (d)** | Windows Negotiate (AD) + SSO SOAP service | ? Exists |
+| **Transmission Security (e)(1)** | HTTPS enforced + HSTS | ? Exists |
+| **Encryption in Transit (e)(2)** | TLS 1.2+ for all connections | ? Exists |
+
+### 6.2 Administrative Safeguards (§164.308)
+
+| Requirement | Implementation | Status |
+|---|---|---|
+| **Security Management (a)(1)** | Global exception handler + exception logging | ? Exists |
+| **Workforce Security (a)(3)** | Role-based access via JWT claims | ? Exists |
+| **Security Awareness (a)(5)** | Password complexity via SSO service | ? Exists |
+| **Contingency Plan (a)(7)** | Batch processing for data integrity | ?? Enhance |
+| **Evaluation (a)(8)** | Integration + unit test suites | ?? Expand coverage |
+
+### 6.3 PHI Data Elements in RIMS
+
+| Entity | PHI Fields | Protection |
+|---|---|---|
+| `ApplicationMember` | SSN, AlienNumber, PassportNumber, DOB, Name | Encrypted at rest + masked in logs |
+| `RefugeeClientDetail` | SSN, AlienNumber, DOB, Name, Race | Encrypted at rest + column-level encryption |
+| `ApplicationAddress` | Street, City, State, Zip | Encrypted at rest |
+| `ApplicationContact` | Phone, Email | Encrypted at rest |
+| `CaseComposition` | SSN, AlienNumber, DOB | Encrypted at rest |
+| `ReferralLog` | Request/Response payload | SSN masked via `LogReferralRequestMiddleware` |
+
+---
+
+## 7. Configuration & Environment Strategy
+
+### 7.1 Environment Hierarchy
+
+```
+appsettings.json                    ? Defaults (no secrets)
+appsettings.Development.json        ? Dev overrides
+appsettings.Staging.json            ? Staging overrides
+appsettings.Production.json         ? Production overrides
+User Secrets (dev only)             ? Local secrets
+Azure Key Vault (prod)              ? Production secrets
+Environment Variables               ? Container/IIS overrides
+```
+
+### 7.2 Configuration Classes
+
+```csharp
+// EXISTING — AppSettings
+public class AppSettings
+{
+    public string DbConnection { get; set; }
+    public string[] CorsOrigins { get; set; }
+    public string FileServerRoot { get; set; }
+    public string Ssn { get; set; }  // encryption key
+    // ...
+}
+
+// NEW — HIPAA-specific configuration
+public class HipaaSettings
+{
+    public int AuditRetentionDays { get; set; } = 2190; // 6 years per HIPAA
+    public bool EnablePHIEncryption { get; set; } = true;
+    public int SessionTimeoutMinutes { get; set; } = 15;
+    public int MaxLoginAttempts { get; set; } = 5;
+    public int PasswordExpirationDays { get; set; } = 90;
+    public bool RequireMFA { get; set; } = true;
+}
+```
+
+### 7.3 Secret Management
+
+```csharp
+// Program.cs — Production secret management
+if (builder.Environment.IsProduction())
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri($"https://{builder.Configuration["KeyVault:Name"]}.vault.azure.net/"),
+        new DefaultAzureCredential());
+}
+```

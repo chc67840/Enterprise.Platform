@@ -1,0 +1,33 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/API/">
+    <Project Path="src/API/Enterprise.Platform.Api/Enterprise.Platform.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Batch/">
+    <Project Path="src/Batch/Enterprise.Platform.Worker/Enterprise.Platform.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Contracts/">
+    <Project Path="src/Contracts/Enterprise.Platform.Contracts/Enterprise.Platform.Contracts.csproj" />
+    <Project Path="src/Contracts/Enterprise.Platform.Shared/Enterprise.Platform.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/Enterprise.Platform.Application/Enterprise.Platform.Application.csproj" />
+    <Project Path="src/Core/Enterprise.Platform.Domain/Enterprise.Platform.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Enterprise.Platform.Infrastructure/Enterprise.Platform.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/UI/">
+    <Project Path="src/UI/Enterprise.Platform.Web.UI/Enterprise.Platform.Web.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Enterprise.Platform.Api.Tests/Enterprise.Platform.Api.Tests.csproj" />
+    <Project Path="tests/Enterprise.Platform.Application.Tests/Enterprise.Platform.Application.Tests.csproj" />
+    <Project Path="tests/Enterprise.Platform.Architecture.Tests/Enterprise.Platform.Architecture.Tests.csproj" />
+    <Project Path="tests/Enterprise.Platform.Domain.Tests/Enterprise.Platform.Domain.Tests.csproj" />
+    <Project Path="tests/Enterprise.Platform.Infrastructure.Tests/Enterprise.Platform.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Enterprise.Platform.DtoGen/Enterprise.Platform.DtoGen.csproj" />
+  </Folder>
+</Solution>

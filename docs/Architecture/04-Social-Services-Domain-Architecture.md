@@ -1,0 +1,540 @@
+# 04 — Social Services Domain Architecture
+
+> Case management, referral workflows, eligibility determination, new arrivals  
+> Core domain of RIMS — the largest and most complex area
+
+---
+
+## Table of Contents
+
+1. [Domain Overview](#1-domain-overview)
+2. [Referral Workflow Architecture](#2-referral-workflow-architecture)
+3. [Case Management Architecture](#3-case-management-architecture)
+4. [New Arrivals Module](#4-new-arrivals-module)
+5. [Transfer Application Workflow](#5-transfer-application-workflow)
+6. [Social Services Folder Structure](#6-social-services-folder-structure)
+7. [State Machine for Case Lifecycle](#7-state-machine-for-case-lifecycle)
+
+---
+
+## 1. Domain Overview
+
+### 1.1 Core Bounded Contexts
+
+```
+???????????????????????????????????????????????????????????????????
+?                    SOCIAL SERVICES DOMAIN                        ?
+?                                                                 ?
+?  ????????????????  ????????????????  ????????????????????????  ?
+?  ?   Referral   ?  ?    Case      ?  ?   New Arrivals       ?  ?
+?  ?  Management  ?? ?  Management  ?  ?   (RNA System)       ?  ?
+?  ?              ?  ?              ?  ?                      ?  ?
+?  ? Application  ?  ? Household    ?  ? Arrival Processing   ?  ?
+?  ? Members      ?  ? Composition  ?  ? Medical Screening    ?  ?
+?  ? Eligibility  ?  ? Benefits     ?  ? Case Creation        ?  ?
+?  ? Documents    ?  ? Income       ?  ? Employment Services  ?  ?
+?  ? Assignment   ?  ? Forms        ?  ? RSS/FSSP Tracking    ?  ?
+?  ? Denial       ?  ? Notes        ?  ?                      ?  ?
+?  ????????????????  ????????????????  ????????????????????????  ?
+?                                                                 ?
+?  ????????????????  ????????????????  ????????????????????????  ?
+?  ?  Transfer    ?  ? Manage       ?  ?   User/Account       ?  ?
+?  ? Application  ?  ? Configuration?  ?   Management         ?  ?
+?  ?              ?  ?              ?  ?                      ?  ?
+?  ? Cross-state  ?  ? Payment rates?  ? AD integration       ?  ?
+?  ? transfers    ?  ? Agency setup ?  ? Role management      ?  ?
+?  ? WINS import  ?  ? Workdays     ?  ? OTP/MFA              ?  ?
+?  ????????????????  ????????????????  ????????????????????????  ?
+???????????????????????????????????????????????????????????????????
+```
+
+### 1.2 Aggregate Roots
+
+| Aggregate | Root Entity | Children |
+|---|---|---|
+| **Referral Application** | `Application` | `ApplicationMember`, `ApplicationAddress`, `ApplicationContact`, `ApplicationBenefit`, `ApplicationFile`, `ReferralApplication`, `ReferralNote`, `ReferralMemberQuestion`, `ReferralMemberChild`, `ReferralOtherStateBenefit` |
+| **Case** | `CaseManagement` | `CaseComposition`, `CaseContact`, `CaseAuthorizedRepresentative`, `CaseBenefitDetermination`, `CaseIncomeRecord`, `CaseNotesOrHistory`, `CaseFormHistory`, `CaseManagementFile`, `CaseOtherStateBenefit`, `CaseResettlementAgencyRepresentative` |
+| **Refugee Client** | `RefugeeClientDetail` | `RefugeeClientAddress`, `RefugeeClientParticipation`, `RefugeeClientRace` |
+| **New Arrival Case** | `NewArrivalCaseManagement` | `NewArrivalCaseComposition`, `NewArrivalMemberDetail`, `NewArrivalFile`, `NewArrivalNotesOrHistory`, `NewArrivalDomesticMedicalScreening`, `NewArrivalMedicalEnrollment`, `NewArrivalRssfssp` |
+
+---
+
+## 2. Referral Workflow Architecture
+
+### 2.1 Stepper Process (Multi-Page Wizard)
+
+The referral process is a 10-step wizard. Each step has its own **Processor** (Strategy pattern):
+
+```
+Step 1: General Information        ? GeneralInformationProcessor
+Step 2: Household Composition      ? HouseholdCompositionProcessor
+Step 3: Income Questions           ? IncomeQuestionProcessor
+Step 4: Other State Benefits       ? OtherStateBenefitProcessor
+Step 5: Eligibility Check          ? EligibilityCheckProcessor
+Step 6: File Upload                ? FileUploadProcessor
+Step 7: CHIP Member Match          ? ChipMemberMatchProcessor
+Step 8: RIMS Member Match          ? RimsMemberMatchProcessor
+Step 9: Case Assignment            ? CaseAssignmentProcessor
+Step 10: Summary                   ? SummaryProcessor
+```
+
+### 2.2 Redesigned Referral Flow with CQRS
+
+```csharp
+// Each step has paired Command + Query
+
+// --- QUERY: Load step data ---
+public record GetReferralSectionQuery(
+    ReferralApplicationDetailCdto Details) : IQuery<IReferralCdto>;
+
+public class GetReferralSectionHandler(
+    IFactory<IReferralProcessor, ReferralApplicationPageCodes> factory)
+    : IQueryHandler<GetReferralSectionQuery, IReferralCdto>
+{
+    public async Task<IReferralCdto> Handle(
+        GetReferralSectionQuery query, CancellationToken ct)
+    {
+        var processor = factory.Create(
+            (ReferralApplicationPageCodes)query.Details.PageCode);
+        return await processor.GetPageData(query.Details, ct);
+    }
+}
+
+// --- COMMAND: Save step data ---
+public record SaveReferralSectionCommand(
+    IReferralCdto Data) : ICommand<ReferralBaseCdto>, ITransactional;
+
+public class SaveReferralSectionHandler(
+    IFactory<IReferralProcessor, ReferralApplicationPageCodes> factory,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<SaveReferralSectionCommand, ReferralBaseCdto>
+{
+    public async Task<ReferralBaseCdto> Handle(
+        SaveReferralSectionCommand command, CancellationToken ct)
+    {
+        var pageCode = (ReferralApplicationPageCodes)
+            command.Data.ReferralDetails.PageCode;
+
+        var processor = factory.Create(pageCode);
+        var result = await processor.SavePageData(command.Data, ct);
+
+        // Update navigation tracking
+        await UpdateNavigationState(result, pageCode, ct);
+
+        return new ReferralBaseCdto { ReferralDetails = result };
+    }
+}
+```
+
+### 2.3 Referral Validation Strategy (Redesigned)
+
+```csharp
+// CURRENT PROBLEM: 50-line switch statement in ReferralApi.SaveReferralSection()
+// SOLUTION: Keyed validator injection
+
+// Register validators with keyed DI
+services.AddKeyedScoped<IValidator<IReferralCdto>, GeneralInformationCdtoValidator>(
+    ReferralApplicationPageCodes.GeneralInformation);
+services.AddKeyedScoped<IValidator<IReferralCdto>, HouseholdCompositionCdtoValidator>(
+    ReferralApplicationPageCodes.HouseholdComposition);
+// ... for each page
+
+// Validation pipeline behavior auto-resolves correct validator
+public class ReferralValidationBehavior 
+    : IPipelineBehavior<SaveReferralSectionCommand, ReferralBaseCdto>
+{
+    private readonly IServiceProvider _services;
+
+    public async Task<ReferralBaseCdto> Handle(
+        SaveReferralSectionCommand command,
+        RequestHandlerDelegate<ReferralBaseCdto> next,
+        CancellationToken ct)
+    {
+        var pageCode = (ReferralApplicationPageCodes)
+            command.Data.ReferralDetails.PageCode;
+
+        var validator = _services.GetKeyedService<IValidator<IReferralCdto>>(pageCode);
+
+        if (validator != null && !command.Data.ReferralDetails.IsViewReferral)
+        {
+            var result = await validator.ValidateAsync(
+                new ValidationContext<IReferralCdto>(command.Data), ct);
+            if (!result.IsValid)
+                throw new ValidationException(result.Errors);
+        }
+
+        return await next();
+    }
+}
+```
+
+### 2.4 External System Integration (CHIP)
+
+```csharp
+// CHIP integration for member matching
+public interface IChipIntegrationService
+{
+    Task<List<ChipClientCdto>> SearchMember(
+        string firstName, string lastName, string ssn, CancellationToken ct);
+    Task<List<ChipParticipationDto>> GetCasesByClientId(
+        int clientId, CancellationToken ct);
+    Task<ChipCaseDetailCdto> GetCaseDetails(
+        int caseNumber, CancellationToken ct);
+}
+
+// RIMS member matching
+public interface IRimsMemberMatchService
+{
+    Task<List<RimsSearchDetailsCdto>> SearchExistingClients(
+        ApplicationMemberDto searchCriteria, CancellationToken ct);
+    Task<List<RimsSearchDetailsCdto>> GetExistingCases(
+        RefugeeClientDetailDto client, CancellationToken ct);
+}
+```
+
+---
+
+## 3. Case Management Architecture
+
+### 3.1 Case Management Tabs
+
+```
+Case Details
+??? Household Members        ? View/edit household composition
+??? Benefits                 ? Benefit determinations per month
+??? Income                   ? Income records (manual + imported)
+??? Other State Benefits     ? Track benefits from other states
+??? Notes & History          ? Case notes + automatic change tracking
+??? Forms                    ? Generated forms (1262, 1325, 1326)
+??? Files                    ? Uploaded documents
+??? Claims                   ? Invoices and payment claims
+??? Participants             ? RSS/FSSP participant tracking
+```
+
+### 3.2 Automatic Notes Generation
+
+```csharp
+// EXISTING: PropertyCompare<T> extension generates change notes
+// ENHANCED: Domain event-driven notes
+
+public class HouseholdMemberUpdatedEvent : IDomainEvent
+{
+    public long CaseId { get; set; }
+    public long MemberId { get; set; }
+    public List<Variance> Changes { get; set; }
+}
+
+public class AutomaticNotesHandler 
+    : IDomainEventHandler<HouseholdMemberUpdatedEvent>
+{
+    public async Task Handle(
+        HouseholdMemberUpdatedEvent domainEvent, CancellationToken ct)
+    {
+        var noteText = BuildChangeNote(domainEvent.Changes);
+
+        var note = new CaseNotesOrHistory
+        {
+            CaseId = domainEvent.CaseId,
+            Notes = noteText,
+            NoteType = AutomaticNotesType.Houldhold_Member_Update,
+            IsAutoGenerated = true
+        };
+
+        await _unitOfWork.Repository<CaseNotesOrHistory>()
+            .AddAsync(note, ct);
+    }
+}
+```
+
+### 3.3 Form Generation
+
+```csharp
+// Forms 1262, 1325, 1326 — generated as PDF documents
+public interface IFormGenerator
+{
+    Task<byte[]> GenerateForm1262(CaseManagement caseData, CancellationToken ct);
+    Task<byte[]> GenerateForm1325(CaseManagement caseData, CancellationToken ct);
+    Task<byte[]> GenerateForm1326Denial(
+        List<ApplicationMemberDto> members, CancellationToken ct);
+}
+
+// EXISTING: referralHelper.GenerateForm1326Denial() — uses SCOSA document service
+// ENHANCED: Separate service with proper DI
+```
+
+---
+
+## 4. New Arrivals Module
+
+### 4.1 RNA (Refugee New Arrivals) Workflow
+
+```
+New Arrival Entry
+??? Search Existing Members (prevent duplicates)
+??? Create New Arrival Case
+?   ??? Case Details (RADS case number, ORR alternate ID)
+?   ??? Member Details (demographics, immigration status)
+?   ??? Domestic Medical Screening
+?   ??? Medical Enrollment
+?   ??? RSS/FSSP Services
+?   ??? Employment Services
+??? Case Notes & History
+??? File Uploads
+??? Close Case ? Can trigger Referral Application creation
+```
+
+### 4.2 ORR Alternate ID Generation
+
+```csharp
+// EXISTING: Auto-generates ORR Alternate IDs based on arrival date
+// This is a domain rule — belongs in Domain layer
+
+public class OrrAlternateIdGenerator
+{
+    /// <summary>
+    /// Generates ORR Alternate ID:
+    /// - Format varies for refugees vs US-born children
+    /// - Sequential within date of arrival
+    /// </summary>
+    public async Task<long> Generate(
+        DateTime dateOfArrival, bool isUsBornChild, CancellationToken ct)
+    {
+        return await _context.GetNewArrivalORRAlternateId(
+            dateOfArrival, isUsBornChild, ct);
+    }
+}
+```
+
+---
+
+## 5. Transfer Application Workflow
+
+### 5.1 Cross-State Transfer
+
+```csharp
+// Transfer applications from other states (WINS online/paper)
+public record ProcessTransferApplicationCommand(
+    TransferApplicationCdto Data) : ICommand<TransferApplicationCdto>, ITransactional;
+
+public class ProcessTransferApplicationHandler(
+    IWinsReferralServiceHandler winsService,
+    ICryptographyServiceHandler cryptoService,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<ProcessTransferApplicationCommand, TransferApplicationCdto>
+{
+    public async Task<TransferApplicationCdto> Handle(
+        ProcessTransferApplicationCommand command, CancellationToken ct)
+    {
+        // 1. Decrypt sensitive data (SSN, etc.)
+        var decryptedData = await cryptoService.Decrypt(command.Data);
+
+        // 2. Create application from transfer data
+        var application = MapTransferToApplication(decryptedData);
+
+        // 3. Create members
+        var members = MapTransferToMembers(decryptedData);
+
+        // 4. Log the referral creation
+        await LogReferralCreation(application, command.Data.Source);
+
+        // 5. Persist
+        await unitOfWork.Repository<Application>().AddAsync(application, ct);
+        await unitOfWork.CommitAsync(ct);
+
+        return command.Data;
+    }
+}
+```
+
+---
+
+## 6. Social Services Folder Structure
+
+```
+App/Dss.Rims.App.Application/
+??? Features/
+?   ??? Referral/
+?   ?   ??? Commands/
+?   ?   ?   ??? SaveReferralSectionCommand.cs
+?   ?   ?   ??? SaveReferralSectionHandler.cs
+?   ?   ?   ??? CreateReferralApplicationCommand.cs
+?   ?   ?   ??? LockReferralCommand.cs
+?   ?   ?   ??? UnlockReferralCommand.cs
+?   ?   ?   ??? DenyReferralCommand.cs
+?   ?   ?   ??? CreateNewReferralCommand.cs
+?   ?   ?   ??? UploadDocumentsCommand.cs
+?   ?   ?   ??? DeleteDocumentCommand.cs
+?   ?   ??? Queries/
+?   ?   ?   ??? FetchAllReferralsQuery.cs
+?   ?   ?   ??? FetchAllReferralsHandler.cs
+?   ?   ?   ??? GetReferralSectionQuery.cs
+?   ?   ?   ??? GetReferralNavigationQuery.cs
+?   ?   ?   ??? FetchNotesByIdQuery.cs
+?   ?   ?   ??? FetchApplicationFilesQuery.cs
+?   ?   ?   ??? DownloadReferralApplicationQuery.cs
+?   ?   ?   ??? GetChipCaseInfoQuery.cs
+?   ?   ??? Processors/                      ? Strategy pattern
+?   ?   ?   ??? IReferralProcessor.cs
+?   ?   ?   ??? ReferralProcessorBase.cs
+?   ?   ?   ??? ReferralFactory.cs
+?   ?   ?   ??? GeneralInformationProcessor.cs
+?   ?   ?   ??? HouseholdCompositionProcessor.cs
+?   ?   ?   ??? IncomeQuestionProcessor.cs
+?   ?   ?   ??? OtherStateBenefitProcessor.cs
+?   ?   ?   ??? EligibilityCheckProcessor.cs
+?   ?   ?   ??? FileUploadProcessor.cs
+?   ?   ?   ??? ChipMemberMatchProcessor.cs
+?   ?   ?   ??? RimsMemberMatchProcessor.cs
+?   ?   ?   ??? CaseAssignmentProcessor.cs
+?   ?   ?   ??? SummaryProcessor.cs
+?   ?   ??? Validators/
+?   ?   ?   ??? GeneralInformationCdtoValidator.cs
+?   ?   ?   ??? HouseholdCompositionCdtoValidator.cs
+?   ?   ?   ??? ...
+?   ?   ??? Services/
+?   ?   ?   ??? IReferralHelper.cs
+?   ?   ?   ??? ReferralHelper.cs
+?   ?   ?   ??? ReferralNavigationService.cs
+?   ?   ?   ??? EligibilityEvaluator.cs
+?   ?   ?   ??? MemberMatchService.cs
+?   ?   ??? Events/
+?   ?       ??? ReferralCreatedEvent.cs
+?   ?       ??? ReferralDeniedEvent.cs
+?   ?       ??? ReferralApprovedEvent.cs
+?   ?
+?   ??? CaseManagement/
+?   ?   ??? Commands/
+?   ?   ?   ??? SaveCaseDetailsCommand.cs
+?   ?   ?   ??? SaveHouseholdMembersCommand.cs
+?   ?   ?   ??? SaveBenefitDeterminationCommand.cs
+?   ?   ?   ??? SaveIncomeRecordCommand.cs
+?   ?   ?   ??? SaveCaseNotesCommand.cs
+?   ?   ?   ??? GenerateFormCommand.cs
+?   ?   ?   ??? CloseCaseCommand.cs
+?   ?   ?   ??? LockUnlockCaseCommand.cs
+?   ?   ??? Queries/
+?   ?   ?   ??? FetchAllCasesQuery.cs
+?   ?   ?   ??? GetCaseDetailsQuery.cs
+?   ?   ?   ??? GetCaseNotesQuery.cs
+?   ?   ?   ??? GetCaseFormsQuery.cs
+?   ?   ??? Services/
+?   ?   ?   ??? AutomaticNotesService.cs
+?   ?   ?   ??? FormGenerationService.cs
+?   ?   ?   ??? CaseStatusService.cs
+?   ?   ??? Events/
+?   ?       ??? CaseCreatedEvent.cs
+?   ?       ??? CaseClosedEvent.cs
+?   ?       ??? HouseholdMemberUpdatedEvent.cs
+?   ?
+?   ??? NewArrivals/
+?   ?   ??? Commands/
+?   ?   ?   ??? CreateNewArrivalCaseCommand.cs
+?   ?   ?   ??? SaveMemberDetailsCommand.cs
+?   ?   ?   ??? SaveMedicalScreeningCommand.cs
+?   ?   ?   ??? CloseNewArrivalCaseCommand.cs
+?   ?   ?   ??? CreateCaseFromArrivalCommand.cs
+?   ?   ??? Queries/
+?   ?   ?   ??? FetchAllNewArrivalsQuery.cs
+?   ?   ?   ??? SearchNewArrivalMembersQuery.cs
+?   ?   ?   ??? GetNewArrivalDetailsQuery.cs
+?   ?   ??? Services/
+?   ?       ??? OrrAlternateIdGenerator.cs
+?   ?
+?   ??? TransferApplication/
+?   ?   ??? Commands/
+?   ?   ?   ??? ProcessTransferApplicationCommand.cs
+?   ?   ??? Validators/
+?   ?       ??? TransferApplicationValidator.cs
+?   ?
+?   ??? Account/
+?   ?   ??? Commands/
+?   ?   ?   ??? LoginCommand.cs
+?   ?   ?   ??? LogoutCommand.cs
+?   ?   ?   ??? CreateUserAccountCommand.cs
+?   ?   ?   ??? UpdateUserAccountCommand.cs
+?   ?   ??? Queries/
+?   ?   ?   ??? GetUserAccountQuery.cs
+?   ?   ?   ??? LoadOtpDetailsQuery.cs
+?   ?   ??? Services/
+?   ?       ??? OtpService.cs
+?   ?
+?   ??? Configuration/
+?       ??? Commands/
+?       ?   ??? UpdatePaymentConfigCommand.cs
+?       ?   ??? UpdateAgencyConfigCommand.cs
+?       ??? Queries/
+?           ??? FetchPaymentConfigsQuery.cs
+?           ??? FetchAgencyConfigsQuery.cs
+```
+
+---
+
+## 7. State Machine for Case Lifecycle
+
+### 7.1 Referral Application States
+
+```
+                    ????????????????
+                    ?   Created    ?
+                    ????????????????
+                           ? Submit referral
+                    ????????????????
+              ???????   Pending    ???????
+              ?     ????????????????     ?
+              ?            ?             ?
+        Deny  ?    Approve ?             ? Auto-deny
+              ?            ?             ? (30-day timeout)
+     ?????????????  ????????????????     ?
+     ?  Denied   ?  ?  Approved    ???????
+     ?????????????  ????????????????
+                           ? Creates Case
+                    ????????????????
+                    ? Case Created ?
+                    ????????????????
+```
+
+### 7.2 Case Management States
+
+```
+     ????????????????
+     ?    Open      ? ? Created from approved referral
+     ????????????????
+            ?
+     ????????????????
+     ?   Active     ? ? Receiving benefits
+     ????????????????
+            ?
+            ?????????????????????
+            ?                   ?
+     ????????????????   ????????????????????
+     ?   Closed     ?   ? Early Closure     ?
+     ?  (Normal)    ?   ? (Participation    ?
+     ?              ?   ?  ended early)     ?
+     ????????????????   ????????????????????
+```
+
+### 7.3 State Machine Implementation
+
+```csharp
+// NEW: Explicit state machine for case lifecycle
+public class CaseStateMachine
+{
+    private static readonly Dictionary<(CaseStatus From, CaseAction Action), CaseStatus> 
+        _transitions = new()
+    {
+        { (CaseStatus.Open, CaseAction.Activate), CaseStatus.Active },
+        { (CaseStatus.Active, CaseAction.Close), CaseStatus.Closed },
+        { (CaseStatus.Active, CaseAction.EarlyClose), CaseStatus.EarlyClosure },
+        { (CaseStatus.Open, CaseAction.Close), CaseStatus.Closed },
+    };
+
+    public static CaseStatus Transition(CaseStatus current, CaseAction action)
+    {
+        if (_transitions.TryGetValue((current, action), out var newStatus))
+            return newStatus;
+
+        throw new DomainException(
+            $"Invalid transition: Cannot {action} a case in {current} status");
+    }
+}
+```

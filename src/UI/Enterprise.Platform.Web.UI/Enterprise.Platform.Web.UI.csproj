@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Contracts\Enterprise.Platform.Contracts\Enterprise.Platform.Contracts.csproj" />
+    <ProjectReference Include="..\..\Contracts\Enterprise.Platform.Shared\Enterprise.Platform.Shared.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

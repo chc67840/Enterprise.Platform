@@ -1,0 +1,94 @@
+# ---------- .NET build output ----------
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+[Tt]est[Rr]esult*/
+BenchmarkDotNet.Artifacts/
+artifacts/
+project.lock.json
+project.fragment.lock.json
+
+# ---------- EF / DB ----------
+*.mdf
+*.ldf
+*.sqlite
+*.db
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+
+# ---------- IDE ----------
+.vs/
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- Rider ----------
+*.sln.iml
+
+# ---------- User-specific ----------
+*.user
+*.userprefs
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!packages/build/
+*.pubxml
+*.pubxml.user
+
+# ---------- Secrets / env ----------
+appsettings.*.local.json
+appsettings.Production.json
+appsettings.Staging.json
+*.secret.json
+secrets.json
+.env
+.env.*
+!.env.example
+.aspnet/
+dotnet-tools.local.json
+
+# ---------- Azure ----------
+.azure/
+*.PublishSettings
+
+# ---------- Node / Angular (future ClientApp) ----------
+node_modules/
+.angular/
+dist/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+*.tsbuildinfo
+
+# ---------- Logs ----------
+*.log
+logs/
+Docs/Scripts/scaffold.log
+docs/Scripts/scaffold.log
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Coverage / reports ----------
+coverage/
+*.coverage
+*.coveragexml
+TestResults/
+.vs-test/
