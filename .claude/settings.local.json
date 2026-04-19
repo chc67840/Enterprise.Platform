@@ -73,7 +73,10 @@
       "Bash(tee \"K:/Angular/Practice/Enterprise.Platform/Docs/Scripts/scaffold.log\")",
       "Bash(find *)",
       "Bash(dotnet build *)",
-      "Bash(dotnet restore *)"
+      "Bash(dotnet restore *)",
+      "Bash(\"dotnet.exe\" build *)",
+      "Bash(cmd.exe //c \"where dotnet\")",
+      "Bash(cmd.exe //c \"dotnet --version\")"
     ]
   }
 }

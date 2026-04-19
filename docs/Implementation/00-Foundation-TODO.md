@@ -242,44 +242,52 @@
 **Project:** `src/Infrastructure/Enterprise.Platform.Infrastructure/`
 
 ### 5.1 DB factory + contexts
-- [ ] `Persistence/IDbContextFactory.cs` (Application-level abstraction; goes in Application)
-- [ ] `Persistence/DbContextFactory.cs` (Infrastructure impl, resolves by logical name)
-- [ ] `Persistence/Platform/PlatformWriteDbContext.cs`
-- [ ] `Persistence/Platform/PlatformReadDbContext.cs` (`NoTracking` globally)
-- [ ] `Persistence/UnitOfWork.cs` (1-arg constructor, wraps factory)
-- [ ] `Persistence/GenericRepository.cs`
-- [ ] `Persistence/DbConnectionFactory.cs` (raw ADO.NET)
+- [x] `Application/Abstractions/Persistence/IDbContextFactory.cs` — **lives in Application** per D3; three overloads (`GetContext<T>()` default, `GetContext<T>(logicalName)`, `GetContext(logicalName)` non-generic). Application.csproj now references `Microsoft.EntityFrameworkCore` (abstraction only; concrete provider stays in Infrastructure).
+- [x] `Infra/Persistence/DbContextFactory.cs` — resolves via `IServiceProvider` + `DbContextRegistry`; throws `InvalidOperationException` when a name is unregistered or the registered type isn't assignable to the requested type.
+- [+] `Infra/Persistence/DbContextRegistry.cs` — **beyond TODO**; singleton holding `Dictionary<logicalName, Type>` populated by DI (`RegisterDbContext<T>(name, isDefault)`). Tracks `DefaultLogicalName` for the no-arg `GetContext<T>()` overload.
+- [–] `Persistence/Platform/PlatformWriteDbContext.cs` — deferred with D4
+- [–] `Persistence/Platform/PlatformReadDbContext.cs` — deferred with D4
+- [x] `Infra/Persistence/UnitOfWork.cs` — `UnitOfWork<TContext> : IUnitOfWork` scoped per request; nested `BeginTransaction` calls are no-ops (first caller owns).
+- [x] `Infra/Persistence/GenericRepository.cs` — `GenericRepository<T> : IGenericRepository<T> where T : BaseEntity`; constructor takes `DbContext` directly (resolved per scope). Overridable via `virtual`.
+- [+] `Infra/Persistence/SpecificationEvaluator.cs` — **beyond TODO**; static helper translating `ISpecification<T>` to `IQueryable<T>` (order: NoTracking → SplitQuery → criteria → includes → sort → paging). Necessary infrastructure for `GenericRepository.ApplySpecification`.
+- [x] `Infra/Persistence/DbConnectionFactory.cs` — reads `DatabaseSettings` via `IOptionsMonitor`, resolves connection string via `IConfiguration.GetConnectionString(...)` so user-secrets / Key Vault overrides flow through. SqlServer wired; PostgreSQL / InMemory throw `NotSupportedException` until wired in later phases.
 
 ### 5.2 Interceptors
-- [ ] `Persistence/Interceptors/AuditableEntityInterceptor.cs`
-- [ ] `Persistence/Interceptors/SoftDeleteInterceptor.cs`
-- [ ] `Persistence/Interceptors/TenantQueryFilterInterceptor.cs`
-- [ ] `Persistence/Interceptors/DomainEventDispatchInterceptor.cs`
+- [x] `Infra/Persistence/Interceptors/AuditableEntityInterceptor.cs` — on Added: stamps CreatedAt/By + clears Modified; on Modified: stamps ModifiedAt/By + pins CreatedAt/By as non-modified so they can't be overwritten. Anonymous actor reported as `"system"`.
+- [x] `Infra/Persistence/Interceptors/SoftDeleteInterceptor.cs` — flips `EntityState.Deleted` → `Modified` + stamps `IsDeleted/DeletedAt/DeletedBy` for `ISoftDeletable` entities.
+- [x] `Infra/Persistence/Interceptors/TenantQueryFilterInterceptor.cs` — write-side tenant stamping + cross-tenant modify guard; throws `TenantMismatchException` on mismatch. (Name kept for TODO parity; it's strictly a SaveChanges interceptor — read-side filtering is done via `HasQueryFilter` at context config time.)
+- [x] `Infra/Persistence/Interceptors/DomainEventDispatchInterceptor.cs` — drains `AggregateRoot.DomainEvents` **after** a successful `SaveChanges` (handlers observe committed state). Events are cleared *before* dispatch so re-entrant saves don't re-emit. Sync `SavedChanges` path unwraps via `Task.Run` to avoid sync-context deadlocks.
 
-### 5.3 EF Fluent configurations (platform entities)
-- [ ] `Persistence/Platform/Configurations/UserConfiguration.cs`
-- [ ] `Persistence/Platform/Configurations/RoleConfiguration.cs`
-- [ ] `Persistence/Platform/Configurations/TenantConfiguration.cs`
-- [ ] `Persistence/Platform/Configurations/AuditLogConfiguration.cs`
-- [ ] `Persistence/Platform/Configurations/OutboxMessageConfiguration.cs`
+### 5.3 EF Fluent configurations (platform entities) — **[–] deferred with D4**
+- [–] `Persistence/Platform/Configurations/UserConfiguration.cs`
+- [–] `Persistence/Platform/Configurations/RoleConfiguration.cs`
+- [–] `Persistence/Platform/Configurations/TenantConfiguration.cs`
+- [–] `Persistence/Platform/Configurations/AuditLogConfiguration.cs`
+- [–] `Persistence/Platform/Configurations/OutboxMessageConfiguration.cs`
 
-### 5.4 Platform entities (code-first)
-- [ ] `Persistence/Platform/Entities/User.cs`
-- [ ] `Persistence/Platform/Entities/Role.cs`
-- [ ] `Persistence/Platform/Entities/Tenant.cs`
-- [ ] `Persistence/Platform/Entities/AuditLog.cs`
-- [ ] `Persistence/Platform/Entities/OutboxMessage.cs`
+### 5.4 Platform entities (code-first) — **[–] deferred with D4**
+- [–] `Persistence/Platform/Entities/User.cs`
+- [–] `Persistence/Platform/Entities/Role.cs`
+- [–] `Persistence/Platform/Entities/Tenant.cs`
+- [–] `Persistence/Platform/Entities/AuditLog.cs`
+- [–] `Persistence/Platform/Entities/OutboxMessage.cs`
 
-### 5.5 Seeding
-- [ ] `Persistence/Seeding/ISeedData.cs`
-- [ ] `Persistence/Seeding/RoleSeedData.cs` (default roles)
-- [ ] `Persistence/Seeding/DefaultTenantSeedData.cs`
+### 5.5 Seeding — **[–] deferred with D4**
+- [–] `Persistence/Seeding/ISeedData.cs`
+- [–] `Persistence/Seeding/RoleSeedData.cs`
+- [–] `Persistence/Seeding/DefaultTenantSeedData.cs`
 
-### 5.6 Initial migration
-- [ ] `dotnet ef migrations add InitialCreate --context PlatformWriteDbContext`
-- [ ] `dotnet ef database update --context PlatformWriteDbContext` against PlatformDb
+### 5.6 Initial migration — **[–] deferred with D4**
+- [–] `dotnet ef migrations add InitialCreate --context PlatformWriteDbContext`
+- [–] `dotnet ef database update --context PlatformWriteDbContext` against PlatformDb
 
-- [ ] **Checkpoint 5:** build green; PlatformDb tables exist; seeding runs once without errors
+### 5.7 Common services (beyond original TODO) — needed for interceptors to wire
+- [+] `Infra/Common/SystemDateTimeProvider.cs` — default `IDateTimeProvider` impl; thin wrapper over `DateTimeOffset.UtcNow`. Registered as singleton in `AddInfrastructure`.
+
+### 5.8 DI composition root
+- [x] `Infra/DependencyInjection.cs` — `AddInfrastructure(services, config)` binds `DatabaseSettings`, registers `SystemDateTimeProvider`, `DbContextRegistry`, `DbContextFactory`, `DbConnectionFactory`, open-generic `UnitOfWork<>` + `GenericRepository<>`, and all 4 interceptors as transient. Extension `RegisterDbContext<TContext>(logicalName, isDefault)` populates the registry — callers chain it after `AddDbContext<TContext>`.
+
+- [x] **Checkpoint 5:** `dotnet build src/Infrastructure/Enterprise.Platform.Infrastructure` green after SDK reinstall (0 warnings / 0 errors); full-solution build also green. Platform-specific items in 5.6 stay `[–]` per D4.
 
 ---
 
@@ -510,6 +518,7 @@
 - **2026-04-18** — **Phase 2 complete (Settings + Responses).** 8 new Settings POCOs (+ pre-existing `DatabaseSettings`) and 2 Response types landed. **2.3 Requests and 2.4 DTOs deferred `[–]`** to stay consistent with D4 — platform-identity contracts will arrive with PlatformDb. One analyzer hiccup (CA1000 on a static factory inside `ApiResponse<T>`) — resolved idiomatically by moving `Ok<T>(...)` to the non-generic `ApiResponse` helper (callers get type inference, analyzer happy). Full-solution build: 0 warnings, 0 errors. Repo pushed to `https://github.com/chc67840/Enterprise.Platform.git` (`main`).
 - **2026-04-18** — **Phase 3 complete (Domain — zero-NuGet core).** All 31 files across 3.1–3.8 landed. Notable design calls: (a) `IWriteDbContext` is deliberately EF-free (only `SaveChangesAsync`) so Domain never sees `DbSet<T>`; handlers write through `IGenericRepository<T>`. (b) Value-object factories return `Result<T>` from Shared — first real use of the Result pattern outside tests. (c) `AggregateRoot.AddDomainEvent` is `protected`, `ClearDomainEvents` is `public` — aggregates raise, dispatcher drains. (d) Added `AsSplitQuery` to `ISpecification<T>` beyond the TODO — needed to avoid cartesian blow-ups on multi-collection includes. `dotnet list package` on Domain returns zero — D1 invariant holds manually until Phase 12 adds the architecture test.
 - **2026-04-18** — **Phase 4 complete (Application — CQRS skeleton).** 35 files total: 5 messaging + 6 behavior markers + 1 persistence abstraction + 1 dispatcher + 6 common interfaces (+2 beyond TODO: `IAuditWriter`, `IIdempotencyStore`) + 6 common models + 2 common extensions + 7 pipeline behaviors (+1 beyond TODO: `LogMessages.cs` source-generated `LoggerMessage` extensions) + DI helper. **Skipped `IMappable` (4.8)** per D2 = Mapster. **CPM additions:** `Microsoft.Extensions.DependencyInjection.Abstractions`, `.Logging.Abstractions`, `.Caching.Abstractions`, `.Configuration.Abstractions`, `.Options`, `.Options.ConfigurationExtensions` — all abstractions-only, no runtime impl leaks. Analyzer battles worth keeping as replay landmines: (a) **CA1848 + CA1873** swept every `logger.LogX(...)` call — resolved properly by a consolidated source-gen `LogMessages` partial class rather than suppression; (b) **CA1711** on `RequestHandlerDelegate` suppressed inline (naming parity with MediatR is worth more than analyzer purity); (c) **CA1805** `Unit.Value = default` — removed redundant init; (d) **CA1859** on two expression-builder helpers — tightened return types to `MethodCallExpression` / `BinaryExpression`.
+- **2026-04-19** — **Phase 5 complete (persistence core, D4-scoped).** 13 files total: `IDbContextFactory` (Application) + 9 Infra/Persistence files (factory, registry, UoW, spec evaluator, generic repo, connection factory, 4 interceptors) + `SystemDateTimeProvider` + `AddInfrastructure` DI root. **Platform-specific 5.3/5.4/5.5/5.6 all `[–]` deferred with D4.** Key design calls worth remembering on replay: (a) `IDbContextFactory` requires Application to reference `Microsoft.EntityFrameworkCore` (abstraction only) — accepted trade-off so the interface can return `DbContext`; (b) beyond-TODO `DbContextRegistry` (singleton, logical-name → Type map) + `RegisterDbContext<T>(name, isDefault)` DI extension is how Phase 6 will wire EventShopperDbContext; (c) beyond-TODO `SpecificationEvaluator` — `GenericRepository` needs it to translate `ISpecification<T>` to `IQueryable<T>`; (d) `DomainEventDispatchInterceptor` dispatches **after** save (handlers must be idempotent; high-value fan-out should use outbox in Phase 7); (e) the sync `SavedChanges` path unwraps the async dispatch via `Task.Run` to avoid sync-context deadlocks. **Build fix after SDK reinstall:** removed a broken `services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork<>))` — non-generic interface cannot be backed by an open-generic impl (fails at runtime; flagged CA2263). `IUnitOfWork` registration now lands in Phase 6 as closed `UnitOfWork<EventShopperDbContext>`. Open-generic `IGenericRepository<> → GenericRepository<>` kept with `#pragma warning disable CA2263` (analyzer has no notion of open-generic bindings). **Checkpoint 5 green after SDK reinstall.**
 
 ---
 

@@ -15,6 +15,11 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+
+    <!-- EF Core abstractions: Application defines IDbContextFactory which returns
+         DbContext instances. The concrete provider (SqlServer / Npgsql) stays in
+         Infrastructure — Application depends only on the base abstraction assembly. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
   </ItemGroup>
 
   <PropertyGroup>
