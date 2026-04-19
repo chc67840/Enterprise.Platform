@@ -3,7 +3,7 @@ namespace Enterprise.Platform.DtoGen;
 /// <summary>
 /// Minimal argument parser and command dispatcher for DtoGen. Keeps the tool
 /// dependency-free (no System.CommandLine / Spectre.Console) so it runs on any
-/// box with the .NET 10 SDK.
+/// box with the .NET 10 SDK. Delegates to <see cref="Generator"/> for the real work.
 /// </summary>
 internal static class CommandLine
 {
@@ -34,30 +34,60 @@ internal static class CommandLine
             --namespace-map Enterprise.Platform.Infrastructure.Persistence.EventShopper.Mappings
         """;
 
-    internal static Task<int> RunAsync(string[] args)
+    internal static async Task<int> RunAsync(string[] args)
     {
         if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
         {
             Console.WriteLine(UsageText);
-            return Task.FromResult(0);
+            return 0;
         }
 
-        // Parse key/value flags into a dictionary for the generator to consume.
         Dictionary<string, string> flags = new(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < args.Length; i++)
         {
-            if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
+            if (!args[i].StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             var key = args[i];
-            var value = (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            var value = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
                 ? args[++i]
                 : "true";
             flags[key] = value;
         }
 
-        // Phase 0 ships only the CLI skeleton. Phase 6 wires in the real generator
-        // once scaffolded entities exist to roundtrip against.
-        Console.Error.WriteLine("DtoGen CLI skeleton ready — generator implementation lands in Phase 6.");
-        Console.Error.WriteLine($"Received {flags.Count} flag(s): {string.Join(", ", flags.Keys)}");
-        return Task.FromResult(2); // non-zero so a build pipeline wouldn't treat this as a successful codegen
+        if (!TryGet(flags, "--entities", out var entities)
+            || !TryGet(flags, "--dto-out", out var dtoOut)
+            || !TryGet(flags, "--mapping-out", out var mappingOut)
+            || !TryGet(flags, "--namespace-dto", out var nsDto)
+            || !TryGet(flags, "--namespace-map", out var nsMap))
+        {
+            Console.Error.WriteLine("error: missing one or more required flags. Run with --help for usage.");
+            return 1;
+        }
+
+        var options = new GeneratorOptions(
+            EntitiesDirectory: entities,
+            DtoOutputDirectory: dtoOut,
+            MappingOutputDirectory: mappingOut,
+            DtoNamespace: nsDto,
+            MappingNamespace: nsMap,
+            DryRun: flags.ContainsKey("--dry-run"),
+            Force: !flags.TryGetValue("--force", out var f) || string.Equals(f, "true", StringComparison.OrdinalIgnoreCase));
+
+        return await Generator.RunAsync(options).ConfigureAwait(false);
+    }
+
+    private static bool TryGet(Dictionary<string, string> flags, string key, out string value)
+    {
+        if (flags.TryGetValue(key, out var v) && !string.Equals(v, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            value = v;
+            return true;
+        }
+
+        value = string.Empty;
+        return false;
     }
 }

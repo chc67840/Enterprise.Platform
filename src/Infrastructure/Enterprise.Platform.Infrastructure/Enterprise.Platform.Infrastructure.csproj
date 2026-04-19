@@ -14,6 +14,8 @@
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Hangfire.Core" />
     <PackageReference Include="Hangfire.SqlServer" />
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="Mapster.DependencyInjection" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
