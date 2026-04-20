@@ -1,0 +1,5 @@
+# Commit-msg hook — validates the message format via commitlint.
+#
+# Conventional Commits enforced per `commitlint.config.js`.
+# Bypass requires `--no-verify`, which Git records in the log for auditability.
+npx --no-install commitlint --edit "$1"

@@ -23,85 +23,89 @@
 
 ---
 
-## UI Design Decisions — **TO LOCK**
+## UI Design Decisions — **LOCKED 2026-04-20**
 
-| ID | Decision | Options | Default recommendation | Status |
-|:---:|---|:---:|---|:---:|
-| **U1** | Auth flow | (A) MSAL-direct SPA · (B) BFF cookie-session · (C) Hybrid | **A** for phase-1; keep **C** on roadmap | `[ ]` |
-| **U2** | Runtime config source | (A) `/config.json` fetched at boot · (B) Server-rendered into `index.html` · (C) Build-time only | **A** — cleanest for K8s/container deployments | `[ ]` |
-| **U3** | Permission model | (A) Permissions = roles (today) · (B) Hydrate from `/me/permissions` · (C) Hydrate + tenant-scoped | **B** now, **C** once PlatformDb lands on the backend | `[ ]` |
-| **U4** | Telemetry SDK | (A) Sentry · (B) Azure App Insights · (C) OpenTelemetry-web | **B** (aligns with backend OTEL + App Insights workbook story) | `[ ]` |
-| **U5** | State-store devtools | (A) `@angular-architects/ngrx-toolkit` · (B) Redux DevTools bridge · (C) None | **A** in dev; disabled in prod | `[ ]` |
-| **U6** | i18n timing | (A) Phase 8 now · (B) Only when first non-EN user lands · (C) Never | **B** — scaffold interfaces but defer catalogues | `[ ]` |
-| **U7** | SSR / SSG | (A) Add now · (B) Add when SEO/TTFB demands it · (C) Never | **B** | `[ ]` |
-| **U8** | E2E framework | (A) Playwright · (B) Cypress · (C) Puppeteer | **A** | `[ ]` |
-| **U9** | Visual regression | (A) Chromatic · (B) Playwright screenshots · (C) Percy | **B** — keeps everything in Playwright; no extra vendor | `[ ]` |
-
-**Decision gate:** resolve U1–U9 before starting Phase 1. Each unresolved decision
-either blocks a task or creates rework.
+| ID | Decision | Choice | Rationale |
+|:---:|---|:---:|---|
+| **U1** | Auth flow | **C (hybrid, with A first)** | Phase 1–8 run MSAL-direct SPA for speed of delivery. BFF cookie-session option wired in Phase 9 behind an `AuthStrategy` abstraction so the Web.UI BFF (already built — see `src/UI/Enterprise.Platform.Web.UI/Program.cs`) can front the SPA without rewrites. |
+| **U2** | Runtime config source | **A** | `/config.json` fetched at boot. BFF can serve it per-environment without a rebuild; static-host deployments overwrite the file during release. |
+| **U3** | Permission model | **B** | Hydrate from `GET /api/v1/me/permissions`. Phase 1 wires the pipeline; Phase 9+ upgrades to **C** (tenant-scoped) once PlatformDb + per-tenant permission tables land. |
+| **U4** | Telemetry SDK | **B** | Azure Application Insights — aligns with the backend's OTEL → Azure Monitor pipeline (see `Docs/Architecture/07-Observability-Metrics-Monitoring.md`). End-to-end traces link in the same workbook. |
+| **U5** | State-store devtools | **A** | `@angular-architects/ngrx-toolkit` enabled only under `!environment.production`. Zero prod weight. |
+| **U6** | i18n timing | **B** | Scaffold `LocaleStore` + `LOCALE_ID` token from Phase 1 so switching is a config change later; defer message-catalogue extraction until a non-EN locale is required. |
+| **U7** | SSR / SSG | **B** | Not scaffolded. Add `@angular/ssr` when product requires SEO or sub-second TTFB. |
+| **U8** | E2E framework | **A** | Playwright. Single runner also covers visual regression (U9). |
+| **U9** | Visual regression | **B** | Playwright screenshots against Storybook URLs. No extra vendor (Chromatic, Percy) — keeps the toolchain lean and reviewer-approvable via PR diffs. |
 
 ---
 
 ## Phase 0 — Decision Gate & Prep
 
-**Goal:** lock the nine design decisions, stand up lint/format/commit hooks so
-every subsequent phase commits clean, and capture a baseline.
+**Goal:** lock the nine design decisions; stand up a clean Angular 21 workspace
+inside `src/UI/Enterprise.Platform.Web.UI/ClientApp/` that builds green.
+**Started fresh**, so the legacy-app baselines from the original plan (0.3–0.5)
+don't apply — they become Phase 7 tasks once real features exist to benchmark.
 
-- [ ] **0.1** Review + lock U1–U9 (above). Record rationale alongside each.
-- [ ] **0.2** Replace placeholder MSAL values in `src/environments/environment*.ts` with real App Registration IDs (dev + staging + prod). Document the Entra app-registration setup steps in `README.md`.
-- [ ] **0.3** Baseline bundle analysis — run `ng build --stats-json` + `source-map-explorer`; record numbers (initial bundle KB, top 20 dep sizes) in `Docs/Review/ui-bundle-baseline.md`.
-- [ ] **0.4** Baseline Lighthouse — run against `npm run start` with cold cache; capture Performance / A11y / Best-Practices / SEO scores in the same file.
-- [ ] **0.5** Baseline a11y — one-off `axe-core` run against dashboard + users list + user form. Record violation count.
-- [ ] **Checkpoint 0:** decisions locked; real Entra credentials working (loginRedirect → token → `/me` returns 200); baselines recorded.
+- [x] **0.1** Review + lock U1–U9. Rationale recorded in the Decisions table above.
+- [–] **0.2** Replace placeholder MSAL values — **deferred to Phase 1.2 (auth wiring)**. Fresh scaffold ships empty-string MSAL config in `environments/environment.ts` and `public/config.json`; the real Entra App Registration setup becomes part of the auth integration story, not the bootstrap story.
+- [–] **0.3** Baseline bundle analysis — **N/A for fresh start**. Re-scoped to **Phase 7.4.2** (weekly `source-map-explorer` artifact once the build has real features).
+- [–] **0.4** Baseline Lighthouse — **N/A for fresh start**. Re-scoped to **Phase 7.5.1** (LCP ≤ 2.5 s gate once dashboard + users slice are real).
+- [–] **0.5** Baseline a11y — **N/A for fresh start**. Re-scoped to **Phase 5.5.5** (axe-core in Storybook test-runner once the shared UI catalogue is populated).
+- [x] **0.P1** Scaffolded `ClientApp/` inside `src/UI/Enterprise.Platform.Web.UI/`. Files: `package.json` (pinned Angular 21.2 / NGRX Signals 21 / MSAL 5 / PrimeNG 21 / Tailwind 4 / Vitest 4 / Zod 4 / date-fns 4 / chart.js 4), `angular.json` (three configs: development / staging / production with `fileReplacements` + budgets), `tsconfig.json` + `tsconfig.app.json` + `tsconfig.spec.json` (strict + strictTemplates + path aliases `@core/*` `@shared/*` `@features/*` `@layouts/*` `@config/*` `@models/*` `@env/*`), `.editorconfig`, `.prettierrc`, `.postcssrc.json`, `.gitignore`, `README.md`.
+- [x] **0.P2** Created target-state folder layout (`src/app/{config,core,shared,features,layouts}/`, `src/environments/`, `src/styles/`, `public/`). Each tier has a `README.md` describing owned concerns + import rules.
+- [x] **0.P3** Minimum-viable bootstrap: `src/main.ts` → `bootstrapApplication(AppComponent, appConfig)`; `AppComponent` renders `<router-outlet />`; `appConfig` provides `provideZonelessChangeDetection`, `provideRouter` with input-binding + view-transitions + reload-on-same-url, `provideBrowserGlobalErrorListeners`, and `LOCALE_ID`. Placeholder landing component at `/` (lazy-loaded) proves routing works.
+- [x] **0.P4** Environment files (`environment.ts` / `.staging.ts` / `.production.ts`) with consistent shape; `public/config.json` scaffolded for Phase 2.1 runtime-config consumer.
+- [x] **0.P5** `npm install` — 549 packages, 0 errors, 0 vulnerabilities.
+- [x] **0.P6** `ng build --configuration development` — 0 errors, 4.4 s, initial 1.28 MB unminified.
+- [x] **0.P7** `ng build --configuration production` — 0 errors, 5.3 s, initial **197.95 kB raw / 55.13 kB gzipped** (well under 1 MB warn / 2 MB error budgets); lazy chunks working (placeholder route = 798 bytes).
+- [x] **Checkpoint 0:** workspace boots; prod build under budgets; strict TypeScript clean; folder layout matches architecture §1.3; tier READMEs document import rules. **Proceed to Phase 1 on approval.**
 
 ---
 
 ## Phase 1 — Stabilization (correctness, ~3 days)
 
-**Goal:** modernize dated Angular APIs, remove orphan/dead code, fix the double-toast
-bug, wire optimistic concurrency, gate the UI-Kit out of prod, establish ESLint +
-Husky. **No new features; only hygiene.**
+**Goal:** build Phase-1 foundations from scratch on the fresh ClientApp workspace
+with every target-state invariant in place from day 1 — no legacy to fix because
+it doesn't exist yet. Comments are verbose per the project rule (why / what / how).
 
 ### 1.1 API hygiene
-- [ ] **1.1.1** Delete orphan `src/app/app.config.ts` (11-line CLI stub). Confirm nothing imports it (grep).
-- [ ] **1.1.2** Replace `APP_INITIALIZER` with `provideAppInitializer()` in `src/app/config/app.config.ts` for both MSAL init and (soon) runtime config.
-- [ ] **1.1.3** Replace manual `destroy$` Subject + `ngOnDestroy` in `AuthService` with `takeUntilDestroyed(inject(DestroyRef))`. Apply same refactor to any other service using manual `destroy$`.
-- [ ] **1.1.4** Replace the global `MutationObserver` in `main.ts` with either:
-  - (preferred) an `autocomplete-off.directive.ts` applied to PrimeNG input wrappers, or
-  - a narrowed observer scoped to AppShell's content area only (not `document.body`).
+- [–] **1.1.1** Orphan `app.config.ts` — **N/A for fresh start**. `main.ts` imports directly from `src/app/config/app.config.ts`; no CLI-stub sibling was ever created.
+- [x] **1.1.2** `provideAppInitializer(() => inject(MsalService))` used for MSAL init (`src/app/config/app.config.ts`). Deprecated `APP_INITIALIZER` multi-provider never introduced.
+- [x] **1.1.3** `AuthService` (`src/app/core/auth/auth.service.ts`) uses `takeUntilDestroyed(inject(DestroyRef))` for MSAL `inProgress$`. `BroadcastChannel` cleanup via `destroyRef.onDestroy(channel.close)`. No manual `destroy$` subject anywhere.
+- [–] **1.1.4** Global `MutationObserver` — **N/A**. Fresh `main.ts` has no observer; added only if needed, scoped to PrimeNG subtrees via directive.
 
 ### 1.2 Auth correctness
-- [ ] **1.2.1** Remove the `super:admin` magic-string bypass from `AuthService.hasPermission`. Replace with a `bypass: boolean` signal hydrated by `AuthStore` from the API.
-- [ ] **1.2.2** Per U3 decision — split `roles` vs `permissions`. If hydrating:
-  - [ ] create `AuthStore` (signalStore, `providedIn: 'root'`) with `roles()`, `permissions()`, `bypass()`, `tenantId()` signals + `hydrate()` method;
-  - [ ] wire `AuthService` effect: on `isAuthenticated()` → `true`, call `AuthStore.hydrate()` (GET `/api/v1/me/permissions`);
-  - [ ] `AuthService.permissions()` becomes `AuthStore.permissions()` passthrough.
-- [ ] **1.2.3** Add `/error/server-error` (500), `/error/offline`, `/error/maintenance` routes + components. Wire `errorInterceptor` to navigate to these for the right conditions.
+- [x] **1.2.1** No `super:admin` magic string. `AuthStore.bypass()` signal is the single auditable bypass, populated from `GET /api/v1/me/permissions`.
+- [x] **1.2.2** Split implemented per U3 = B:
+  - `AuthStore` (`core/auth/auth.store.ts`) — NGRX Signals store, `providedIn: 'root'`, exposes `roles() / permissions() / tenantId() / bypass() / isStale()` + `hydrate() / hasAnyPermission() / hasAllPermissions() / hasRole() / hasAnyRole() / reset()`.
+  - `AuthService` triggers hydration reactively via `effect(() => { if (isAuthenticated()) AuthStore.hydrate() })` (`untracked(...)` prevents re-registration on permission changes).
+  - `TenantService.setTenant(...)` invoked inside `AuthStore.hydrate().next` — drives `tenantInterceptor` without re-subscription.
+- [x] **1.2.3** Error routes added: `/error/forbidden` · `/error/server-error` · `/error/offline` · `/error/maintenance`, plus the `**` → `NotFoundComponent`. All under `ErrorLayoutComponent`. `errorInterceptor` navigates to `/error/forbidden` on 403 and to `/auth/login` on unrecoverable 401.
 
 ### 1.3 Error-UX ownership
-- [ ] **1.3.1** Make `errorInterceptor` the **sole** owner of HTTP-error toasts. Remove `notification.error(...)` calls from `createEntityStore`'s `createEntity` / `updateEntity` / `deleteEntity` failure branches (keep the success toasts).
-- [ ] **1.3.2** Stores still capture `error` in their `error()` signal so forms can project field-level errors inline.
-- [ ] **1.3.3** Add a 409-Conflict branch in `errorInterceptor` that shows a "Record changed — refresh?" toast with a callback wired to the originating store's `invalidate()`.
+- [x] **1.3.1** `errorInterceptor` is the sole owner of HTTP-error toasts (see file comment at `core/interceptors/error.interceptor.ts`). Store failure branches call `patchState(store, { error })` only.
+- [x] **1.3.2** Stores capture `ApiError` into their `error()` signal so forms can render inline errors (server-error projection lands in Phase 6.4).
+- [x] **1.3.3** 409 Conflict branch — `errorInterceptor` renders "Record changed" toast; `createEntityStore.updateEntity` rolls back its optimistic patch via `rollbackMap`.
 
 ### 1.4 Optimistic concurrency
-- [ ] **1.4.1** Extend `BaseApiService.update` / `patch` to send `If-Match: <version>` header when `entity.version` is defined. (Preferred: interceptor reads `X-If-Match: <version>` from custom header placed by base service.)
-- [ ] **1.4.2** Update `createEntityStore.updateEntity` to source the current `version` from state and include it. Add a `rollback` path for 409 (revert optimistic patch; show conflict toast).
+- [x] **1.4.1** `BaseApiService.update` / `patch` emit `If-Match: "<version>"` when the entity carries a `version`. Helper: `buildIfMatch(version)` quotes the ETag per RFC 7232.
+- [x] **1.4.2** `createEntityStore.updateEntity` pattern: snapshot → optimistic patch → request → on-success replace with server state / on-error rollback to snapshot. `rollbackMap` keyed by entity id.
 
 ### 1.5 UI-Kit exposure
-- [ ] **1.5.1** Gate `/ui-kit` behind `environment.features.showUiKit` in `app.routes.ts`. Production env sets it to `false`. Confirm with `ng build --configuration production` that UI-Kit chunks are tree-shaken out.
+- [–] **1.5.1** UI-Kit — **N/A**. No showcase routes exist yet; will gate on `environment.features.showUiKit` when the UI-Kit feature lands (Phase 5).
 
 ### 1.6 Lint + format + commit-hooks
-- [ ] **1.6.1** Install ESLint with `@angular-eslint` + `@typescript-eslint` + `eslint-plugin-import` + `eslint-plugin-security` + `eslint-plugin-no-secrets`. Commit `eslint.config.js`.
-- [ ] **1.6.2** Add `import/no-restricted-paths` rule enforcing tier boundaries (`core` ≤≤ `shared` ≤≤ `layouts` ≤≤ `features`).
-- [ ] **1.6.3** Install Husky + lint-staged. Pre-commit hook: `prettier --write` + `eslint --fix` + `tsc --noEmit` on staged files.
-- [ ] **1.6.4** Install `@commitlint/config-conventional` + `commitlint`. Commit-msg hook enforces Conventional Commits.
-- [ ] **1.6.5** Add `npm run lint` / `npm run lint:ci` scripts.
+- [x] **1.6.1** ESLint 9 + `@angular-eslint@21.3.1` + `typescript-eslint@8` + `eslint-plugin-{import,security,no-secrets}` + `eslint-config-prettier` installed. `eslint.config.js` (flat config) uses `parserOptions.projectService: true` for automatic tsconfig resolution.
+- [x] **1.6.2** `import/no-restricted-paths` zones enforced: `core → features`, `core → layouts`, `shared → features`, `shared → layouts` all blocked.
+- [x] **1.6.3** Husky 9 + lint-staged 16 wired. `.husky/pre-commit` runs `npx lint-staged`; `.lintstagedrc.json` runs `prettier --write` + `eslint --fix --max-warnings=0` on staged `.ts/.html`, prettier on `.css/.json/.md/.yml`.
+- [x] **1.6.4** `@commitlint/cli` + `@commitlint/config-conventional` installed; `commitlint.config.js` enforces Conventional Commits + a `scope-enum` tailored to the tier model. `.husky/commit-msg` invokes commitlint.
+- [x] **1.6.5** Scripts added: `lint`, `lint:fix`, `format`, `format:check`, `prepare` (husky), `build:dev`, `build:prod`, `analyze`.
 
 ### 1.7 Checkpoint 1
-- [ ] **1.7.1** `ng build --configuration production` → 0 errors, initial bundle ≤ 1.5 MB, UI-Kit chunks absent from `/dist`.
-- [ ] **1.7.2** `ng test` → existing spec still passes.
-- [ ] **1.7.3** `npm run lint` → 0 errors (warnings OK but capped).
-- [ ] **1.7.4** Manual smoke: log in with real Entra, navigate to `/users`, create/edit/delete a user, force a 409 (edit same record in two tabs), confirm single toast + rollback.
+- [x] **1.7.1** `ng build --configuration production` → 0 errors. Initial bundle **863.24 kB raw / 195.72 kB estimated transfer** (budgets: 1 MB warn / 2 MB error). Every feature component is a separate lazy chunk (dashboard 2.24 kB · login 1.49 kB · error pages ~1.5 kB each).
+- [–] **1.7.2** `ng test` — no specs yet; Vitest target wired. Test scaffolds land in Phase 4.
+- [x] **1.7.3** `npm run lint` → **0 errors, 0 warnings** across 27 source files.
+- [~] **1.7.4** Manual smoke — deferred; requires real Entra App Registration values (Phase 2.1 runtime-config wiring + real MSAL IDs).
 
 ---
 

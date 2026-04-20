@@ -109,7 +109,14 @@
       "Bash(find . -maxdepth 3 -name \"CLAUDE.md\" -not -path \"*/node_modules/*\")",
       "Bash(ls .claude/)",
       "Bash(cat README.md)",
-      "Bash(command *)"
+      "Bash(command *)",
+      "Bash(npx -y @angular/cli --version)",
+      "Bash(cat .gitignore)",
+      "Bash(ls public/)",
+      "Bash(cat src/index.html)",
+      "Bash(head -20 src/styles.css)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
     ]
   }
 }

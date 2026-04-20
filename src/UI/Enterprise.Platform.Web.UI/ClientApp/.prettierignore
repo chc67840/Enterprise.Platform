@@ -1,0 +1,7 @@
+dist/
+node_modules/
+.angular/
+out-tsc/
+coverage/
+__screenshots__/
+package-lock.json

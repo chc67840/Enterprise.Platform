@@ -1,0 +1,30 @@
+/*
+ * Global styles entry point.
+ *
+ * Tailwind v4 + PrimeNG cohabit via CSS layers. PrimeNG's theme is installed
+ * (Phase 1.x). For Phase 0 this file carries only the Tailwind import so the
+ * build has a valid PostCSS entry; token files, typography, animations, and
+ * PrimeNG overrides will be added incrementally in later phases.
+ */
+
+@import 'tailwindcss';
+
+/* Baseline — intentionally minimal. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

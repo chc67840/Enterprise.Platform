@@ -1,0 +1,15 @@
+{
+  "_comment": "Runtime config. Shape and consumer land in Phase 2.1. Never commit secrets — MSAL clientId is a public identifier; anything with entropy belongs in deployment configuration.",
+  "apiBaseUrl": "http://localhost:5044/api/v1",
+  "bffBaseUrl": "http://localhost:5001",
+  "msal": {
+    "clientId": "",
+    "tenantId": "",
+    "apiScope": ""
+  },
+  "telemetry": {
+    "appInsightsConnectionString": "",
+    "sampleRate": 1.0
+  },
+  "features": {}
+}

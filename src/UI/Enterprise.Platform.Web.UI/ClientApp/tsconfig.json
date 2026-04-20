@@ -1,0 +1,64 @@
+/*
+ * Root TypeScript configuration for the Angular client.
+ *
+ * Every strictness flag is intentional — see `Docs/Architecture/UI-Architecture.md`
+ * Part I (principles) and Part X (developer experience). Relaxing any of these
+ * without updating the architecture doc is a defect.
+ *
+ * Path aliases mirror the tier model (core / shared / features / layouts / config /
+ * environments). Deep-path imports across tiers are disallowed by a future ESLint
+ * rule (Phase 1.6); for now they are discouraged by convention.
+ */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    /* Base */
+    "baseUrl": "./",
+    "target": "ES2022",
+    "module": "preserve",
+    "lib": ["ES2022", "dom"],
+    "importHelpers": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+
+    /* Strictness — all enabled */
+    "strict": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Path aliases — tier model */
+    "paths": {
+      "@core/*":     ["src/app/core/*"],
+      "@shared/*":   ["src/app/shared/*"],
+      "@features/*": ["src/app/features/*"],
+      "@layouts/*":  ["src/app/layouts/*"],
+      "@config/*":   ["src/app/config/*"],
+      "@models/*":   ["src/app/core/models/*"],
+      "@env/*":      ["src/environments/*"]
+    }
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictTemplates": true,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "extendedDiagnostics": {
+      "checks": {
+        "invalidBananaInBox": "error",
+        "missingControlFlowDirective": "error",
+        "textAttributeNotBinding": "error",
+        "nullishCoalescingNotNullable": "warning"
+      }
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.spec.json" }
+  ]
+}

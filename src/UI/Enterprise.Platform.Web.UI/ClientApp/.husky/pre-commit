@@ -1,0 +1,6 @@
+# Pre-commit hook — runs lint-staged on staged files.
+#
+# Husky v9+ reads this file directly (no shebang boilerplate needed).
+# Keep the command list tight — slow pre-commit hooks get bypassed with
+# `--no-verify` and defeat the purpose.
+npx lint-staged
