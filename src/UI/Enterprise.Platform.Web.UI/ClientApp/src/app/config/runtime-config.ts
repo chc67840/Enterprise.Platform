@@ -72,7 +72,11 @@ function buildFallbackConfig(): RuntimeConfig {
       redirectUri: env.msal.redirectUri || origin,
       postLogoutRedirectUri: origin ? `${origin}/auth/login` : undefined,
     },
-    telemetry: { appInsightsConnectionString: '', sampleRate: 1 },
+    telemetry: {
+      appInsightsConnectionString: '',
+      sampleRate: 1,
+      webVitalsSampleRate: 0.1,
+    },
     session: {
       accessTokenLifetimeSeconds: 900,
       warningLeadTimeSeconds: 120,

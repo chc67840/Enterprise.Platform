@@ -43,6 +43,7 @@
  *     + `unhandledrejection` listeners — auto-cleans-up, telemetry-ready.
  */
 import {
+  ErrorHandler,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
@@ -87,6 +88,11 @@ import { primeNgConfig } from './primeng.config';
 import { loadRuntimeConfig } from './runtime-config';
 import { LoggerService } from '@core/services/logger.service';
 import { CspViolationReporterService } from '@core/services/csp-violation-reporter.service';
+import {
+  GlobalErrorHandlerService,
+  TelemetryService,
+  TelemetryUserSyncService,
+} from '@core/observability';
 
 import {
   correlationInterceptor,
@@ -259,7 +265,34 @@ export const appConfig: ApplicationConfig = {
       }
     }),
 
-    // ── 10. APP INITIALIZER — CSP violation reporter (Phase 2.2) ────────
+    // ── 10. APP INITIALIZER — Telemetry (Phase 3.1) ─────────────────────
+    /*
+     * Wires Application Insights + web-vitals. Must run AFTER runtime config
+     * (reads connectionString + sampleRate) and AFTER MSAL init (so
+     * currentUser() can populate user context). Missing connection string
+     * causes init() to no-op — dev builds boot clean without a real sink.
+     *
+     * `TelemetryUserSyncService` is constructed at the same step so its
+     * `effect` starts forwarding `AuthService.currentUser` → Telemetry
+     * `setUserContext` from bootstrap onward. The service is otherwise
+     * unreferenced; touching it via `inject` is enough to instantiate.
+     */
+    provideAppInitializer(() => {
+      inject(TelemetryUserSyncService);
+      return inject(TelemetryService).init();
+    }),
+
+    /*
+     * Replace Angular's default `ErrorHandler` with our telemetry-aware
+     * handler. Registered near the top of the provider list so descendant
+     * components inherit it without a local override.
+     *
+     * The boundary handler in `RouterErrorBoundaryComponent` overrides this
+     * within its subtree only.
+     */
+    { provide: ErrorHandler, useClass: GlobalErrorHandlerService },
+
+    // ── 11. APP INITIALIZER — CSP violation reporter (Phase 2.2) ────────
     /*
      * Registers a `securitypolicyviolation` DOM-event listener so any CSP
      * block hits our structured log (and Phase-3 telemetry). Purely
@@ -273,7 +306,7 @@ export const appConfig: ApplicationConfig = {
       inject(CspViolationReporterService).register();
     }),
 
-    // ── 11. Locale ───────────────────────────────────────────────────────
+    // ── 12. Locale ───────────────────────────────────────────────────────
     /*
      * Default locale drives DatePipe / CurrencyPipe / DecimalPipe formatting.
      * Becomes signal-driven via `LocaleStore` in Phase 8.

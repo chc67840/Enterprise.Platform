@@ -11,7 +11,8 @@
   },
   "telemetry": {
     "appInsightsConnectionString": "",
-    "sampleRate": 1.0
+    "sampleRate": 1.0,
+    "webVitalsSampleRate": 0.1
   },
   "session": {
     "accessTokenLifetimeSeconds": 900,

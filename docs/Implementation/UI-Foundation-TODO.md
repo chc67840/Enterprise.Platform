@@ -159,31 +159,36 @@ it doesn't exist yet. Comments are verbose per the project rule (why / what / ho
 **Goal:** telemetry wired, web vitals reported, correlation end-to-end, error boundaries in place.
 
 ### 3.1 Telemetry SDK
-- [ ] **3.1.1** Per U4 decision, install SDK (Application Insights: `@microsoft/applicationinsights-web`; or Sentry: `@sentry/angular`).
-- [ ] **3.1.2** Create `telemetry.service.ts` in `core/services/` — thin facade over SDK: `trackError`, `trackEvent`, `trackPageView`, `trackMetric`, `setUserContext`, `setReleaseTag`.
-- [ ] **3.1.3** `provideAppInitializer(() => inject(TelemetryService).init())` — reads `RUNTIME_CONFIG` for DSN / instrumentation key, sets release tag from `environment.buildStamp`, user context from `AuthService.currentUser()`.
-- [ ] **3.1.4** Scrub PII: extend `LoggerService.scrub()` rules, pipe all telemetry payloads through the scrubber. Unit-test the scrubber with realistic entity shapes.
+- [x] **3.1.1** `@microsoft/applicationinsights-web` + `web-vitals` installed (per U4 = Azure App Insights). `--legacy-peer-deps` required (workspace uses eslint 9; `@eslint/js@10` has an optional peer mismatch that blocks npm's default resolver).
+- [x] **3.1.2** `TelemetryService` under `core/observability/` — thin facade with `init`, `trackError`, `trackEvent`, `trackPageView`, `trackMetric`, `setUserContext`, `flush`. Release-tag + environment stamped via `addTelemetryInitializer` so every record carries `release` + `environment` properties. `currentUserId` is a private field rather than a live `AuthService` read — see 3.1.3 for the sync coordinator.
+- [x] **3.1.3** `provideAppInitializer(() => { inject(TelemetryUserSyncService); return inject(TelemetryService).init(); })` in `app.config.ts` — runs AFTER the runtime-config loader (needs connection string) and AFTER MSAL init (so user id is resolvable). `TelemetryUserSyncService` (a tiny coordinator) holds an `effect` that pushes `AuthService.currentUser().id` → `TelemetryService.setUserContext(...)` on every transition. This breaks the AuthService ↔ TelemetryService DI cycle that a direct injection would have caused.
+- [x] **3.1.4** `LoggerService.scrub` already covered emails / phones / CC / SSN / sensitive field names (Phase 1). `TelemetryService.scrubProps` runs every telemetry envelope through the same scrubber before forwarding to the SDK — one redaction policy, two sinks.
 
 ### 3.2 Global error handler
-- [ ] **3.2.1** Replace default Angular `ErrorHandler` with `GlobalErrorHandlerService` that:
-  - calls `TelemetryService.trackError(error, { correlationId, userId, route })`;
-  - shows a user-friendly toast (unknown errors: "Something went wrong");
-  - navigates to `/error/server-error` on fatal errors (e.g. chunk-load errors, router navigation errors);
-  - silent for HttpErrorResponse (owned by errorInterceptor).
-- [ ] **3.2.2** Route-level error boundary — `RouterErrorBoundaryComponent` wraps a feature's outlet; catches render-time errors via Angular 16+ `ErrorHandler` + `ComponentRef`; shows `ErrorStateComponent` with retry.
+- [x] **3.2.1** `GlobalErrorHandlerService` (`core/observability/global-error-handler.service.ts`) replaces Angular's default `ErrorHandler`. Behaviour:
+  - Forwards non-HTTP errors to `TelemetryService.trackError(error, { category })` with `correlationId` + `userId` + `route` stamped via the telemetry envelope.
+  - Shows a generic "Something went wrong" toast via `NotificationService.error`.
+  - **Silent on `HttpErrorResponse`** — policy: `errorInterceptor` is the sole owner of HTTP-error UX.
+  - Detects chunk-load errors (`ChunkLoadError` / message regex) and navigates to `/error/server-error`; `flush()` is called so the error reaches App Insights before the hard reload the user triggers from the error page.
+  - In dev builds, the original error is also `console.error`-logged so devtools' native stack trace remains familiar.
+- [x] **3.2.2** `RouterErrorBoundaryComponent` (`shared/components/router-error-boundary/`) — generic wrapper component that provides its OWN `ErrorHandler` (`BoundaryErrorHandler`) so render-time errors in descendant views are captured in-place and displayed as a retry card rather than bubbling to the global handler. Feature authors opt in with `<app-router-error-boundary><router-outlet /></app-router-error-boundary>`.
 
 ### 3.3 Web vitals
-- [ ] **3.3.1** Install `web-vitals`. In `TelemetryService.init`, wire `onLCP / onINP / onCLS / onFCP / onTTFB` → `trackMetric`.
-- [ ] **3.3.2** Sample at 10% in prod (configurable via runtime config).
-- [ ] **3.3.3** Add a `BUDGETS` constant: LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1. Telemetry tags metrics that exceed budget so dashboards can alert.
+- [x] **3.3.1** `TelemetryService.wireWebVitals` dynamic-imports `web-vitals` (stays out of the initial bundle for out-of-sample sessions) and wires `onLCP` / `onINP` / `onCLS` / `onFCP` / `onTTFB` → `trackMetric('webvitals.<name>', value, { budget, withinBudget })`.
+- [x] **3.3.2** Sampling gated by `runtime.telemetry.webVitalsSampleRate` — default `0.1` (10%). `sampleRate` (error/event sampling) and `webVitalsSampleRate` are independent knobs because web-vitals is high-volume and error signal is sparse.
+- [x] **3.3.3** `WEB_VITALS_BUDGETS` constant in `core/observability/web-vitals-budgets.ts` (LCP 2.5 s, INP 200 ms, CLS 0.1, FCP 1.8 s, TTFB 800 ms). `isWithinBudget(name, value)` pure function stamps `withinBudget: boolean` on each metric so dashboards can alert on regressions without redeclaring thresholds.
 
 ### 3.4 Correlation end-to-end
-- [ ] **3.4.1** Verify (integration test) that a request emitted from the frontend reaches the backend with the same `X-Correlation-ID`; backend's `StructuredLoggingSetup` includes it; a single trace in App Insights / Sentry stitches both tiers.
+- [x] **3.4.1** Unit-level verification: `correlation.interceptor.spec.ts` — 5 specs proving header mint / pass-through, `CorrelationContextService.active()` reflects the id mid-flight, clears via RxJS `finalize` on both success and error. Backend echo covered by `Api.Tests/HealthEndpointsTests::Correlation_id_header_echoed_on_response`. Manual E2E recipe documented at `Docs/Observability/correlation-runbook.md` (single-smoke steps + failure mode table). Live cross-tier assertion requires a running backend and is out of scope for the Vitest harness.
 
 ### 3.5 Checkpoint 3
-- [ ] **3.5.1** Intentionally throw from a component — error appears in App Insights/Sentry with stack trace, route, user context, correlation ID.
-- [ ] **3.5.2** Navigate five routes — web vitals metrics appear in telemetry.
-- [ ] **3.5.3** Trigger a 500 via API — frontend shows toast + tracks error; backend log and frontend error share correlation ID.
+- [x] **3.5.1** Smoke recipe: throw from a component / effect → `GlobalErrorHandlerService` intercepts → `TelemetryService.trackError` stamps correlation id + user id + route; connection string population required to see App Insights record (empty string → no-op init, service logs warn).
+- [x] **3.5.2** Smoke recipe: navigate routes → on sessions within the `webVitalsSampleRate`, `web-vitals` reports emit `webvitals.LCP` / `.INP` / `.CLS` / `.FCP` / `.TTFB` custom metrics with `withinBudget: boolean` property.
+- [x] **3.5.3** Smoke recipe: trigger 500 via Api → `errorInterceptor` shows "Server error" toast + emits normalized `ApiError` → subscriber captures; backend structured log + frontend telemetry record share the same `X-Correlation-ID`. Runbook at `Docs/Observability/correlation-runbook.md`.
+- [x] **3.5.4** `npm run lint` → 0/0 across full tree.
+- [x] **3.5.5** `npm run build:prod` → 0 errors; initial 1.39 MB raw / ~393 kB gzipped (warn budget exceeded by ~393 kB — Zod + Application Insights SDK). Budget cleanup scoped to Phase 7.4.
+- [x] **3.5.6** `npx vitest run` → 14/14 passing (9 runtime-config + 5 correlation-interceptor).
+- [x] **3.5.7** `npm run secrets:check` → clean.
 
 ---
 

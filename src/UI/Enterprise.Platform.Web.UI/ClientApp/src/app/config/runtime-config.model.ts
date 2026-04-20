@@ -46,11 +46,21 @@ export const MsalRuntimeConfigSchema = z.object({
  * Telemetry sink configuration. Phase 3.1 consumes these via
  * `TelemetryService.init()`. The connection-string shape follows the modern
  * Application Insights format (preferred over legacy instrumentation key).
+ *
+ * Two independent sample rates:
+ *   - `sampleRate` gates every telemetry event (pageView, trackEvent,
+ *     trackError). Default 1 (100%) — errors are rare and always valuable;
+ *     Phase 7 may drop to 0.25 in prod if noise justifies it.
+ *   - `webVitalsSampleRate` gates LCP/INP/CLS/FCP/TTFB metrics specifically.
+ *     Default 0.1 (10% of sessions) per TODO 3.3.2 — vitals are high-volume
+ *     and dashboards stay meaningful at 10% while costs stay bounded.
  */
 export const TelemetryRuntimeConfigSchema = z.object({
   appInsightsConnectionString: z.string().trim(),
-  /** Sampling ratio — `0` means disabled, `1` means always. */
+  /** Global sampling ratio for events / errors / page views. 0 = off, 1 = always. */
   sampleRate: z.number().min(0).max(1).default(1),
+  /** Sampling ratio for web-vitals metrics only. Overrides `sampleRate` for vitals. */
+  webVitalsSampleRate: z.number().min(0).max(1).default(0.1),
 });
 
 /**
@@ -79,6 +89,7 @@ export const RuntimeConfigSchema = z.object({
   telemetry: TelemetryRuntimeConfigSchema.default({
     appInsightsConnectionString: '',
     sampleRate: 1,
+    webVitalsSampleRate: 0.1,
   }),
   session: SessionRuntimeConfigSchema.default({
     accessTokenLifetimeSeconds: 900,
