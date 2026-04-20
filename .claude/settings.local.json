@@ -88,7 +88,10 @@
       "Bash(dotnet publish *)",
       "Bash(cp \"K:/Angular/Practice/Enterprise.Platform/src/API/Enterprise.Platform.Api/appsettings.json\" \"/c/Users/hkgou/tmp/ep-api/\")",
       "Bash(cp \"K:/Angular/Practice/Enterprise.Platform/src/API/Enterprise.Platform.Api/appsettings.Development.json\" \"/c/Users/hkgou/tmp/ep-api/\")",
-      "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5099\" ./Enterprise.Platform.Api.exe)"
+      "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5099\" ./Enterprise.Platform.Api.exe)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5139\" dotnet run --project src/UI/Enterprise.Platform.Web.UI --no-build)",
+      "Bash(taskkill //F //IM \"Enterprise.Platform.Api.exe\")",
+      "Bash(taskkill //F //IM \"Enterprise.Platform.Web.UI.exe\")"
     ]
   }
 }

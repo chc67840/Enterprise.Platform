@@ -32,8 +32,8 @@ public sealed class AntiForgeryController(IAntiforgery antiforgery) : Controller
             tokens.RequestToken ?? string.Empty,
             new CookieOptions
             {
-                HttpOnly = false,          // readable by the SPA by design
-                Secure = true,
+                HttpOnly = false,                         // readable by the SPA by design
+                Secure = HttpContext.Request.IsHttps,     // degrade in dev / enforce in prod
                 SameSite = SameSiteMode.Strict,
                 Path = "/",
             });

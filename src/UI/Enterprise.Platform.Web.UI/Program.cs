@@ -40,12 +40,19 @@ try
     builder.Services.AddBffCors(builder.Configuration);
 
     // Anti-forgery: SPA expects the token via a readable cookie + echoes it in X-XSRF-TOKEN.
+    // SecurePolicy: Always in prod (HTTPS required) / SameAsRequest in dev so plain-HTTP
+    // `dotnet run` still works without a dev-cert dance. Same policy applied to the BFF
+    // session cookie inside AddBffAuthentication when D4 lifts.
+    var cookieSecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+
     builder.Services.AddAntiforgery(options =>
     {
         options.HeaderName = "X-XSRF-TOKEN";
         options.Cookie.Name = "__RequestVerificationToken";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Strict;
     });
 
