@@ -22,12 +22,24 @@ namespace Enterprise.Platform.Infrastructure.Persistence.EventShopper;
 /// <see cref="EventShopperDbContext"/>.
 /// </summary>
 /// <remarks>
-/// Phase-7 update: the four save-changes interceptors are now attached via
+/// Phase-7 update: the four save-changes interceptors are attached via
 /// <c>AddInterceptors</c>. EventShopperDb entities are raw DB-first POCOs that do
 /// not implement the audit / tenant / aggregate-root marker interfaces, so the
 /// interceptors no-op against them — but attaching them now means future entities
 /// that do implement the markers get the behavior for free, and the wiring stays
 /// symmetric with any future PlatformDb context.
+/// <para>
+/// <b>Phase-7-Stage-5 (Path-A) update:</b> the context is now registered via
+/// <see cref="EntityFrameworkServiceCollectionExtensions.AddDbContextPool{TContextService,TContextImplementation}(IServiceCollection,System.Action{DbContextOptionsBuilder},int)"/>.
+/// Pooling recycles <see cref="EventShopperDbContext"/> instances across requests,
+/// skipping the per-request allocation + metadata-compile cost. The interceptors
+/// attached here are safe to share across pooled slots because they hold no
+/// constructor-captured scoped services — every save re-resolves
+/// <see cref="IDateTimeProvider"/> / <see cref="ICurrentUserService"/> /
+/// <see cref="ICurrentTenantService"/> / <see cref="IDomainEventDispatcher"/> via
+/// <c>context.GetService&lt;T&gt;()</c>, so principal + tenant correctness tracks
+/// the live request rather than the pool slot's first activation.
+/// </para>
 /// </remarks>
 public static class EventShopperServiceCollectionExtensions
 {
@@ -38,8 +50,15 @@ public static class EventShopperServiceCollectionExtensions
     public const string ConnectionStringName = "EventShopperDb";
 
     /// <summary>
-    /// Registers <see cref="EventShopperDbContext"/>, the closed-over unit of work,
-    /// and the Mapster registry produced by DtoGen.
+    /// Default pool capacity. EF Core's built-in default is 1024; we stay with
+    /// that value here but surface it as a constant so the number is visible
+    /// alongside the registration (and can be overridden per host if needed).
+    /// </summary>
+    private const int DefaultPoolSize = 1024;
+
+    /// <summary>
+    /// Registers <see cref="EventShopperDbContext"/> (pooled), the closed-over
+    /// unit of work, and the Mapster registry produced by DtoGen.
     /// </summary>
     public static IServiceCollection AddEventShopperDb(
         this IServiceCollection services,
@@ -52,7 +71,7 @@ public static class EventShopperServiceCollectionExtensions
             ?? throw new InvalidOperationException(
                 $"Connection string '{ConnectionStringName}' is missing from configuration.");
 
-        services.AddDbContext<EventShopperDbContext>((sp, options) =>
+        services.AddDbContextPool<EventShopperDbContext>(options =>
         {
             options.UseSqlServer(connectionString, sql =>
             {
@@ -65,15 +84,16 @@ public static class EventShopperServiceCollectionExtensions
                 // that need retryable transactional units.
             });
 
-            // Phase-7 wiring: attach save-changes interceptors now that their
-            // dependencies (ICurrentUserService / ICurrentTenantService /
-            // IDomainEventDispatcher) are registered in AddInfrastructure.
+            // Pooled contexts share the same interceptor instance across requests.
+            // Safe because the interceptors now resolve scoped services at save-time
+            // (see each *Interceptor.cs remarks section) rather than capturing them
+            // in the ctor — so actor/tenant always reflect the live request.
             options.AddInterceptors(
-                sp.GetRequiredService<AuditableEntityInterceptor>(),
-                sp.GetRequiredService<SoftDeleteInterceptor>(),
-                sp.GetRequiredService<TenantQueryFilterInterceptor>(),
-                sp.GetRequiredService<DomainEventDispatchInterceptor>());
-        });
+                new AuditableEntityInterceptor(),
+                new SoftDeleteInterceptor(),
+                new TenantQueryFilterInterceptor(),
+                new DomainEventDispatchInterceptor());
+        }, poolSize: DefaultPoolSize);
 
         services.RegisterDbContext<EventShopperDbContext>(LogicalName, isDefault: true);
 

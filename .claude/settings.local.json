@@ -93,7 +93,12 @@
       "Bash(taskkill //F //IM \"Enterprise.Platform.Api.exe\")",
       "Bash(taskkill //F //IM \"Enterprise.Platform.Web.UI.exe\")",
       "Bash(taskkill //F //IM \"Enterprise.Platform.Worker.exe\")",
-      "Bash(sqlcmd -S localhost -E -d EventShopperDb -Q \"SELECT name FROM sys.tables WHERE name LIKE '%Outbox%' ORDER BY name\" -h -1)"
+      "Bash(sqlcmd -S localhost -E -d EventShopperDb -Q \"SELECT name FROM sys.tables WHERE name LIKE '%Outbox%' ORDER BY name\" -h -1)",
+      "Bash(command -v dotnet)",
+      "Bash(find tests *)",
+      "Bash(ls tests/)",
+      "Bash(xargs -I {} ls {})",
+      "Bash(find src *)"
     ]
   }
 }

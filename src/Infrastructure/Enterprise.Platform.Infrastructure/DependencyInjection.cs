@@ -14,7 +14,6 @@ using Enterprise.Platform.Infrastructure.Messaging.DomainEvents;
 using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
 using Enterprise.Platform.Infrastructure.MultiTenancy;
 using Enterprise.Platform.Infrastructure.Persistence;
-using Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 using Enterprise.Platform.Infrastructure.Resilience;
 using Enterprise.Platform.Infrastructure.Security.DataEncryption;
 using Microsoft.AspNetCore.Authorization;
@@ -63,8 +62,15 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
 
         // Identity services (claims-backed; defer TokenService / LoginProtectionService to PlatformDb).
-        services.AddScoped<ICurrentUserService, CurrentUserService>();
-        services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+        // Registered Singleton because both services hold no request-scoped state — every
+        // accessor reads live through IHttpContextAccessor (a singleton backed by AsyncLocal)
+        // and IOptionsMonitor. Singleton lifetime is required for pooled DbContexts: their
+        // `ApplicationServiceProvider` points at the root container (pool is a singleton), so
+        // resolving these via `context.GetService<T>()` from inside OnModelCreating / save-time
+        // interceptors would otherwise trip the scope validator with "Cannot resolve scoped
+        // service from root provider."
+        services.AddSingleton<ICurrentUserService, CurrentUserService>();
+        services.AddSingleton<ICurrentTenantService, CurrentTenantService>();
 
         // Claims-based authorization (RBAC + resource ownership).
         services.AddSingleton<IAuthorizationPolicyProvider, RbacPolicyProvider>();
@@ -118,11 +124,10 @@ public static class DependencyInjection
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 #pragma warning restore CA2263
 
-        // Save-changes interceptors — dependencies now resolvable, so they're safe to attach in AddEventShopperDb.
-        services.AddTransient<AuditableEntityInterceptor>();
-        services.AddTransient<SoftDeleteInterceptor>();
-        services.AddTransient<TenantQueryFilterInterceptor>();
-        services.AddTransient<DomainEventDispatchInterceptor>();
+        // Save-changes interceptors are attached directly in AddEventShopperDb using `new`
+        // instances. They hold no DI-resolvable deps (scoped services are resolved per-save
+        // via `context.GetService<T>()` inside each interceptor), which is what makes them
+        // safe to share across a pooled DbContext's slots.
 
         // Caching: Redis when Cache:Provider=Redis; InMemoryDistributedCache otherwise.
         // (Backend choice shares the `useRedis` flag computed above.)

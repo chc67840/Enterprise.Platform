@@ -42,12 +42,15 @@ public partial class EventShopperDbContext
                 .HasDatabaseName("IX_PlatformOutboxMessages_PublishedAt_NextAttemptAt");
         });
 
-        // The accessor reads the ambient `ICurrentTenantService` resolved from the
-        // scoped service provider at query-translation time. The null-propagation
-        // tolerates background jobs / startup scenarios where no HttpContext exists.
-        // `DbContext` implements `IInfrastructure<IServiceProvider>` explicitly;
-        // the EF `AccessorExtensions.GetService<T>` helper reaches into the scoped
-        // service provider so interceptors + filters share the request's current tenant.
+        // `ICurrentTenantService` is registered as Singleton (see DependencyInjection.cs)
+        // so this GetService call resolves from the root provider without tripping
+        // scope validation — a hard requirement under AddDbContextPool, because a
+        // pooled context's ApplicationServiceProvider IS the root container. The
+        // returned instance is stateless: its `.TenantId` getter delegates to
+        // IHttpContextAccessor (AsyncLocal) on every read, so the accessor delegate
+        // captured here always reports the live request's tenant at query-translation
+        // time. Null-propagation tolerates background jobs / startup scenarios where
+        // no HttpContext exists.
         var currentTenant = this.GetService<ICurrentTenantService>();
         modelBuilder.ApplyTenantAndSoftDeleteFilters(() => currentTenant?.TenantId);
     }

@@ -2,6 +2,8 @@ using Enterprise.Platform.Application.Common.Interfaces;
 using Enterprise.Platform.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 
@@ -12,9 +14,13 @@ namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 /// flipped. Pairs with a global query filter (configured per-entity) that hides
 /// <see cref="ISoftDeletable.IsDeleted"/>==<c>true</c> rows from normal reads.
 /// </summary>
-public sealed class SoftDeleteInterceptor(
-    IDateTimeProvider dateTime,
-    ICurrentUserService currentUser) : SaveChangesInterceptor
+/// <remarks>
+/// <b>Pool-safe.</b> <see cref="IDateTimeProvider"/> + <see cref="ICurrentUserService"/>
+/// are resolved via the context's scoped service provider at save-time, so the
+/// same interceptor attached to every slot of a pooled <c>DbContext</c> still
+/// stamps the *current* request's actor.
+/// </remarks>
+public sealed class SoftDeleteInterceptor : SaveChangesInterceptor
 {
     private const string SystemActor = "system";
 
@@ -23,6 +29,7 @@ public sealed class SoftDeleteInterceptor(
         DbContextEventData eventData,
         InterceptionResult<int> result)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         FlipDeletes(eventData.Context);
         return base.SavingChanges(eventData, result);
     }
@@ -33,16 +40,20 @@ public sealed class SoftDeleteInterceptor(
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         FlipDeletes(eventData.Context);
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private void FlipDeletes(DbContext? context)
+    private static void FlipDeletes(DbContext? context)
     {
         if (context is null)
         {
             return;
         }
+
+        var dateTime = context.GetService<IDateTimeProvider>();
+        var currentUser = context.GetService<ICurrentUserService>();
 
         var now = dateTime.UtcNow;
         var actor = currentUser.UserId?.ToString("D") ?? SystemActor;

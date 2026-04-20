@@ -3,6 +3,8 @@ using Enterprise.Platform.Domain.Events;
 using Enterprise.Platform.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 
@@ -13,8 +15,13 @@ namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 /// must be idempotent, and high-value fan-out should go through the outbox
 /// (Phase 7) instead of the in-process dispatcher.
 /// </summary>
-public sealed class DomainEventDispatchInterceptor(
-    IDomainEventDispatcher dispatcher) : SaveChangesInterceptor
+/// <remarks>
+/// <b>Pool-safe.</b> <see cref="IDomainEventDispatcher"/> is resolved per-save via
+/// the context's scoped service provider. The dispatcher is typically scoped so
+/// any handlers it fans out to see the active request's DI graph — capturing it
+/// in the ctor would pin the first request's scope for the pool slot's lifetime.
+/// </remarks>
+public sealed class DomainEventDispatchInterceptor : SaveChangesInterceptor
 {
     /// <inheritdoc />
     public override async ValueTask<int> SavedChangesAsync(
@@ -22,6 +29,7 @@ public sealed class DomainEventDispatchInterceptor(
         int result,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         await DispatchDomainEventsAsync(eventData.Context, cancellationToken).ConfigureAwait(false);
         return await base.SavedChangesAsync(eventData, result, cancellationToken).ConfigureAwait(false);
     }
@@ -29,6 +37,7 @@ public sealed class DomainEventDispatchInterceptor(
     /// <inheritdoc />
     public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         // Synchronous save path — run dispatch on the calling thread. Interceptors have no
         // sync alternative to DispatchAsync; using GetAwaiter().GetResult() would deadlock
         // in SynchronizationContext-bound hosts, so we unwrap from Task.Run off-thread.
@@ -36,7 +45,7 @@ public sealed class DomainEventDispatchInterceptor(
         return base.SavedChanges(eventData, result);
     }
 
-    private async Task DispatchDomainEventsAsync(DbContext? context, CancellationToken cancellationToken)
+    private static async Task DispatchDomainEventsAsync(DbContext? context, CancellationToken cancellationToken)
     {
         if (context is null)
         {
@@ -62,6 +71,7 @@ public sealed class DomainEventDispatchInterceptor(
             aggregate.ClearDomainEvents();
         }
 
+        var dispatcher = context.GetService<IDomainEventDispatcher>();
         await dispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
     }
 }

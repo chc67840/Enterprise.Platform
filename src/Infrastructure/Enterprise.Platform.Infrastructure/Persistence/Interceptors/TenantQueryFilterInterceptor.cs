@@ -2,6 +2,8 @@ using Enterprise.Platform.Domain.Exceptions;
 using Enterprise.Platform.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 
@@ -16,15 +18,21 @@ namespace Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 /// structure; it is strictly a write-side interceptor. Throws
 /// <see cref="TenantMismatchException"/> when an insert targets a different tenant
 /// than the request's resolved one.
+/// <para>
+/// <b>Pool-safe.</b> <see cref="ICurrentTenantService"/> is resolved from the
+/// context's scoped service provider on each save so tenant enforcement always
+/// reads the live request's tenant — crucial once pooled contexts recycle across
+/// tenants.
+/// </para>
 /// </remarks>
-public sealed class TenantQueryFilterInterceptor(
-    ICurrentTenantService currentTenant) : SaveChangesInterceptor
+public sealed class TenantQueryFilterInterceptor : SaveChangesInterceptor
 {
     /// <inheritdoc />
     public override InterceptionResult<int> SavingChanges(
         DbContextEventData eventData,
         InterceptionResult<int> result)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         StampTenant(eventData.Context);
         return base.SavingChanges(eventData, result);
     }
@@ -35,17 +43,19 @@ public sealed class TenantQueryFilterInterceptor(
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(eventData);
         StampTenant(eventData.Context);
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private void StampTenant(DbContext? context)
+    private static void StampTenant(DbContext? context)
     {
         if (context is null)
         {
             return;
         }
 
+        var currentTenant = context.GetService<ICurrentTenantService>();
         var resolved = currentTenant.TenantId;
 
         foreach (var entry in context.ChangeTracker.Entries<ITenantEntity>())
