@@ -9,11 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Serilog.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Enterprise.Platform.Application\Enterprise.Platform.Application.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Enterprise.Platform.Infrastructure\Enterprise.Platform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Contracts\Enterprise.Platform.Contracts\Enterprise.Platform.Contracts.csproj" />
     <ProjectReference Include="..\..\Contracts\Enterprise.Platform.Shared\Enterprise.Platform.Shared.csproj" />
   </ItemGroup>
 </Project>
