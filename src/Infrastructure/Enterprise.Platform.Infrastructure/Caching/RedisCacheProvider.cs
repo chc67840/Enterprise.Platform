@@ -4,19 +4,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Enterprise.Platform.Infrastructure.Caching;
 
 /// <summary>
-/// <b>Placeholder.</b> Composition helper for Redis-backed distributed caching. The
-/// canonical wiring is already committed to CPM (<c>Microsoft.Extensions.Caching.StackExchangeRedis</c>);
-/// the lines are commented so a no-Redis dev box still bootstraps. Uncomment the
-/// body + set <see cref="CacheSettings.RedisConnectionString"/> in configuration
-/// when Redis goes live.
+/// Composition helper for Redis-backed distributed caching via
+/// <c>Microsoft.Extensions.Caching.StackExchangeRedis</c>. Activates only when
+/// <see cref="CacheSettings.Provider"/> is <see cref="CacheProvider.Redis"/> and a
+/// connection string is populated; throws early otherwise so misconfiguration
+/// surfaces at startup.
 /// </summary>
 public static class RedisCacheProvider
 {
     /// <summary>
-    /// Registers a <c>StackExchange.Redis</c>-backed <c>IDistributedCache</c>. Throws if
-    /// <see cref="CacheSettings.RedisConnectionString"/> is not configured; opt in by
-    /// calling this method from a host's composition root only when Redis is
-    /// provisioned.
+    /// Registers a StackExchange.Redis-backed <c>IDistributedCache</c>. Called from
+    /// the Infrastructure DI root — no-op (returns services unchanged) when the
+    /// provider is not Redis so InMemory wiring continues to apply.
     /// </summary>
     public static IServiceCollection AddRedisDistributedCache(
         this IServiceCollection services,
@@ -25,18 +24,22 @@ public static class RedisCacheProvider
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(settings);
 
+        if (settings.Provider != CacheProvider.Redis)
+        {
+            return services;
+        }
+
         if (string.IsNullOrWhiteSpace(settings.RedisConnectionString))
         {
             throw new InvalidOperationException(
-                "CacheSettings.RedisConnectionString is not configured — populate before wiring Redis.");
+                "CacheSettings.Provider=Redis but CacheSettings.RedisConnectionString is not configured.");
         }
 
-        // Uncomment when the host is ready for Redis:
-        // services.AddStackExchangeRedisCache(options =>
-        // {
-        //     options.Configuration = settings.RedisConnectionString;
-        //     options.InstanceName = settings.KeyPrefix + ":";
-        // });
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = settings.RedisConnectionString;
+            options.InstanceName = settings.KeyPrefix + ":";
+        });
 
         return services;
     }

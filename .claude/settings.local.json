@@ -91,7 +91,9 @@
       "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5099\" ./Enterprise.Platform.Api.exe)",
       "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5139\" dotnet run --project src/UI/Enterprise.Platform.Web.UI --no-build)",
       "Bash(taskkill //F //IM \"Enterprise.Platform.Api.exe\")",
-      "Bash(taskkill //F //IM \"Enterprise.Platform.Web.UI.exe\")"
+      "Bash(taskkill //F //IM \"Enterprise.Platform.Web.UI.exe\")",
+      "Bash(taskkill //F //IM \"Enterprise.Platform.Worker.exe\")",
+      "Bash(sqlcmd -S localhost -E -d EventShopperDb -Q \"SELECT name FROM sys.tables WHERE name LIKE '%Outbox%' ORDER BY name\" -h -1)"
     ]
   }
 }

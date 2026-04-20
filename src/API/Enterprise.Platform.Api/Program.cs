@@ -1,5 +1,6 @@
 using Enterprise.Platform.Api.Extensions;
 using Enterprise.Platform.Contracts.Settings;
+using Enterprise.Platform.Infrastructure.Configuration;
 using Enterprise.Platform.Infrastructure.Observability;
 using Serilog;
 
@@ -15,11 +16,13 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    // Layered configuration sources.
+    // Layered configuration sources. Azure Key Vault is appended last (wins over
+    // appsettings + env vars) when `Azure:KeyVaultUri` is populated; no-op otherwise.
     builder.Configuration
         .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
         .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-        .AddEnvironmentVariables();
+        .AddEnvironmentVariables()
+        .AddPlatformKeyVaultIfConfigured();
 
     observability = builder.Configuration.GetSection(ObservabilitySettings.SectionName).Get<ObservabilitySettings>()
         ?? new ObservabilitySettings();

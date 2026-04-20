@@ -1,35 +1,98 @@
 using Enterprise.Platform.Infrastructure.BackgroundJobs;
+using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
+using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Enterprise.Platform.Worker.Jobs;
 
 /// <summary>
-/// <b>[–] Deferred with D4.</b> Drains <c>OutboxMessages</c> into the integration-event
-/// broker. Requires the PlatformDb <c>OutboxMessages</c> table — neither the table nor
-/// a real <see cref="Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents.IIntegrationEventPublisher"/>
-/// implementation exist yet, so registering this job would spin a loop that does
-/// nothing useful. Kept as a placeholder so the file structure matches the TODO and
-/// the activation is a one-registration-line change once PlatformDb is revisited.
+/// Drains <c>OutboxMessages</c> where <c>PublishedAt IS NULL</c> and either
+/// <c>NextAttemptAt IS NULL</c> or <c>NextAttemptAt &lt;= UtcNow</c>. Per message:
+/// invokes <see cref="IIntegrationEventBroker"/>, marks <c>PublishedAt</c> on
+/// success, or bumps <c>AttemptCount</c> + <c>LastError</c> + computes the next
+/// exponential-backoff <c>NextAttemptAt</c> on failure. Retires messages after
+/// <see cref="MaxAttempts"/> by leaving them poisoned (manual intervention).
 /// </summary>
-/// <remarks>
-/// Expected behavior on activation:
-/// <code>
-/// 1. Poll OutboxMessages where PublishedAt IS NULL, ORDER BY CreatedAt, TAKE batch.
-/// 2. For each: publish via IIntegrationEventPublisher (Azure Service Bus / RabbitMQ / ...)
-///    inside a transaction that also flips PublishedAt on success.
-/// 3. Respect exponential backoff per row; bump AttemptCount; surface poison rows after N fails.
-/// 4. Metric: ep.outbox.dispatched / ep.outbox.poisoned.
-/// </code>
-/// </remarks>
-public sealed class OutboxProcessorJob(ILogger<OutboxProcessorJob> logger) : BaseBackgroundJob(logger)
+public sealed class OutboxProcessorJob : BaseBackgroundJob
 {
-    /// <inheritdoc />
-    protected override TimeSpan Interval => TimeSpan.FromSeconds(30);
+    private const int BatchSize = 50;
+    private const int MaxAttempts = 10;
+
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    /// <summary>Initializes the job.</summary>
+    public OutboxProcessorJob(IServiceScopeFactory scopeFactory, ILogger<OutboxProcessorJob> logger)
+        : base(logger)
+    {
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+    }
 
     /// <inheritdoc />
-    protected override Task ExecuteCycleAsync(CancellationToken stoppingToken)
+    protected override TimeSpan Interval => TimeSpan.FromSeconds(5);
+
+    /// <inheritdoc />
+    protected override async Task ExecuteCycleAsync(CancellationToken stoppingToken)
     {
-        // Placeholder — activates when PlatformDb + OutboxMessages table land.
-        return Task.CompletedTask;
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<EventShopperDbContext>();
+        var broker = scope.ServiceProvider.GetRequiredService<IIntegrationEventBroker>();
+
+        var now = DateTime.UtcNow;
+        var batch = await context.PlatformOutbox
+            .Where(m => m.PublishedAt == null
+                && m.AttemptCount < MaxAttempts
+                && (m.NextAttemptAt == null || m.NextAttemptAt <= now))
+            .OrderBy(m => m.CreatedAt)
+            .Take(BatchSize)
+            .ToListAsync(stoppingToken)
+            .ConfigureAwait(false);
+
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var message in batch)
+        {
+            if (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            try
+            {
+                await broker.PublishAsync(message, stoppingToken).ConfigureAwait(false);
+                message.PublishedAt = DateTime.UtcNow;
+                message.LastError = null;
+                message.NextAttemptAt = null;
+                message.AttemptCount += 1;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                message.AttemptCount += 1;
+                message.LastError = ex.Message;
+                message.NextAttemptAt = DateTime.UtcNow.Add(ComputeBackoff(message.AttemptCount));
+#pragma warning disable CA1848
+                Logger.LogWarning(
+                    ex,
+                    "Outbox dispatch failed for {MessageId} ({EventType}); attempt {Attempt}/{Max}, next {NextAttemptAt}.",
+                    message.Id, message.EventType, message.AttemptCount, MaxAttempts, message.NextAttemptAt);
+#pragma warning restore CA1848
+            }
+        }
+
+        await context.SaveChangesAsync(stoppingToken).ConfigureAwait(false);
+    }
+
+    private static TimeSpan ComputeBackoff(int attempt)
+    {
+        // Exponential with jitter: base * 2^(attempt-1) ± 25%. Capped at 10 minutes.
+        var exponent = Math.Min(attempt, 10);
+        var seconds = Math.Pow(2, exponent - 1);
+        var jitter = Random.Shared.NextDouble() * 0.5 - 0.25; // ±25%
+        var final = Math.Min(seconds * (1 + jitter), 600);
+        return TimeSpan.FromSeconds(final);
     }
 }

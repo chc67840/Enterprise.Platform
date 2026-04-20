@@ -1,6 +1,7 @@
 using Enterprise.Platform.Application;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure;
+using Enterprise.Platform.Infrastructure.Configuration;
 using Enterprise.Platform.Infrastructure.Observability;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper;
 using Enterprise.Platform.Worker.Jobs;
@@ -21,7 +22,8 @@ try
     builder.Configuration
         .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
         .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-        .AddEnvironmentVariables();
+        .AddEnvironmentVariables()
+        .AddPlatformKeyVaultIfConfigured();
 
     observability = builder.Configuration.GetSection(ObservabilitySettings.SectionName).Get<ObservabilitySettings>()
         ?? new ObservabilitySettings();
@@ -40,11 +42,11 @@ try
 
     // Background jobs.
     //
-    // CacheWarmupJob is active. OutboxProcessorJob + AuditRetentionJob are
-    // placeholders until PlatformDb lands (per D4) — commented out intentionally
-    // so their no-op loops don't pretend to do work.
+    // CacheWarmupJob + OutboxProcessorJob active (OutboxProcessor drains the
+    // OutboxMessages table populated by OutboxIntegrationEventPublisher).
+    // AuditRetentionJob still deferred with D4 (PlatformDb AuditLogs table).
     builder.Services.AddHostedService<CacheWarmupJob>();
-    // builder.Services.AddHostedService<OutboxProcessorJob>();   // activate with PlatformDb
+    builder.Services.AddHostedService<OutboxProcessorJob>();
     // builder.Services.AddHostedService<AuditRetentionJob>();    // activate with PlatformDb
 
     var host = builder.Build();

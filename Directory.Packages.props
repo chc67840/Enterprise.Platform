@@ -76,6 +76,7 @@
     <!-- Data Protection (Azure Key Vault via modern Azure.Extensions package) -->
     <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.5.1" />
     <PackageVersion Include="Azure.Security.KeyVault.Keys" Version="4.7.0" />
+    <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
 
     <!-- Logging -->
     <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />

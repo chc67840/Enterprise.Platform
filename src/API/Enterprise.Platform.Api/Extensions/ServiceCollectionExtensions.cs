@@ -3,7 +3,9 @@ using Enterprise.Platform.Api.Filters;
 using Enterprise.Platform.Application;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure;
+using Enterprise.Platform.Infrastructure.Configuration.Validation;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper;
+using Microsoft.Extensions.Options;
 
 namespace Enterprise.Platform.Api.Extensions;
 
@@ -23,11 +25,21 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        // Bind settings sections consumed by Api helpers (Infrastructure binds the rest).
-        services.AddOptions<JwtSettings>().Bind(configuration.GetSection(JwtSettings.SectionName));
-        services.AddOptions<CorsSettings>().Bind(configuration.GetSection(CorsSettings.SectionName));
-        services.AddOptions<RateLimitSettings>().Bind(configuration.GetSection(RateLimitSettings.SectionName));
-        services.AddOptions<ObservabilitySettings>().Bind(configuration.GetSection(ObservabilitySettings.SectionName));
+        // Bind settings sections consumed by Api helpers with ValidateOnStart — the
+        // host fails to build if any Api-tier config is invalid. Infrastructure binds
+        // the rest with the same pattern.
+        services.AddValidatedOptions<JwtSettings>(configuration, JwtSettings.SectionName);
+        services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
+
+        services.AddValidatedOptions<CorsSettings>(configuration, CorsSettings.SectionName);
+        services.AddValidatedOptions<RateLimitSettings>(configuration, RateLimitSettings.SectionName);
+        services.AddValidatedOptions<ObservabilitySettings>(configuration, ObservabilitySettings.SectionName);
+
+        // Entra settings — AuthenticationSetup binds them too (different code path),
+        // but adding the cross-property validator here ensures startup fails fast when
+        // an `Enabled=true` config is incomplete.
+        services.AddSingleton<IValidateOptions<EntraIdSettings>, EntraIdSettingsValidator>();
+        services.AddSingleton<IValidateOptions<EntraIdB2CSettings>, EntraIdB2CSettingsValidator>();
 
         // Core tiers
         services.AddApplication(configuration);

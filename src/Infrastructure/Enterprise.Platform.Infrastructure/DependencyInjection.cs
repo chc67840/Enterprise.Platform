@@ -2,6 +2,7 @@ using Enterprise.Platform.Application.Abstractions.Persistence;
 using Enterprise.Platform.Application.Common.Interfaces;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Domain.Interfaces;
+using Enterprise.Platform.Infrastructure.Configuration.Validation;
 using Enterprise.Platform.Infrastructure.Caching;
 using Enterprise.Platform.Infrastructure.Common;
 using Enterprise.Platform.Infrastructure.Email;
@@ -20,6 +21,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Enterprise.Platform.Infrastructure;
 
@@ -43,12 +45,18 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        // Settings binding (bind here; consumers resolve via IOptions<T>).
-        services.AddOptions<DatabaseSettings>().Bind(configuration.GetSection(DatabaseSettings.SectionName));
-        services.AddOptions<MultiTenancySettings>().Bind(configuration.GetSection(MultiTenancySettings.SectionName));
-        services.AddOptions<AzureSettings>().Bind(configuration.GetSection(AzureSettings.SectionName));
-        services.AddOptions<CacheSettings>().Bind(configuration.GetSection(CacheSettings.SectionName));
-        services.AddOptions<SmtpSettings>().Bind(configuration.GetSection(SmtpSettings.SectionName));
+        // Settings binding with fail-fast validation (ValidateOnStart — the host aborts
+        // build if config is invalid, so bad deployments never serve a single request).
+        services.AddValidatedOptions<DatabaseSettings>(configuration, DatabaseSettings.SectionName);
+        services.AddSingleton<IValidateOptions<DatabaseSettings>, DatabaseSettingsValidator>();
+
+        services.AddValidatedOptions<MultiTenancySettings>(configuration, MultiTenancySettings.SectionName);
+        services.AddValidatedOptions<AzureSettings>(configuration, AzureSettings.SectionName);
+
+        services.AddValidatedOptions<CacheSettings>(configuration, CacheSettings.SectionName);
+        services.AddSingleton<IValidateOptions<CacheSettings>, CacheSettingsValidator>();
+
+        services.AddValidatedOptions<SmtpSettings>(configuration, SmtpSettings.SectionName);
 
         // Common services
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
@@ -69,14 +77,32 @@ public static class DependencyInjection
         // Domain-event dispatcher (in-process fan-out).
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
-        // Integration-event publisher placeholder until PlatformDb + outbox land.
-        services.AddSingleton<IIntegrationEventPublisher, NullIntegrationEventPublisher>();
+        // Integration events — outbox-backed publisher (persists with the caller's
+        // transaction) + pluggable broker adapter (console logger by default; swap in
+        // Azure Service Bus / RabbitMQ / Kafka when the real broker is provisioned).
+        // The outbox schema is ensured at startup by OutboxSchemaBootstrapper.
+        services.AddScoped<IIntegrationEventPublisher, OutboxIntegrationEventPublisher>();
+        services.AddSingleton<IIntegrationEventBroker, ConsoleIntegrationEventBroker>();
+        services.AddHostedService<Persistence.Outbox.OutboxSchemaBootstrapper>();
 
-        // Null / in-memory behaviour dependencies — Phase-4 behaviors resolve without PlatformDb.
-        // `InMemoryIdempotencyStore` gives real at-most-once semantics in dev + single-instance
-        // prod (H3 hardening); multi-instance deployments swap for a Redis-backed impl.
+        // Resolve cache settings once — drives both the distributed-cache backend
+        // choice (below) and the idempotency-store backend choice.
+        var cacheSettings = configuration.GetSection(CacheSettings.SectionName).Get<CacheSettings>() ?? new CacheSettings();
+        var useRedis = cacheSettings.Provider == CacheProvider.Redis
+            && !string.IsNullOrWhiteSpace(cacheSettings.RedisConnectionString);
+
+        // Null / in-memory / Redis behaviour dependencies — Phase-4 behaviors resolve
+        // without PlatformDb. Idempotency store follows Cache:Provider so multi-instance
+        // deployments automatically get cross-node atomic acquire semantics.
         services.AddScoped<IAuditWriter, NullAuditWriter>();
-        services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+        if (useRedis)
+        {
+            services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
+        }
+        else
+        {
+            services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+        }
 
         // Persistence core
         services.AddSingleton<DbContextRegistry>();
@@ -98,16 +124,34 @@ public static class DependencyInjection
         services.AddTransient<TenantQueryFilterInterceptor>();
         services.AddTransient<DomainEventDispatchInterceptor>();
 
-        // Caching: in-memory distributed cache by default. Hosts in prod swap to Redis
-        // via Caching.RedisCacheProvider.AddRedisDistributedCache(settings) from their composition root.
-        services.AddInMemoryDistributedCache();
+        // Caching: Redis when Cache:Provider=Redis; InMemoryDistributedCache otherwise.
+        // (Backend choice shares the `useRedis` flag computed above.)
+        if (useRedis)
+        {
+            services.AddRedisDistributedCache(cacheSettings);
+        }
+        else
+        {
+            services.AddInMemoryDistributedCache();
+        }
+
         services.AddScoped<CacheInvalidationService>();
 
         // Resilience: standard pipeline available under the "ep-standard" key.
         services.AddStandardResiliencePipeline();
 
-        // Security: dev key-management service. Prod hosts swap for a Key Vault-backed impl.
-        services.AddSingleton<IKeyManagementService, DevKeyManagementService>();
+        // Security: Azure Key Vault when configured, dev HKDF-derived keys otherwise.
+        // Selection is static (config-time) — rotation in prod invalidates the cache
+        // inside AzureKeyVaultKeyManagementService rather than re-registering.
+        var azureSettings = configuration.GetSection(AzureSettings.SectionName).Get<AzureSettings>();
+        if (!string.IsNullOrWhiteSpace(azureSettings?.KeyVaultUri))
+        {
+            services.AddSingleton<IKeyManagementService, AzureKeyVaultKeyManagementService>();
+        }
+        else
+        {
+            services.AddSingleton<IKeyManagementService, DevKeyManagementService>();
+        }
 
         // File storage / email / feature flags — stubs/defaults. Prod hosts override.
         services.AddSingleton<IFileStorageService>(sp =>
