@@ -1,7 +1,9 @@
+using Enterprise.Platform.Application.Features.EventShopper.Roles.Repositories;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Domain.Interfaces;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Mappings;
+using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Repositories;
 using Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 using Mapster;
 using MapsterMapper;
@@ -55,7 +57,12 @@ public static class EventShopperServiceCollectionExtensions
             options.UseSqlServer(connectionString, sql =>
             {
                 sql.MigrationsAssembly(typeof(EventShopperDbContext).Assembly.GetName().Name);
-                sql.EnableRetryOnFailure();
+                // NOTE: `EnableRetryOnFailure` is intentionally NOT set. The Phase-4
+                // TransactionBehavior opens user-initiated transactions which the
+                // SqlServerRetryingExecutionStrategy refuses to wrap. Retry lives at a
+                // higher level (Polly via ResiliencePipelineSetup) or via explicit
+                // `Database.CreateExecutionStrategy().ExecuteAsync(...)` in handlers
+                // that need retryable transactional units.
             });
 
             // Phase-7 wiring: attach save-changes interceptors now that their
@@ -82,6 +89,11 @@ public static class EventShopperServiceCollectionExtensions
         });
 
         services.TryAddScoped<IMapper, ServiceMapper>();
+
+        // Per-aggregate repositories — DB-first entities don't satisfy T : BaseEntity,
+        // so the Phase-5 open-generic IGenericRepository<T> isn't applicable here.
+        services.AddScoped<IRolesRepository, RolesRepository>();
+        // TODO (Phase 9+): add each scaffolded aggregate's repository registration.
 
         return services;
     }
