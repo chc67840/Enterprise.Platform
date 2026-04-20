@@ -105,7 +105,11 @@
       "Bash(grep -n \"OutboxProcessorJob\\\\|OutboxSchemaBootstrapper\" src/Batch/Enterprise.Platform.Worker/Program.cs)",
       "Bash(ls tests/Enterprise.Platform.Architecture.Tests/*.cs)",
       "Bash(find tests/Enterprise.Platform.Domain.Tests -name \"*.cs\" -not -path \"*/bin/*\" -not -path \"*/obj/*\")",
-      "Bash(find tests/Enterprise.Platform.Application.Tests/Behaviors -name \"*.cs\")"
+      "Bash(find tests/Enterprise.Platform.Application.Tests/Behaviors -name \"*.cs\")",
+      "Bash(find . -maxdepth 3 -name \"CLAUDE.md\" -not -path \"*/node_modules/*\")",
+      "Bash(ls .claude/)",
+      "Bash(cat README.md)",
+      "Bash(command *)"
     ]
   }
 }
