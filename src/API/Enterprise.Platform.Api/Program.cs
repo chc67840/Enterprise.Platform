@@ -1,16 +1,52 @@
-var builder = WebApplication.CreateBuilder(args);
+using Enterprise.Platform.Api.Extensions;
+using Enterprise.Platform.Contracts.Settings;
+using Enterprise.Platform.Infrastructure.Observability;
+using Serilog;
 
-// Service registration, middleware, and endpoint groups are configured by
-// ServiceCollectionExtensions / WebApplicationExtensions in later phases.
-builder.Services.AddOpenApi();
+// Bootstrap Serilog before the host builder so startup errors get captured.
+var observability = new ObservabilitySettings();
+var bootstrapLogger = StructuredLoggingSetup.BuildSerilogConfiguration(
+        new ConfigurationBuilder().AddEnvironmentVariables().Build(),
+        observability)
+    .CreateBootstrapLogger();
+Log.Logger = bootstrapLogger;
 
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
+try
 {
-    app.MapOpenApi();
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Layered configuration sources.
+    builder.Configuration
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables();
+
+    observability = builder.Configuration.GetSection(ObservabilitySettings.SectionName).Get<ObservabilitySettings>()
+        ?? new ObservabilitySettings();
+
+    builder.Host.UseSerilog((context, _, loggerConfig) =>
+    {
+        var config = StructuredLoggingSetup.BuildSerilogConfiguration(context.Configuration, observability);
+        loggerConfig.WriteTo.Logger(config.CreateLogger());
+    });
+
+    // Services
+    builder.Services.AddPlatformApi(builder.Configuration);
+    builder.Services.AddPlatformOpenTelemetry(observability);
+
+    // Pipeline
+    var app = builder.Build();
+    app.UsePlatformPipeline();
+
+    Log.Information("Enterprise.Platform API starting — environment={Environment}.", app.Environment.EnvironmentName);
+    await app.RunAsync().ConfigureAwait(false);
 }
-
-app.UseHttpsRedirection();
-
-app.Run();
+catch (Exception ex) when (ex is not HostAbortedException)
+{
+    Log.Fatal(ex, "Enterprise.Platform API terminated unexpectedly.");
+    throw;
+}
+finally
+{
+    await Log.CloseAndFlushAsync().ConfigureAwait(false);
+}

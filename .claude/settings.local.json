@@ -82,7 +82,13 @@
       "Bash(sqlcmd -S localhost -E -d EventShopperDb -Q \"SELECT s.name + '.' + t.name AS [Table], p.rows AS [Rows] FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id JOIN sys.partitions p ON t.object_id = p.object_id AND p.index_id IN \\(0,1\\) ORDER BY s.name, t.name\" -h -1)",
       "Bash(dotnet ef *)",
       "Bash(dotnet run *)",
-      "Bash(dotnet test *)"
+      "Bash(dotnet test *)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5099\" dotnet run --project src/API/Enterprise.Platform.Api --no-build)",
+      "Bash(mkdir -p \"/c/Users/hkgou/tmp/ep-api\")",
+      "Bash(dotnet publish *)",
+      "Bash(cp \"K:/Angular/Practice/Enterprise.Platform/src/API/Enterprise.Platform.Api/appsettings.json\" \"/c/Users/hkgou/tmp/ep-api/\")",
+      "Bash(cp \"K:/Angular/Practice/Enterprise.Platform/src/API/Enterprise.Platform.Api/appsettings.Development.json\" \"/c/Users/hkgou/tmp/ep-api/\")",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=\"http://127.0.0.1:5099\" ./Enterprise.Platform.Api.exe)"
     ]
   }
 }

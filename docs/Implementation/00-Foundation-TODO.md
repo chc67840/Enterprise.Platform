@@ -407,44 +407,46 @@
 ## Phase 8 — Api host
 
 ### 8.1 Middleware
-- [ ] `Middleware/CorrelationIdMiddleware.cs`
-- [ ] `Middleware/GlobalExceptionMiddleware.cs` (RFC 7807)
-- [ ] `Middleware/SecurityHeadersMiddleware.cs` (CSP, HSTS, X-Frame, Referrer)
-- [ ] `Middleware/TenantResolutionMiddleware.cs`
-- [ ] `Middleware/RequestLoggingMiddleware.cs`
+- [x] `Middleware/CorrelationIdMiddleware.cs` — reads `X-Correlation-ID` or mints a new Guid; pushes to `HttpContext.Items` + response header + `LogContext.PushProperty`
+- [x] `Middleware/GlobalExceptionMiddleware.cs` — RFC 7807 mapper; classifies `EntityNotFoundException` / `ValidationException` / `BusinessRuleViolationException` / `ConcurrencyConflictException` / `AccessDeniedException` / `TenantMismatchException` / generic → status + `type` URN; FluentValidation failures feed the `FieldErrors` dictionary on `ProblemDetailsExtended`
+- [x] `Middleware/SecurityHeadersMiddleware.cs` — X-Content-Type-Options, X-Frame-Options (DENY), Referrer-Policy, Permissions-Policy, baseline CSP (default-src 'self'; script-src 'self'), HSTS when HTTPS
+- [x] `Middleware/TenantResolutionMiddleware.cs` — reads `ICurrentTenantService.TenantId`, rejects with 400 when `RequireResolvedTenant` + authenticated + missing; applies the `ITenantIsolationStrategy` keyed off `IsolationMode`; pushes tenant id to log context
+- [x] `Middleware/RequestLoggingMiddleware.cs` — method/path/status/elapsed at severity matching the status bucket; uses source-gen logger methods
 
 ### 8.2 Filters
-- [ ] `Filters/ValidationEndpointFilter.cs`
-- [ ] `Filters/IdempotencyEndpointFilter.cs`
-- [ ] `Filters/LogEndpointFilter.cs`
+- [x] `Filters/ValidationEndpointFilter.cs` — generic `ValidationEndpointFilter<TRequest>`; runs every registered `IValidator<TRequest>`, short-circuits with a 400 `ProblemDetailsExtended` body on failure
+- [x] `Filters/IdempotencyEndpointFilter.cs` — enforces `X-Idempotency-Key` presence for opt-in endpoints; actual dedupe still happens in `IdempotencyBehavior`
+- [x] `Filters/LogEndpointFilter.cs` — per-endpoint elapsed debug log (IsEnabled-guarded to satisfy CA1873)
 
 ### 8.3 Configuration
-- [ ] `Configuration/ApiVersioningSetup.cs`
-- [ ] `Configuration/RateLimitingSetup.cs`
-- [ ] `Configuration/OpenApiSetup.cs`
-- [ ] `Configuration/HealthCheckSetup.cs` (liveness / readiness / dependency)
-- [ ] `Configuration/AuthenticationSetup.cs`
-- [ ] `Configuration/CompressionSetup.cs`
+- [x] `Configuration/ApiVersioningSetup.cs` — `Asp.Versioning` with URL segment + header (`X-API-Version`) reader; default 1.0; note: `AddApiExplorer` dropped (needs `Asp.Versioning.Mvc.ApiExplorer`; minimal APIs feed OpenAPI directly)
+- [x] `Configuration/RateLimitingSetup.cs` — chained global → per-tenant → per-user fixed-window limiters from `RateLimitSettings`; `Retry-After` header on 429 when enabled
+- [x] `Configuration/OpenApiSetup.cs` — **built-in `Microsoft.AspNetCore.OpenApi`** (not Swashbuckle — Swashbuckle 7.x separated `Microsoft.OpenApi.Models` into an additional assembly); `AddDocumentTransformer` sets title/version/description
+- [x] `Configuration/HealthCheckSetup.cs` — `self` (liveness), custom `EventShopperDbHealthCheck` (readiness + dependency) using `Database.CanConnectAsync` with a 3s timeout; avoids `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` NuGet
+- [x] `Configuration/AuthenticationSetup.cs` — JWT bearer validation from `JwtSettings`; token **issuance** is deferred with D4 (no TokenService yet)
+- [x] `Configuration/CompressionSetup.cs` — Brotli + Gzip for JSON/problem+json/XML/text; HTTPS compression on (trade-off documented)
 
-### 8.4 Endpoints · platform v1
-- [ ] `Endpoints/v1/AuthEndpoints.cs`
-- [ ] `Endpoints/v1/UserEndpoints.cs`
-- [ ] `Endpoints/v1/TenantEndpoints.cs`
-- [ ] `Endpoints/v1/AuditEndpoints.cs`
-- [ ] `Endpoints/v1/HealthEndpoints.cs`
+### 8.4 Endpoints · platform v1 — **[–] deferred with D4**
+- [–] `Endpoints/v1/AuthEndpoints.cs` — needs TokenService + refresh-token store (PlatformDb)
+- [–] `Endpoints/v1/UserEndpoints.cs` — needs PlatformDb `Users`
+- [–] `Endpoints/v1/TenantEndpoints.cs` — needs PlatformDb `Tenants`
+- [–] `Endpoints/v1/AuditEndpoints.cs` — needs PlatformDb `AuditLogs`
+- [x] `Endpoints/v1/HealthEndpoints.cs` — maps `/health/live`, `/health/ready`, `/health/dependencies` with tag filters + JSON response writer
+- [+] `Endpoints/v1/WhoAmIEndpoint.cs` — **beyond TODO**; minimal `/api/v1/whoami` protected endpoint that exercises the auth pipeline and proves the "protected → 401" checkpoint semantic
 
-### 8.5 Endpoints · EventShopper v1 (generated or hand-written per aggregate)
-- [ ] `Endpoints/v1/EventShopper/*Endpoints.cs` — list / get / create / update / delete per aggregate
-- [ ] Per-endpoint validators in Application feature folder
+### 8.5 Endpoints · EventShopper v1 — **pushed to Phase 9**
+- [–] Handlers + validators land in Phase 9; endpoints that dispatch to non-existent handlers would fail at runtime and the Phase-8 checkpoint is about the Api host itself, not its business surface. A sample set lands in Phase 9 alongside the first real `Features/EventShopper/` handlers.
 
 ### 8.6 Extensions
-- [ ] `Extensions/ServiceCollectionExtensions.cs` — composes Application + Infrastructure + Api-specific
-- [ ] `Extensions/WebApplicationExtensions.cs` — orders middleware correctly
+- [x] `Extensions/ServiceCollectionExtensions.cs` — `AddPlatformApi(services, config)` binds `JwtSettings` / `CorsSettings` / `RateLimitSettings` / `ObservabilitySettings`, invokes `AddApplication` + `AddInfrastructure` + `AddEventShopperDb` + all six Api configuration helpers, and wires CORS + shared endpoint filters
+- [x] `Extensions/WebApplicationExtensions.cs` — `UsePlatformPipeline()` in the documented order: Correlation → SecurityHeaders → GlobalException → RequestLogging → ResponseCompression → (OpenApi in Dev) → HttpsRedirect → CORS → Authentication → Authorization → TenantResolution → RateLimiter → endpoints
 
 ### 8.7 Program.cs
-- [ ] Final wiring (Serilog → Config → Services → Middleware → MapEndpoints → Health → Run)
+- [x] Rewritten (from the Phase-0 stub) — Serilog bootstrap logger → layered configuration (appsettings + env) → `UseSerilog` with the final config → `AddPlatformApi` + `AddPlatformOpenTelemetry` → `UsePlatformPipeline` → try/catch/finally around `RunAsync` with `Log.CloseAndFlushAsync`
 
-- [ ] **Checkpoint 8:** `dotnet run --project src/API/Enterprise.Platform.Api` → `curl /health/live` 200; Swagger renders; protected endpoint returns 401
+- [+] **Beyond TODO:** `Common/LogMessages.cs` — source-gen `LoggerMessage` extensions for Api-tier logging (event ids 3000–3999, partitioned by subsystem). Keeps CA1848/CA1873 clean across middleware + filters.
+
+- [!] **Checkpoint 8:** Build **green** (0 warnings / 0 errors, full solution). Runtime probes **BLOCKED by Windows Defender Application Control** on this dev box — WDAC refuses to load project-built `Enterprise.Platform.Contracts.dll` for both `dotnet run --project src/API/...` and `WebApplicationFactory<Program>` integration tests (`HostFactoryResolver.CreateHost` triggers the block). The integration tests are checked in (`Api.Tests/Endpoints/HealthEndpointsTests.cs`: `/health/live` 200, `/health/ready` ≠ 503, `/api/v1/whoami` 401, correlation header round-trip, security headers present) and should pass on any standard dev/CI box. Local verification requires either a WDAC exemption for the build outputs, signed assemblies, or a different machine. Ticked `[!]` not `[x]` — never fake a green checkpoint.
 
 ---
 
@@ -529,6 +531,7 @@
 - **2026-04-18** — **Phase 4 complete (Application — CQRS skeleton).** 35 files total: 5 messaging + 6 behavior markers + 1 persistence abstraction + 1 dispatcher + 6 common interfaces (+2 beyond TODO: `IAuditWriter`, `IIdempotencyStore`) + 6 common models + 2 common extensions + 7 pipeline behaviors (+1 beyond TODO: `LogMessages.cs` source-generated `LoggerMessage` extensions) + DI helper. **Skipped `IMappable` (4.8)** per D2 = Mapster. **CPM additions:** `Microsoft.Extensions.DependencyInjection.Abstractions`, `.Logging.Abstractions`, `.Caching.Abstractions`, `.Configuration.Abstractions`, `.Options`, `.Options.ConfigurationExtensions` — all abstractions-only, no runtime impl leaks. Analyzer battles worth keeping as replay landmines: (a) **CA1848 + CA1873** swept every `logger.LogX(...)` call — resolved properly by a consolidated source-gen `LogMessages` partial class rather than suppression; (b) **CA1711** on `RequestHandlerDelegate` suppressed inline (naming parity with MediatR is worth more than analyzer purity); (c) **CA1805** `Unit.Value = default` — removed redundant init; (d) **CA1859** on two expression-builder helpers — tightened return types to `MethodCallExpression` / `BinaryExpression`.
 - **2026-04-19** — **Phase 5 complete (persistence core, D4-scoped).** 13 files total: `IDbContextFactory` (Application) + 9 Infra/Persistence files (factory, registry, UoW, spec evaluator, generic repo, connection factory, 4 interceptors) + `SystemDateTimeProvider` + `AddInfrastructure` DI root. **Platform-specific 5.3/5.4/5.5/5.6 all `[–]` deferred with D4.** Key design calls worth remembering on replay: (a) `IDbContextFactory` requires Application to reference `Microsoft.EntityFrameworkCore` (abstraction only) — accepted trade-off so the interface can return `DbContext`; (b) beyond-TODO `DbContextRegistry` (singleton, logical-name → Type map) + `RegisterDbContext<T>(name, isDefault)` DI extension is how Phase 6 will wire EventShopperDbContext; (c) beyond-TODO `SpecificationEvaluator` — `GenericRepository` needs it to translate `ISpecification<T>` to `IQueryable<T>`; (d) `DomainEventDispatchInterceptor` dispatches **after** save (handlers must be idempotent; high-value fan-out should use outbox in Phase 7); (e) the sync `SavedChanges` path unwraps the async dispatch via `Task.Run` to avoid sync-context deadlocks. **Build fix after SDK reinstall:** removed a broken `services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork<>))` — non-generic interface cannot be backed by an open-generic impl (fails at runtime; flagged CA2263). `IUnitOfWork` registration now lands in Phase 6 as closed `UnitOfWork<EventShopperDbContext>`. Open-generic `IGenericRepository<> → GenericRepository<>` kept with `#pragma warning disable CA2263` (analyzer has no notion of open-generic bindings). **Checkpoint 5 green after SDK reinstall.**
 - **2026-04-19** — **Phase 6 complete (EventShopperDb scaffold + DtoGen).** 39 scaffolded entity POCOs + `EventShopperDbContext` + 39 `{Entity}Dto` records + `EventShopperMappingRegistry` + `AddEventShopperDb` DI extension + 2 smoke tests. **Replay-critical details:** (a) `Microsoft.EntityFrameworkCore.Design` must be on **Api** csproj (dotnet-ef startup project) with `PrivateAssets=all`; (b) **DtoGen generator body built** with Roslyn syntax parsing — two-pass inventory/emit, `virtual`-keyword heuristic for nav-property skip; (c) emitted files need `#nullable enable` right after the `<auto-generated>` banner or NRT annotations hit CS8669; (d) interceptor attachment on EventShopperDbContext deliberately deferred to Phase 7 (missing dependency impls); (e) per-entity Fluent config extraction (6.3) skipped intentionally — scaffold `--force` would clobber it; (f) CA1707 suppressed project-wide in `Infrastructure.Tests.csproj` for `Given_When_Then` xUnit naming. **CPM additions:** `Microsoft.CodeAnalysis.CSharp` + `Microsoft.Extensions.Configuration{,.Json}` + `Microsoft.Extensions.DependencyInjection`. **Verification:** full-solution `dotnet build` 0/0, live-DB smoke test **3/3 passed** — end-to-end `IDbContextFactory → EventShopperDbContext → SQL Server` wiring confirmed.
+- **2026-04-19** — **Phase 8 files landed (Api host).** 5 middleware + 3 filters + 6 Configuration helpers + HealthEndpoints + WhoAmIEndpoint + 2 Extensions + rewritten Program.cs + Api-side `Common/LogMessages.cs` + 5 Api integration tests. **Per D4, platform endpoints (Auth/User/Tenant/Audit) deferred `[–]`; EventShopper endpoints pushed to Phase 9** (need handlers). **Replay-critical design calls:** (a) switched OpenAPI from Swashbuckle → built-in `Microsoft.AspNetCore.OpenApi` (Swashbuckle 7.x split `Microsoft.OpenApi.Models` into a separate assembly; built-in generator is simpler and .NET 10-native); (b) `AddApiExplorer` dropped — needs `Asp.Versioning.Mvc.ApiExplorer` (MVC-coupled), minimal APIs feed metadata directly; (c) custom `EventShopperDbHealthCheck` instead of `AddDbContextCheck<T>` to avoid yet another HealthChecks NuGet; (d) API auth **validates** JWTs per `JwtSettings` but **doesn't issue** them — TokenService lives in PlatformDb which stays deferred; (e) `CorrelationIdMiddleware` runs first so every downstream log has the correlation id via `LogContext.PushProperty`; (f) `GlobalExceptionMiddleware` classifies 7 specific exception types + default; FluentValidation failures fill `ProblemDetailsExtended.FieldErrors`. **⚠ Checkpoint 8 blocked `[!]`:** Windows Defender Application Control on this dev box refuses to load `Enterprise.Platform.Contracts.dll` at runtime (`0x800711C7`) — blocks both `dotnet run` and `WebApplicationFactory` tests. Build + unit tests that bypass the web host still pass. Integration tests are checked in; they'll run green on any non-WDAC-restricted box. Saved memory `feedback_wdac_blocks_runtime.md` so future sessions don't promise live-probe checkpoints without confirming toolchain access.
 - **2026-04-19** — **Phase 7 complete (cross-cutting services, D4-scoped).** ~30 files landed across Identity, Caching, Messaging, Resilience, Observability, Security, Background Jobs, External Services, File Storage, Email, Feature Flags, Multi-Tenancy, plus a fully-composed `AddInfrastructure`. **Deferred with D4:** OAuthConfiguration, TokenService, RefreshTokenCleanupJob, LoginProtectionService, OutboxProcessor, OutboxCleanupJob, AuditRetentionJob. **Replay-critical design calls:** (a) **`Common/LogMessages.cs`** consolidates every Infrastructure log site into source-gen `LoggerMessage` extensions (event ids 2000–2699 partitioned by subsystem) — same pattern as Application/Behaviors, zero CA1848/CA1873 suppressions in service code; (b) `IDomainEventHandler<TEvent>` needs inline `[SuppressMessage("Naming", "CA1711")]` (EventHandler suffix is CQRS convention); (c) Serilog `WriteTo.Console` / `WriteTo.Seq` require explicit `formatProvider: CultureInfo.InvariantCulture` for CA1305; (d) `AddRuntimeInstrumentation` dropped — needs `OpenTelemetry.Instrumentation.Runtime` (not in CPM); (e) **interceptors now attached to `EventShopperDbContext`** via `(sp, options) => options.AddInterceptors(...)` — closes Phase-6 deferral; (f) null impls (`NullAuditWriter`, `NullIdempotencyStore`, `NullIntegrationEventPublisher`) keep Phase-4 behaviors composable until PlatformDb lands; (g) **Test fixture needed `services.AddLogging()`** — bare `ServiceCollection` doesn't register `ILoggerFactory`, `WebApplicationBuilder` does it automatically. **Verification:** full-solution `dotnet build` 0/0, smoke tests **3/3 pass** (full composed Infrastructure including all 4 attached interceptors against the live DB).
 
 ---

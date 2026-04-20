@@ -8,6 +8,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="FluentValidation" />
     <!-- Required by dotnet-ef tooling when Api is the startup project for scaffold / migrations.
          PrivateAssets=all keeps it out of the runtime binary and out of transitive flow. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
