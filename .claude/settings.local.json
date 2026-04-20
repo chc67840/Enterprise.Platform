@@ -98,7 +98,14 @@
       "Bash(find tests *)",
       "Bash(ls tests/)",
       "Bash(xargs -I {} ls {})",
-      "Bash(find src *)"
+      "Bash(find src *)",
+      "Bash(ls src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/Outbox/)",
+      "Bash(ls src/Infrastructure/Enterprise.Platform.Infrastructure/Messaging/IntegrationEvents/)",
+      "Bash(ls src/Batch/Enterprise.Platform.Worker/Jobs/)",
+      "Bash(grep -n \"OutboxProcessorJob\\\\|OutboxSchemaBootstrapper\" src/Batch/Enterprise.Platform.Worker/Program.cs)",
+      "Bash(ls tests/Enterprise.Platform.Architecture.Tests/*.cs)",
+      "Bash(find tests/Enterprise.Platform.Domain.Tests -name \"*.cs\" -not -path \"*/bin/*\" -not -path \"*/obj/*\")",
+      "Bash(find tests/Enterprise.Platform.Application.Tests/Behaviors -name \"*.cs\")"
     ]
   }
 }

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using Enterprise.Platform.Contracts.Settings;
+using Enterprise.Platform.Infrastructure.Configuration.Validation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
@@ -61,8 +62,13 @@ public static class AuthenticationSetup
         var entraEnabled = entraSettings.Enabled && !string.IsNullOrWhiteSpace(entraSettings.ClientId);
         var b2cEnabled = b2cSettings.Enabled && !string.IsNullOrWhiteSpace(b2cSettings.ClientId);
 
-        services.AddOptions<EntraIdSettings>().Bind(configuration.GetSection(EntraIdSettings.SectionName));
-        services.AddOptions<EntraIdB2CSettings>().Bind(configuration.GetSection(EntraIdB2CSettings.SectionName));
+        // ValidateOnStart — without it the `IValidateOptions<EntraIdSettings>` +
+        // `IValidateOptions<EntraIdB2CSettings>` cross-property validators registered
+        // in ServiceCollectionExtensions.cs would fire lazily on first IOptions
+        // resolution (and nothing in the app resolves these), silently accepting bad
+        // config. Routing through AddValidatedOptions forces validation at host build.
+        services.AddValidatedOptions<EntraIdSettings>(configuration, EntraIdSettings.SectionName);
+        services.AddValidatedOptions<EntraIdB2CSettings>(configuration, EntraIdB2CSettings.SectionName);
 
         var authBuilder = services.AddAuthentication(options =>
         {
