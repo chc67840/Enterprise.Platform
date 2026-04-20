@@ -7,18 +7,32 @@
  *   PrimeNG, MSAL, app initializers. Other files should import from here
  *   only — never re-compose providers elsewhere.
  *
- * PHASE 1 WIRING (this file)
+ * CURRENT WIRING
  *   - Zoneless change detection
  *   - Router with component-input-binding + view-transitions + reload-on-same-url
- *   - HttpClient with functional interceptor chain (MsalInterceptor class + six functional)
+ *   - HttpClient with functional interceptor chain (MsalInterceptor class + seven functional)
  *   - PrimeNG with Aura preset + MessageService/ConfirmationService
- *   - MSAL providers + `provideAppInitializer` for `initialize()` + `handleRedirectPromise()`
+ *   - MSAL providers (factories read from RUNTIME_CONFIG → Phase 2.1)
+ *   - Runtime-config loader (Phase 2.1) — MUST run before MSAL init
+ *   - MSAL init (`provideAppInitializer`) — runs AFTER runtime config so
+ *     the `PublicClientApplication` factory sees deployment-scoped IDs
  *   - LOCALE_ID
  *
  * PHASE 2+ EXTENSIONS (coming)
- *   - Phase 2.1: runtime config loader (`provideAppInitializer(loadRuntimeConfig)`)
+ *   - Phase 2.2: CSP violation reporter wired via provideAppInitializer
  *   - Phase 3.1: telemetry init (`provideAppInitializer(initTelemetry)`)
  *   - Phase 3.2: global `ErrorHandler`
+ *
+ * INITIALIZER ORDER (critical)
+ *   `provideAppInitializer(...)` factories run sequentially in registration
+ *   order. Current order:
+ *     1. loadRuntimeConfig  — populates RUNTIME_CONFIG holder from /config.json
+ *     2. MSAL init           — injects MsalService → resolves MSAL_INSTANCE →
+ *                              msalInstanceFactory() reads RUNTIME_CONFIG (now populated)
+ *
+ *   Any future initializer that depends on MSAL (e.g. telemetry user context)
+ *   registers AFTER the MSAL initializer; anything that reads runtime config
+ *   but not MSAL can register anywhere after #1.
  *
  * MODERN APIs
  *   - `provideAppInitializer(() => { ... })` REPLACES the deprecated
@@ -67,9 +81,12 @@ import { routes } from '../app.routes';
 import {
   msalGuardConfig,
   msalInstanceFactory,
-  msalInterceptorConfig,
+  msalInterceptorConfigFactory,
 } from './msal.config';
 import { primeNgConfig } from './primeng.config';
+import { loadRuntimeConfig } from './runtime-config';
+import { LoggerService } from '@core/services/logger.service';
+import { CspViolationReporterService } from '@core/services/csp-violation-reporter.service';
 
 import {
   correlationInterceptor,
@@ -173,22 +190,51 @@ export const appConfig: ApplicationConfig = {
 
     // ── 7. MSAL ─────────────────────────────────────────────────────────
     /*
-     * Three DI tokens configure MSAL:
-     *   - MSAL_INSTANCE       — the PublicClientApplication
-     *   - MSAL_GUARD_CONFIG   — guard-layer defaults
-     *   - MSAL_INTERCEPTOR_CONFIG — protected-resource map for auto-token-attach
+     * Three DI tokens configure MSAL — all three read from RUNTIME_CONFIG so
+     * the deployment can change tenants without a rebuild (Phase 2.1):
+     *   - MSAL_INSTANCE          — the PublicClientApplication (factory)
+     *   - MSAL_GUARD_CONFIG      — guard-layer defaults (static)
+     *   - MSAL_INTERCEPTOR_CONFIG — protected-resource map (factory)
      *
      * Plus three services (`MsalService`, `MsalGuard`, `MsalBroadcastService`)
      * that our `AuthService` wraps. Components never inject these directly.
      */
     { provide: MSAL_INSTANCE, useFactory: msalInstanceFactory },
     { provide: MSAL_GUARD_CONFIG, useValue: msalGuardConfig },
-    { provide: MSAL_INTERCEPTOR_CONFIG, useValue: msalInterceptorConfig },
+    { provide: MSAL_INTERCEPTOR_CONFIG, useFactory: msalInterceptorConfigFactory },
     MsalService,
     MsalGuard,
     MsalBroadcastService,
 
-    // ── 8. APP INITIALIZER — MSAL init + redirect handling ──────────────
+    // ── 8. APP INITIALIZER — runtime config (Phase 2.1) ─────────────────
+    /*
+     * Fetches `/config.json` BEFORE Angular bootstraps. Populates the
+     * `RUNTIME_CONFIG` holder that MSAL_INSTANCE / MSAL_INTERCEPTOR_CONFIG
+     * / API_BASE_URL read from.
+     *
+     * This MUST run before the MSAL initializer below; otherwise the MSAL
+     * factories see the build-time fallbacks which point at empty client IDs
+     * in prod and the login redirect immediately fails with "invalid client".
+     *
+     * Outcome is logged (logger has no DI dependencies, safe to use here).
+     */
+    provideAppInitializer(async () => {
+      const logger = inject(LoggerService);
+      const outcome = await loadRuntimeConfig({
+        onOutcome: (o) => {
+          if (o === 'fetched') {
+            logger.info('runtime-config.loaded');
+          } else {
+            logger.warn('runtime-config.fallback', {
+              reason: 'network-or-404 — using environment.ts defaults',
+            });
+          }
+        },
+      });
+      return outcome;
+    }),
+
+    // ── 9. APP INITIALIZER — MSAL init + redirect handling ──────────────
     /*
      * Runs BEFORE Angular bootstraps. This guarantees:
      *   1. PublicClientApplication.initialize() has completed (crypto / PKCE
@@ -213,7 +259,21 @@ export const appConfig: ApplicationConfig = {
       }
     }),
 
-    // ── 9. Locale ────────────────────────────────────────────────────────
+    // ── 10. APP INITIALIZER — CSP violation reporter (Phase 2.2) ────────
+    /*
+     * Registers a `securitypolicyviolation` DOM-event listener so any CSP
+     * block hits our structured log (and Phase-3 telemetry). Purely
+     * observational — does not modify the policy itself.
+     *
+     * Order-agnostic relative to MSAL init; placed after it so MSAL-related
+     * violations surface with the correlation id populated by the first
+     * outbound request.
+     */
+    provideAppInitializer(() => {
+      inject(CspViolationReporterService).register();
+    }),
+
+    // ── 11. Locale ───────────────────────────────────────────────────────
     /*
      * Default locale drives DatePipe / CurrencyPipe / DecimalPipe formatting.
      * Becomes signal-driven via `LocaleStore` in Phase 8.

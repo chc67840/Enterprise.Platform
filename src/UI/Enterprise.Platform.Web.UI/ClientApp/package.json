@@ -22,6 +22,7 @@
     "format": "prettier --write \"src/**/*.{ts,html,css,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css,json,md}\"",
     "analyze": "ng build --configuration production --stats-json && source-map-explorer dist/enterprise-platform-client/browser/*.js",
+    "secrets:check": "secretlint --secretlintignore .secretlintignore --maskSecrets \"src/**/*\" \"public/**/*\" \"*.{json,js,md}\"",
     "prepare": "husky"
   },
   "dependencies": {
@@ -59,6 +60,7 @@
     "@commitlint/config-conventional": "^19.8.1",
     "@eslint/js": "^10.0.1",
     "@microsoft/microsoft-graph-types": "^2.43.1",
+    "@secretlint/secretlint-rule-preset-recommend": "^12.1.0",
     "@tailwindcss/postcss": "^4.2.1",
     "@tailwindcss/vite": "^4.2.1",
     "eslint": "^9.39.4",
@@ -71,6 +73,7 @@
     "jsdom": "^28.0.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
+    "secretlint": "^12.1.0",
     "source-map-explorer": "^2.5.3",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.2",

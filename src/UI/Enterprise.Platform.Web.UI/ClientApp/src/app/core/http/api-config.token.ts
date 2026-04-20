@@ -6,24 +6,26 @@
  *
  *     1. **Swappability** — tests can override the URL via a single DI provider:
  *          `providers: [{ provide: API_BASE_URL, useValue: 'http://mock' }]`
- *        No `environment.ts` shimming, no `jest.mock(...)`.
+ *        No `environment.ts` shimming, no `vi.mock(...)`.
  *
- *     2. **Runtime override** — once the Phase 2.1 runtime-config loader lands,
- *        the token's factory can pull from `RUNTIME_CONFIG.apiBaseUrl` instead
- *        of the build-time environment. Flipping API endpoints at deploy-time
- *        without a rebuild.
+ *     2. **Runtime override** — the factory pulls from `RUNTIME_CONFIG`
+ *        (Phase 2.1) so the deployment can point at any backend without a
+ *        rebuild. `environment.apiBaseUrl` remains as the offline-dev fallback
+ *        and is consumed by the runtime-config loader's `buildFallbackConfig`.
  *
  * HOW IT'S USED
  *   ```ts
  *   protected readonly baseUrl = inject(API_BASE_URL);
  *   ```
  *
- *   The default factory below returns the build-time `environment.apiBaseUrl`
- *   — `app.config.ts` overrides with `{ provide: API_BASE_URL, useValue: ... }`
- *   in later phases to source from runtime config.
+ * WHY A TOKEN OVER A DIRECT `inject(RUNTIME_CONFIG)` CALL
+ *   Callers that only need the base URL don't have to know about the broader
+ *   runtime-config shape. Keeps the dependency surface minimal and means the
+ *   token stays stable even if the runtime-config structure evolves.
  */
-import { InjectionToken } from '@angular/core';
-import { environment } from '@env/environment';
+import { InjectionToken, inject } from '@angular/core';
+
+import { RUNTIME_CONFIG } from '@config/runtime-config';
 
 /**
  * Injection token for the API base URL. Example:
@@ -34,5 +36,5 @@ import { environment } from '@env/environment';
  */
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL', {
   providedIn: 'root',
-  factory: () => environment.apiBaseUrl,
+  factory: () => inject(RUNTIME_CONFIG).apiBaseUrl,
 });

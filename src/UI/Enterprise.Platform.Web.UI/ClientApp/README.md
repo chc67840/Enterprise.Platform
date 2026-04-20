@@ -78,9 +78,39 @@ ClientApp/
 
 ### Runtime config
 
-`public/config.json` is read at boot and merged over build-time `environment.ts`.
-Never commit secrets — MSAL `clientId` is a public identifier; anything with
-entropy belongs in deployment configuration, not the repo.
+`public/config.json` is read at boot via `loadRuntimeConfig()` (see
+`src/app/config/runtime-config.ts`). Each deployment overwrites the file at
+release time; the SPA uses `environment.ts` as an offline-dev fallback only.
+
+### Secrets policy (Phase 2.5)
+
+**`public/config.json` must never contain secrets.** The file is served as a
+plain static asset; every byte is public. Specifically:
+
+- `msal.clientId` is a public identifier by OAuth 2.0 design — it is safe to
+  commit.
+- `msal.tenantId` is a public identifier — it is safe to commit.
+- Anything with entropy (API keys, signing material, DSNs that embed a
+  secret, connection strings) belongs in pipeline variables or Key Vault, and
+  is injected into `config.json` at deploy time (or served server-side by the
+  BFF in Phase 9).
+
+The repo enforces this via two complementary scanners that run on every
+commit through `lint-staged` + `.husky/pre-commit`:
+
+| Scanner | Scope | Wired in |
+|---|---|---|
+| `eslint-plugin-no-secrets` | TS / HTML files; entropy-based (`tolerance: 4.5`) | Phase 1.6 |
+| `secretlint` + `preset-recommend` | Every staged file; format-specific detectors (AWS, GCP, GitHub, Slack, Stripe, OpenAI, Anthropic, RSA PEM, etc.) | Phase 2.5 |
+
+Run the full secrets sweep locally any time with:
+
+```bash
+npm run secrets:check
+```
+
+Report a false positive via the `.secretlintignore` file rather than adjusting
+the rule tolerance.
 
 ---
 

@@ -116,7 +116,13 @@
       "Bash(cat src/index.html)",
       "Bash(head -20 src/styles.css)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx vitest *)",
+      "Bash(npx secretlint *)",
+      "Bash(echo \"aws_access_key_id = AKIAIOSFODNN7EXAMPLE\")",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(rm fake-secret-test.txt)",
+      "Bash(cat)"
     ]
   }
 }

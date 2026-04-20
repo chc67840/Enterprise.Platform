@@ -36,8 +36,10 @@
  *   - No RxJS here — logging is fire-and-forget. Keeping it synchronous means
  *     the call site never has to await.
  */
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { environment } from '@env/environment';
+
+import { CorrelationContextService } from './correlation-context.service';
 
 /** Severity levels matching most telemetry SDKs' conventions. */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -111,6 +113,13 @@ const PII_PATTERNS: Array<{ readonly regex: RegExp; readonly replacement: string
 export class LoggerService {
   /** Is structured logging enabled at all? Prod builds set this to `false`. */
   private readonly enabled = environment.features.enableLogging;
+
+  /**
+   * Lazily-injected correlation context — `inject()` is legal here because
+   * this class is DI-constructed. Kept private; callers never reach for the
+   * context directly from logger call sites.
+   */
+  private readonly correlationContext = inject(CorrelationContextService);
 
   /** Debug — noisy diagnostics. Dropped in prod regardless of level setting. */
   debug(message: string, context?: unknown): void {
@@ -196,10 +205,15 @@ export class LoggerService {
    * means every call site goes through `debug/info/warn/error` + scrub.
    */
   private write(level: LogLevel, message: string, context?: unknown): void {
+    // Phase 2.3 — stamp the ambient correlation id so logs emitted during an
+    // HTTP request can be pivoted alongside the backend record for the same id.
+    // `null` is dropped from the payload so offline / pre-request logs stay tidy.
+    const correlationId = this.correlationContext.active();
     const payload = {
       ts: new Date().toISOString(),
       level,
       message,
+      correlationId: correlationId ?? undefined,
       context: context !== undefined ? this.scrub(context) : undefined,
     };
 

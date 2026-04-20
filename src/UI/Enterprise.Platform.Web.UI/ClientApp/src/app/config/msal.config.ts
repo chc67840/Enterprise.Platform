@@ -15,19 +15,23 @@
  *        URL prefix, the scopes required. `MsalInterceptor` reads this,
  *        acquires tokens silently, and attaches Bearer headers automatically.
  *
- * CREDENTIAL SOURCING
- *   Phase 1 reads IDs from `environment.msal` (build-time). Phase 2.1 swaps
- *   this to read from `RUNTIME_CONFIG` so the deployment can change tenants
- *   without a rebuild. Either way, **no secrets here** — MSAL `clientId` is
- *   a public identifier.
+ * CREDENTIAL SOURCING (Phase 2.1)
+ *   All three read from `RUNTIME_CONFIG` so the deployment can change tenants
+ *   / API URLs without a rebuild. These factories are invoked as DI
+ *   `useFactory`s which run inside an injection context, so `inject()` calls
+ *   resolve correctly — but they run LAZY on first consumer resolution, which
+ *   happens INSIDE the MSAL `provideAppInitializer`. Registration order in
+ *   `app.config.ts` therefore matters: the runtime-config initializer must
+ *   run BEFORE the MSAL initializer, which is how we wire it.
  *
  * AUTHORITY TYPES
  *   The default authority `https://login.microsoftonline.com/{tenantId}` is
  *   for Entra B2B (organizational accounts). For B2C, use the policy-specific
  *   URL (`https://<b2cTenant>.b2clogin.com/<b2cTenant>.onmicrosoft.com/<policy>/`).
  *   Multi-mode support (both B2B + B2C) would add a second instance + a guard-
- *   level policy scheme selector; out of scope for Phase 1.
+ *   level policy scheme selector; out of scope for Phase 2.
  */
+import { inject } from '@angular/core';
 import {
   InteractionType,
   type Configuration,
@@ -41,29 +45,33 @@ import type {
 
 import { environment } from '@env/environment';
 
+import { RUNTIME_CONFIG } from './runtime-config';
+
 /**
- * PublicClientApplication factory.
+ * PublicClientApplication factory. Reads MSAL identifiers from
+ * `RUNTIME_CONFIG`, falling back to `environment.msal.redirectUri` when the
+ * runtime config does not override it (common in dev where `window.origin`
+ * is the implicit default).
  *
- * Returns a single instance the whole app shares (MSAL holds its own
- * singleton cache internally, but supplying the same reference is cleaner).
- * Called by the DI token `MSAL_INSTANCE`.
+ * Registered via `useFactory` in `app.config.ts` so `inject()` works inside.
  */
 export function msalInstanceFactory(): PublicClientApplication {
+  const rc = inject(RUNTIME_CONFIG);
+  const redirectUri = rc.msal.redirectUri || environment.msal.redirectUri;
+  const postLogoutRedirectUri = rc.msal.postLogoutRedirectUri || '/auth/login';
+
   const config: Configuration = {
     auth: {
       /** Azure AD application (client) id. Public identifier. */
-      clientId: environment.msal.clientId,
+      clientId: rc.msal.clientId,
       /** Tenant id scopes the authority. Use `'common'` to accept any tenant. */
-      authority: environment.msal.tenantId
-        ? `https://login.microsoftonline.com/${environment.msal.tenantId}`
+      authority: rc.msal.tenantId
+        ? `https://login.microsoftonline.com/${rc.msal.tenantId}`
         : 'https://login.microsoftonline.com/common',
       /** Redirect URI registered in the App Registration. Must be an exact match. */
-      redirectUri: environment.msal.redirectUri,
-      /**
-       * Where to land after sign-out. `/auth/login` keeps the UX simple —
-       * the auth guard won't retrigger since this is a public route.
-       */
-      postLogoutRedirectUri: '/auth/login',
+      redirectUri,
+      /** Where to land after sign-out. `/auth/login` is a public route (no guard). */
+      postLogoutRedirectUri,
     },
     cache: {
       /**
@@ -100,8 +108,8 @@ export function msalInstanceFactory(): PublicClientApplication {
 }
 
 /**
- * MsalGuard configuration. Even though we don't use `MsalGuard` directly,
- * the token must be provided or MSAL's module throws.
+ * MsalGuard configuration. Static shape — interaction type and scopes never
+ * vary per deployment, so this stays a plain constant.
  */
 export const msalGuardConfig: MsalGuardConfiguration = {
   interactionType: InteractionType.Redirect,
@@ -112,20 +120,23 @@ export const msalGuardConfig: MsalGuardConfiguration = {
 };
 
 /**
- * Interceptor configuration — which URLs get Bearer tokens, and with what
- * scopes.
+ * Interceptor-configuration factory. Reads the API base URL + scope from
+ * runtime config so the deployed `MsalInterceptor` attaches bearer tokens to
+ * the correct endpoint per environment.
  *
  *   - MS Graph endpoints need `User.Read` for the signed-in user's profile.
- *   - The platform API uses the scope from `environment.msal.apiScope`.
+ *   - The platform API scope is pulled from `rc.msal.apiScope`.
  *
- * `null` in the scopes array tells MSAL not to attach a token for that URL.
- * We don't use that today — if a call should skip MSAL, it uses a different
- * base URL (external CDN etc.) that isn't in this map.
+ * Using a factory (not a constant) is required for the runtime-config lookup.
+ * Registered via `useFactory` in `app.config.ts`.
  */
-export const msalInterceptorConfig: MsalInterceptorConfiguration = {
-  interactionType: InteractionType.Redirect,
-  protectedResourceMap: new Map<string, string[]>([
-    ['https://graph.microsoft.com/v1.0/', ['User.Read']],
-    [environment.apiBaseUrl, environment.msal.apiScope ? [environment.msal.apiScope] : []],
-  ]),
-};
+export function msalInterceptorConfigFactory(): MsalInterceptorConfiguration {
+  const rc = inject(RUNTIME_CONFIG);
+  return {
+    interactionType: InteractionType.Redirect,
+    protectedResourceMap: new Map<string, string[]>([
+      ['https://graph.microsoft.com/v1.0/', ['User.Read']],
+      [rc.apiBaseUrl, rc.msal.apiScope ? [rc.msal.apiScope] : []],
+    ]),
+  };
+}

@@ -1,9 +1,6 @@
 {
-  "*.{ts,html}": [
-    "prettier --write",
-    "eslint --fix --max-warnings=0"
-  ],
-  "*.{css,json,md,yml,yaml}": [
-    "prettier --write"
-  ]
+  "$comment": "Staged-file tasks. Secretlint runs on EVERY staged file (regardless of extension) as the last line of defence against leaked keys / tokens; ESLint's entropy-based no-secrets rule catches the TS/HTML-specific shape.",
+  "*": ["secretlint --secretlintignore .secretlintignore --maskSecrets"],
+  "*.{ts,html}": ["prettier --write", "eslint --fix --max-warnings=0"],
+  "*.{css,json,md,yml,yaml}": ["prettier --write"]
 }

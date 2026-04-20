@@ -25,19 +25,31 @@
  *   `<p-toast position="top-right">` — top-right is industry standard for
  *   transient notifications. `preventOpenDuplicates="true"` avoids stacking
  *   identical messages (e.g. when a flaky network produces repeat 5xx retries).
+ *
+ * SESSION-EXPIRING DIALOG (Phase 2.4)
+ *   Rendered via `@defer (when session.expiringSoon())` so `primeng/dialog`
+ *   + `primeng/button` stay OUT of the initial bundle. The chunk loads on
+ *   first trigger of the warning window — a non-hot path, so the ~160 kB
+ *   deferred cost is paid exactly once per authenticated session and never
+ *   in prod builds where the user acts on the dialog before expiry.
  */
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
-import { AuthService } from '@core/auth/auth.service';
+import { AuthService, SessionMonitorService } from '@core/auth';
+import { SessionExpiringDialogComponent } from '@shared/components/session-expiring-dialog/session-expiring-dialog.component';
 
 @Component({
   selector: 'app-app-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, ToastModule, ConfirmDialogModule],
+  // `SessionExpiringDialogComponent` is imported here but used ONLY inside the
+  // `@defer` block below. Angular's compiler detects the exclusive-defer usage
+  // and emits a dynamic import for the component + its PrimeNG Dialog/Button
+  // dependencies, keeping them out of the initial chunk.
+  imports: [RouterOutlet, ToastModule, ConfirmDialogModule, SessionExpiringDialogComponent],
   template: `
     <div class="flex min-h-screen flex-col bg-gray-50">
       <header class="border-b border-gray-200 bg-white px-6 py-3 shadow-sm">
@@ -65,9 +77,20 @@ import { AuthService } from '@core/auth/auth.service';
 
       <!-- Global confirm host — owned by this shell, dispatched via ConfirmationService. -->
       <p-confirmdialog />
+
+      @defer (when session.expiringSoon()) {
+        <!--
+          Phase 2.4 — session-expiry warning dialog. Lazy-loaded via @defer so
+          the PrimeNG Dialog + Button modules do NOT pollute the initial bundle;
+          the chunk downloads the first time the warning window opens.
+        -->
+        <app-session-expiring-dialog />
+      }
     </div>
   `,
 })
 export class AppShellComponent {
   readonly auth = inject(AuthService);
+  /** Exposed so the @defer trigger expression can read it. */
+  readonly session = inject(SessionMonitorService);
 }

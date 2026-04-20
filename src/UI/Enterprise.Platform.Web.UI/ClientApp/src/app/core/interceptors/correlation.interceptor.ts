@@ -20,14 +20,20 @@
  * CHAIN POSITION
  *   Runs immediately after MSAL (position #2). We want the correlation id on
  *   auth-related requests too, and we want it to be stamped BEFORE any other
- *   interceptor might log the request (logging interceptor is #8).
+ *   interceptor might log the request (logging interceptor is #6).
  *
- * WHY NOT A SERVICE WITH AN AsyncContext
- *   Browser-side `AsyncLocalStorage`/`AsyncContext` isn't standardised yet.
- *   A simpler module-level ambient map would be fragile. Generating per-request
- *   is good enough for log correlation in a single-threaded web UI.
+ * PHASE 2.3 — CONTEXT PROPAGATION
+ *   The interceptor also pushes the active id onto `CorrelationContextService`
+ *   for the duration of the request pipeline so `LoggerService.log(...)`
+ *   stamps the same id onto any structured record emitted while the request
+ *   is in flight. The RxJS `finalize` block restores the previous id when
+ *   the observable completes or errors.
  */
 import { type HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { finalize } from 'rxjs';
+
+import { CorrelationContextService } from '@core/services/correlation-context.service';
 
 const CORRELATION_HEADER = 'X-Correlation-ID';
 
@@ -44,9 +50,11 @@ function generateCorrelationId(): string {
 
 export const correlationInterceptor: HttpInterceptorFn = (req, next) => {
   const existing = req.headers.get(CORRELATION_HEADER);
-  if (existing) {
-    return next(req);
-  }
-  const id = generateCorrelationId();
-  return next(req.clone({ setHeaders: { [CORRELATION_HEADER]: id } }));
+  const id = existing ?? generateCorrelationId();
+  const stampedReq = existing ? req : req.clone({ setHeaders: { [CORRELATION_HEADER]: id } });
+
+  const ctx = inject(CorrelationContextService);
+  const restore = ctx.pushActive(id);
+
+  return next(stampedReq).pipe(finalize(() => restore()));
 };

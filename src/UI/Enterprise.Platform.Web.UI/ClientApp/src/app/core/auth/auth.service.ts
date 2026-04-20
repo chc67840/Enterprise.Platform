@@ -45,6 +45,7 @@ import { InteractionStatus, type AccountInfo } from '@azure/msal-browser';
 import { filter } from 'rxjs';
 
 import { AuthStore } from '@core/auth/auth.store';
+import { SessionMonitorService } from '@core/auth/session-monitor.service';
 import type { CurrentUser } from '@core/models';
 import { LoggerService } from '@core/services/logger.service';
 
@@ -61,6 +62,7 @@ export class AuthService {
   private readonly broadcast = inject(MsalBroadcastService);
   private readonly log = inject(LoggerService);
   private readonly authStore = inject(AuthStore);
+  private readonly sessionMonitor = inject(SessionMonitorService);
   private readonly destroyRef = inject(DestroyRef);
 
   // ── PUBLIC SIGNALS (reactive auth state) ─────────────────────────────────
@@ -167,6 +169,7 @@ export class AuthService {
     // 1. Clear local signals first.
     this._account.set(null);
     this.authStore.reset();
+    this.sessionMonitor.stop();
 
     // 2. Broadcast to other tabs so they also clear.
     try {
@@ -279,7 +282,12 @@ export class AuthService {
       () => {
         const authed = this.isAuthenticated();
         if (authed) {
-          untracked(() => this.authStore.hydrate());
+          untracked(() => {
+            this.authStore.hydrate();
+            // Phase 2.4 — start the session monitor once we're logged in.
+            // Idempotent; safe to call on every transition.
+            this.sessionMonitor.start();
+          });
         }
       },
       { manualCleanup: false },

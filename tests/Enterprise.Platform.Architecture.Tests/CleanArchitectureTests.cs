@@ -67,13 +67,23 @@ public sealed class CleanArchitectureTests
     [Fact]
     public void Application_Should_Not_Depend_On_EntityFrameworkCore()
     {
+        // `Application.Abstractions.Persistence.IDbContextFactory` legitimately returns
+        // EF Core's `DbContext` per design decision D3 (one DbContext per logical DB,
+        // resolved through the factory at query time). Every other type in Application
+        // must stay EF-free; it goes through IGenericRepository / IUnitOfWork / the
+        // per-aggregate repos.
+        const string AllowedEfNamespace = $"{ApplicationNamespace}.Abstractions.Persistence";
+
         var result = Types.InAssembly(ApplicationAssembly)
+            .That()
+            .DoNotResideInNamespace(AllowedEfNamespace)
             .ShouldNot()
             .HaveDependencyOn("Microsoft.EntityFrameworkCore")
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(FormatFailingTypes(
-            "Application must not bind to EF Core — it works through IRepository/IUnitOfWork abstractions.",
+            "Application must not bind to EF Core — only the D3-sanctioned "
+            + $"{AllowedEfNamespace} namespace may touch EF types.",
             result));
     }
 

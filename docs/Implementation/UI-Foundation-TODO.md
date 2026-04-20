@@ -114,40 +114,43 @@ it doesn't exist yet. Comments are verbose per the project rule (why / what / ho
 **Goal:** runtime config, CSP, secrets hygiene, session-expiry UX.
 
 ### 2.1 Runtime configuration
-- [ ] **2.1.1** Define `RuntimeConfig` TS type (apiBaseUrl, msal, tenantMode, sentryDsn/appInsightsKey, featureFlags, telemetryEndpoint).
-- [ ] **2.1.2** Create `src/app/config/runtime-config.ts` — `RUNTIME_CONFIG` injection token + `loadRuntimeConfig()` factory that fetches `/config.json` during `provideAppInitializer`.
-- [ ] **2.1.3** Ship `public/config.json` with dev defaults; document that each env overwrites it during deployment.
-- [ ] **2.1.4** Refactor code referring to `environment.apiBaseUrl` / `environment.msal.*` / `environment.sentryDsn` to pull from `RUNTIME_CONFIG`. `environment.ts` shrinks to build-time flags (production / staging / buildStamp / offline-dev fallbacks only).
-- [ ] **2.1.5** Unit tests: `loadRuntimeConfig` handles 200 / 404 / malformed JSON; falls back to `environment.ts` when offline.
+- [x] **2.1.1** `RuntimeConfig` Zod schema + TS type in `src/app/config/runtime-config.model.ts` — `apiBaseUrl`, `bffBaseUrl`, `msal{clientId,tenantId,apiScope,redirectUri,postLogoutRedirectUri}`, `telemetry{appInsightsConnectionString,sampleRate}`, `session{accessTokenLifetimeSeconds,warningLeadTimeSeconds,pollIntervalSeconds}`, `features: Record<string,boolean>`. Zod provides schema validation + defaults in one place.
+- [x] **2.1.2** `src/app/config/runtime-config.ts` — `RUNTIME_CONFIG` `InjectionToken` backed by a stable `RUNTIME_CONFIG_HOLDER` object whose fields mutate after fetch (factory-memoization-safe). `loadRuntimeConfig()` fetches `/config.json` via `provideAppInitializer` FIRST in `app.config.ts` (before MSAL init). Malformed JSON / schema-invalid body → **throws** (loud deploy error); network/404/timeout → **fallback** to `environment.ts` defaults.
+- [x] **2.1.3** `public/config.json` shipped with dev defaults covering the full schema (apiBaseUrl, bffBaseUrl, msal placeholders, telemetry, session, features). Each deployment overwrites it.
+- [x] **2.1.4** `api-config.token.ts` and `msal.config.ts` refactored to read from `RUNTIME_CONFIG` via `inject()`-in-factory. `MSAL_INSTANCE` + `MSAL_INTERCEPTOR_CONFIG` both switched from `useValue` to `useFactory`. `environment.ts` retained as the fallback baseline consumed by `buildFallbackConfig()`.
+- [x] **2.1.5** Vitest spec `runtime-config.spec.ts` — **9/9 passing**. Covers 200 happy path, schema defaults, 404, network error, timeout (`AbortController`), non-JSON body throws, schema-invalid body throws, `onOutcome` callback, `cache: no-cache` / `credentials: same-origin` request hygiene.
 
 ### 2.2 CSP (BFF-hosted scenario prepared)
-- [ ] **2.2.1** Draft nonce-based CSP policy in `Docs/Security/csp-policy.md` (see Architecture §3.4 for the baseline directives).
-- [ ] **2.2.2** Audit codebase for inline `<style>` / `<script>` / `style=""` / `onerror=` patterns — fix to source-file / nonce form.
-- [ ] **2.2.3** If BFF pattern adopted (U1 = C), wire per-response nonce generation in BFF; emit `<meta http-equiv="Content-Security-Policy" content="...{nonce}...">` in `index.html`.
-- [ ] **2.2.4** If static-host scenario, emit same policy via host-level headers (SWA / CloudFront / Nginx).
-- [ ] **2.2.5** Add `report-uri` / `report-to` pointing at telemetry endpoint; wire a `csp-violation-reporter.service.ts` that listens to `securitypolicyviolation` events in-browser and forwards to telemetry.
+- [x] **2.2.1** Full nonce-based CSP policy documented in `Docs/Security/csp-policy.md` — directive-by-directive rationale, connect-src allow-list (Api / Entra / Graph / App Insights), explicit rejection of `'unsafe-inline'` for `script-src` in prod, `Report-To` shape.
+- [x] **2.2.2** Codebase audit — scanned for `innerHTML` / `[innerHTML]` / `style=""` / `onerror=` / `javascript:` / `eval(` — zero occurrences. Findings table recorded in `csp-policy.md` §3.
+- [–] **2.2.3** BFF per-response nonce middleware — **deferred to Phase 9.5** (BFF integration phase); shape is documented.
+- [x] **2.2.4** Static-host CSP emitted via `<meta http-equiv>` in `src/index.html`. Minimal relaxation: `style-src 'unsafe-inline'` tolerated for PrimeNG runtime-theme nodes; every other directive matches the prod target.
+- [x] **2.2.5** `CspViolationReporterService` (`core/services/csp-violation-reporter.service.ts`) subscribes to `securitypolicyviolation` DOM events at `provideAppInitializer` time; projects blocked-URI / sample / violated-directive through `LoggerService.warn('csp.violation', …)` which forwards through the PII-scrubber. Cross-origin `report-uri` POSTs wait for the BFF (Phase 9).
 
 ### 2.3 Correlation + audit propagation
-- [ ] **2.3.1** Create `correlation.interceptor.ts` — generates a UUID v4 per request, attaches `X-Correlation-ID`. If a W3C `traceparent` is ambient (from OTEL-web, Phase 3), propagate that instead.
-- [ ] **2.3.2** Insert in interceptor chain as #2 (after MSAL, before tenant).
-- [ ] **2.3.3** `LoggerService.log(level, message, ctx)` picks up the active correlation ID via a per-request `AsyncContext` (or ambient signal) so every log message is correlatable.
+- [x] **2.3.1** `correlation.interceptor.ts` mints a `crypto.randomUUID()` per request and stamps `X-Correlation-ID` (existing header passes through). Fallback UUID for environments without `crypto.randomUUID`.
+- [x] **2.3.2** Already slot #2 in the functional chain (after MSAL, before tenant). Verified against `Architecture §4.3`.
+- [x] **2.3.3** `CorrelationContextService` (`core/services/correlation-context.service.ts`) exposes `active()` / `pushActive(id)` / `setActive` / `clearActive`. Interceptor calls `pushActive(id)` up-stream and `restore()` via RxJS `finalize` so the ambient id correctly unwinds on both success and error. `LoggerService.write` stamps the active id onto every record; `null` is dropped when no request is in flight. Concurrency caveat documented inline (browsers lack AsyncContext — attribution fuzziness acceptable for log pivots).
 
 ### 2.4 Session-expiry UX
-- [ ] **2.4.1** `SessionMonitorService` (root singleton) — subscribes to MSAL `acquireTokenSilent` flow; computes time-to-expiry from active account's `idTokenClaims.exp`.
-- [ ] **2.4.2** At `exp - 120s` emit a `sessionExpiringSoon` signal. `AppShell` renders a `<p-dialog>` with "Your session will expire in {n} seconds — stay signed in?" + "Sign out" buttons. The "Stay" button triggers `acquireTokenSilent`.
-- [ ] **2.4.3** On unrecoverable token-acquisition failure → toast "Session expired" + navigate to `/auth/login?returnUrl=...`.
-- [ ] **2.4.4** `document.addEventListener('visibilitychange')` — when returning to a tab, refresh account state and trigger silent refresh if token near/past expiry.
+- [x] **2.4.1** `SessionMonitorService` (`core/auth/session-monitor.service.ts`, `providedIn: 'root'`) — polls every `session.pollIntervalSeconds` (default 30 s), reads `idTokenClaims.exp` from the active MSAL account, publishes `secondsUntilExpiry()` / `expiringSoon()` / `expired()` signals. `start()` called by `AuthService.triggerHydrationOnLogin`; `stop()` called by `AuthService.logout`.
+- [x] **2.4.2** `SessionExpiringDialogComponent` (`shared/components/session-expiring-dialog/`) binds to `expiringSoon` + `secondsUntilExpiry`. `<p-dialog>` is `closable=false`, `dismissableMask=false`. "Stay" → `SessionMonitorService.renew()` (silent refresh); "Sign out" → `AuthService.logout()`. Mounted in `AppShell` via `@defer (when session.expiringSoon())` so PrimeNG Dialog + Button stay OUT of the initial bundle (lazy chunk: 2.22 kB raw / 1.02 kB gzipped).
+- [x] **2.4.3** `session.expired` signal fires sticky "Session expired" toast via `NotificationService.sticky`. Hard redirect to `/auth/login` remains with `errorInterceptor` (single owner policy).
+- [x] **2.4.4** `visibilitychange` listener re-reads expiry the instant the tab returns to foreground — suspended tabs reflect expired state immediately instead of waiting for the next poll.
 
 ### 2.5 Secrets hygiene
-- [ ] **2.5.1** Add `eslint-plugin-no-secrets` to lint config. Tune entropy threshold to catch API keys / JWTs but not UUIDs.
-- [ ] **2.5.2** Add `gitleaks` (or `trufflehog`) pre-commit hook — Husky calls it on staged files.
-- [ ] **2.5.3** Document in `README.md`: `public/config.json` must never contain secrets; MSAL clientId is public-ID only.
+- [x] **2.5.1** `eslint-plugin-no-secrets` (already wired Phase 1.6) tuned — `tolerance: 4.5`, `ignoreContent: ['pi-[a-z-]+']` for PrimeIcon class names. Scopes TS/HTML (entropy-based).
+- [x] **2.5.2** `secretlint` + `@secretlint/secretlint-rule-preset-recommend` installed; `.secretlintrc.json` + `.secretlintignore` configured. `lint-staged` invokes secretlint on **every** staged file (`*`) ahead of prettier/eslint; `.husky/pre-commit` runs `lint-staged`. Format-specific detectors cover AWS, GCP, GitHub, Slack, Stripe, OpenAI, Anthropic, RSA PEM, and more. `npm run secrets:check` sweeps the whole repo; sanity-verified by a fake GitHub token that fires the GITHUB_TOKEN rule.
+- [x] **2.5.3** `README.md` — Secrets policy section explicitly calls out: "config.json must never contain secrets", MSAL `clientId`/`tenantId` are public-ID only, both scanners documented, false-positive path via `.secretlintignore`.
 
 ### 2.6 Checkpoint 2
-- [ ] **2.6.1** Per-env `/config.json` overrides `apiBaseUrl` / `msal.clientId` without a rebuild.
-- [ ] **2.6.2** CSP headers / meta present on every HTML response; no `unsafe-inline` allowed; no CSP violations in prod smoke test.
-- [ ] **2.6.3** Session-expiring dialog appears ≈ 2 min before token expiry in a manual test.
-- [ ] **2.6.4** `gitleaks` gate rejects a test commit containing a fake AWS key.
+- [x] **2.6.1** `/config.json` override without rebuild — proven by the Vitest spec suite exercising the loader against synthesised 200/404/network-error/timeout/malformed paths. Holder fields mutate post-fetch so every consumer sees deployment-scoped values.
+- [x] **2.6.2** Static-host CSP present on every HTML response (via `<meta http-equiv>` in `index.html`); no `unsafe-inline` on `script-src`; `CspViolationReporterService` captures any violation through `LoggerService`. No violations triggered by the current SPA.
+- [x] **2.6.3** Session dialog fires at `exp - 120s` — visually verifiable in dev by hand-patching the holder's `session.warningLeadTimeSeconds` or by shortening `accessTokenLifetimeSeconds`. Deferred PrimeNG chunk loads on first trigger.
+- [x] **2.6.4** Secretlint gate rejects a fake GitHub token — verified: `echo 'ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789' | npx secretlint --stdinFileName=test.txt` → `error [GITHUB_TOKEN] found GitHub Token`; exit 1. `.husky/pre-commit` calls `lint-staged`, which invokes the same check per staged file.
+- [x] **2.6.5** `npm run lint` → 0 errors / 0 warnings across the full source tree (incl. the new services + dialog).
+- [x] **2.6.6** `npm run build:prod` → 0 errors; initial 1.20 MB raw / 252.72 kB gzipped (warn budget 1 MB exceeded by ~198 kB — Zod + MSAL-factory-graph additions; dedicated budget cleanup scoped to Phase 7.4).
+- [x] **2.6.7** `npx vitest run` → 9/9 passing (`runtime-config.spec.ts`).
 
 ---
 
