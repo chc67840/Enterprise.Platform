@@ -2,6 +2,7 @@ using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Domain.Interfaces;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
 using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Mappings;
+using Enterprise.Platform.Infrastructure.Persistence.Interceptors;
 using Mapster;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -19,14 +20,12 @@ namespace Enterprise.Platform.Infrastructure.Persistence.EventShopper;
 /// <see cref="EventShopperDbContext"/>.
 /// </summary>
 /// <remarks>
-/// Interceptor attachment is deliberately deferred. The four Phase-5 interceptors
-/// (<c>AuditableEntityInterceptor</c>, <c>SoftDeleteInterceptor</c>,
-/// <c>TenantQueryFilterInterceptor</c>, <c>DomainEventDispatchInterceptor</c>) carry
-/// dependencies (<c>ICurrentUserService</c>, <c>ICurrentTenantService</c>,
-/// <c>IDomainEventDispatcher</c>) whose implementations land in Phase 7. Attaching
-/// them now would break DI composition. EventShopperDb entities are raw DB-first
-/// POCOs that do not implement the audit / tenant markers, so the interceptors would
-/// no-op against them anyway.
+/// Phase-7 update: the four save-changes interceptors are now attached via
+/// <c>AddInterceptors</c>. EventShopperDb entities are raw DB-first POCOs that do
+/// not implement the audit / tenant / aggregate-root marker interfaces, so the
+/// interceptors no-op against them — but attaching them now means future entities
+/// that do implement the markers get the behavior for free, and the wiring stays
+/// symmetric with any future PlatformDb context.
 /// </remarks>
 public static class EventShopperServiceCollectionExtensions
 {
@@ -51,13 +50,22 @@ public static class EventShopperServiceCollectionExtensions
             ?? throw new InvalidOperationException(
                 $"Connection string '{ConnectionStringName}' is missing from configuration.");
 
-        services.AddDbContext<EventShopperDbContext>(options =>
+        services.AddDbContext<EventShopperDbContext>((sp, options) =>
         {
             options.UseSqlServer(connectionString, sql =>
             {
                 sql.MigrationsAssembly(typeof(EventShopperDbContext).Assembly.GetName().Name);
                 sql.EnableRetryOnFailure();
             });
+
+            // Phase-7 wiring: attach save-changes interceptors now that their
+            // dependencies (ICurrentUserService / ICurrentTenantService /
+            // IDomainEventDispatcher) are registered in AddInfrastructure.
+            options.AddInterceptors(
+                sp.GetRequiredService<AuditableEntityInterceptor>(),
+                sp.GetRequiredService<SoftDeleteInterceptor>(),
+                sp.GetRequiredService<TenantQueryFilterInterceptor>(),
+                sp.GetRequiredService<DomainEventDispatchInterceptor>());
         });
 
         services.RegisterDbContext<EventShopperDbContext>(LogicalName, isDefault: true);

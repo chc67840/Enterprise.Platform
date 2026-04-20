@@ -37,6 +37,7 @@ public sealed class EventShopperDbContextSmokeTests
             .Build();
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddInfrastructure(configuration);
         services.AddEventShopperDb(configuration);
@@ -69,6 +70,7 @@ public sealed class EventShopperDbContextSmokeTests
             .Build();
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddInfrastructure(configuration);
         services.AddEventShopperDb(configuration);

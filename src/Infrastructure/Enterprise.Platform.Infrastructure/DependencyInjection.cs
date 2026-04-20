@@ -2,9 +2,22 @@ using Enterprise.Platform.Application.Abstractions.Persistence;
 using Enterprise.Platform.Application.Common.Interfaces;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Domain.Interfaces;
+using Enterprise.Platform.Infrastructure.Caching;
 using Enterprise.Platform.Infrastructure.Common;
+using Enterprise.Platform.Infrastructure.Email;
+using Enterprise.Platform.Infrastructure.FeatureFlags;
+using Enterprise.Platform.Infrastructure.FileStorage;
+using Enterprise.Platform.Infrastructure.Identity.Authorization;
+using Enterprise.Platform.Infrastructure.Identity.Services;
+using Enterprise.Platform.Infrastructure.Messaging.DomainEvents;
+using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
+using Enterprise.Platform.Infrastructure.MultiTenancy;
 using Enterprise.Platform.Infrastructure.Persistence;
 using Enterprise.Platform.Infrastructure.Persistence.Interceptors;
+using Enterprise.Platform.Infrastructure.Resilience;
+using Enterprise.Platform.Infrastructure.Security.DataEncryption;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,11 +43,38 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddOptions<DatabaseSettings>()
-            .Bind(configuration.GetSection(DatabaseSettings.SectionName));
+        // Settings binding (bind here; consumers resolve via IOptions<T>).
+        services.AddOptions<DatabaseSettings>().Bind(configuration.GetSection(DatabaseSettings.SectionName));
+        services.AddOptions<MultiTenancySettings>().Bind(configuration.GetSection(MultiTenancySettings.SectionName));
+        services.AddOptions<AzureSettings>().Bind(configuration.GetSection(AzureSettings.SectionName));
+        services.AddOptions<CacheSettings>().Bind(configuration.GetSection(CacheSettings.SectionName));
+        services.AddOptions<SmtpSettings>().Bind(configuration.GetSection(SmtpSettings.SectionName));
 
         // Common services
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddHttpContextAccessor();
+
+        // Identity services (claims-backed; defer TokenService / LoginProtectionService to PlatformDb).
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+
+        // Claims-based authorization (RBAC + resource ownership).
+        services.AddSingleton<IAuthorizationPolicyProvider, RbacPolicyProvider>();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, ResourceOwnershipHandler>();
+
+        // Multi-tenancy isolation strategies (only SharedDatabase is active).
+        services.AddScoped<ITenantIsolationStrategy, SharedDatabaseTenantStrategy>();
+
+        // Domain-event dispatcher (in-process fan-out).
+        services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
+        // Integration-event publisher placeholder until PlatformDb + outbox land.
+        services.AddSingleton<IIntegrationEventPublisher, NullIntegrationEventPublisher>();
+
+        // Null behaviour dependencies — let Phase-4 behaviors resolve without PlatformDb.
+        services.AddScoped<IAuditWriter, NullAuditWriter>();
+        services.AddScoped<IIdempotencyStore, NullIdempotencyStore>();
 
         // Persistence core
         services.AddSingleton<DbContextRegistry>();
@@ -42,22 +82,40 @@ public static class DependencyInjection
         services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
 
         // NOTE: IUnitOfWork is intentionally NOT registered here.
-        // `UnitOfWork<TContext>` is generic on a concrete DbContext; there's no valid
-        // open-generic binding from the non-generic `IUnitOfWork` to `UnitOfWork<>`.
-        // Host/feature modules register the closed-over form once they pick a context,
-        // e.g.:  services.AddScoped<IUnitOfWork, UnitOfWork<EventShopperDbContext>>();
-        // (this lands in Phase 6 when EventShopperDbContext is scaffolded).
+        // `UnitOfWork<TContext>` is generic on a concrete DbContext; host/feature modules
+        // bind the closed form (e.g. UnitOfWork<EventShopperDbContext>) via AddEventShopperDb.
 
         // Open-generic repository: DI closes both sides over the same T at resolve time.
 #pragma warning disable CA2263 // Open-generic registration has no generic-overload equivalent.
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 #pragma warning restore CA2263
 
-        // Save-changes interceptors (registered transient; EF composes them per context via UseInterceptors).
+        // Save-changes interceptors — dependencies now resolvable, so they're safe to attach in AddEventShopperDb.
         services.AddTransient<AuditableEntityInterceptor>();
         services.AddTransient<SoftDeleteInterceptor>();
         services.AddTransient<TenantQueryFilterInterceptor>();
         services.AddTransient<DomainEventDispatchInterceptor>();
+
+        // Caching: in-memory distributed cache by default. Hosts in prod swap to Redis
+        // via Caching.RedisCacheProvider.AddRedisDistributedCache(settings) from their composition root.
+        services.AddInMemoryDistributedCache();
+        services.AddScoped<CacheInvalidationService>();
+
+        // Resilience: standard pipeline available under the "ep-standard" key.
+        services.AddStandardResiliencePipeline();
+
+        // Security: dev key-management service. Prod hosts swap for a Key Vault-backed impl.
+        services.AddSingleton<IKeyManagementService, DevKeyManagementService>();
+
+        // File storage / email / feature flags — stubs/defaults. Prod hosts override.
+        services.AddSingleton<IFileStorageService>(sp =>
+        {
+            var rootPath = configuration["FileStorage:Local:RootPath"]
+                ?? Path.Combine(Path.GetTempPath(), "enterprise-platform");
+            return new LocalFileStorageService(rootPath, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LocalFileStorageService>>());
+        });
+        services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddSingleton<IFeatureFlagService, ConfigurationFeatureFlagService>();
 
         return services;
     }

@@ -330,73 +330,77 @@
 ## Phase 7 — Infrastructure · Cross-cutting services
 
 ### 7.1 Identity
-- [ ] `Identity/OAuth/OAuthConfiguration.cs`
-- [ ] `Identity/OAuth/TokenService.cs` (JWT issue + refresh rotation)
-- [ ] `Identity/OAuth/RefreshTokenCleanupJob.cs`
-- [ ] `Identity/Authorization/PermissionAuthorizationHandler.cs`
-- [ ] `Identity/Authorization/RbacPolicyProvider.cs`
-- [ ] `Identity/Authorization/AbacPolicyEvaluator.cs` _(commented scaffold)_
-- [ ] `Identity/Authorization/ResourceOwnershipHandler.cs`
-- [ ] `Identity/Services/CurrentUserService.cs`
-- [ ] `Identity/Services/CurrentTenantService.cs`
-- [ ] `Identity/Services/LoginProtectionService.cs`
+- [–] `Identity/OAuth/OAuthConfiguration.cs` — deferred with D4 (refresh-token store)
+- [–] `Identity/OAuth/TokenService.cs` — deferred with D4
+- [–] `Identity/OAuth/RefreshTokenCleanupJob.cs` — deferred with D4
+- [x] `Identity/Authorization/PermissionAuthorizationHandler.cs` + `PermissionRequirement.cs` — succeeds when principal carries the required `ep:permission` claim
+- [x] `Identity/Authorization/RbacPolicyProvider.cs` — materialises `perm:{name}` policies on-demand; falls back to `DefaultAuthorizationPolicyProvider` for non-permission policies
+- [x] `Identity/Authorization/AbacPolicyEvaluator.cs` — empty scaffold with XML doc stub for the planned shape
+- [x] `Identity/Authorization/ResourceOwnershipHandler.cs` + `ResourceOwnershipRequirement.cs` — reflection-based ownership check against `OwnerId` / `UserId` / `CreatedBy`
+- [x] `Identity/Services/CurrentUserService.cs` — `IHttpContextAccessor`-backed; reads `ep:user_id`, email, `HasPermission`, `IsInRole`
+- [x] `Identity/Services/CurrentTenantService.cs` — switches on `MultiTenancySettings.ResolutionStrategy` (Claim / Header / Subdomain / RouteSegment); falls back to `DefaultTenantId` when `RequireResolvedTenant = false`
+- [–] `Identity/Services/LoginProtectionService.cs` — deferred with D4 (needs PlatformDb failed-login store)
 
 ### 7.2 Caching
-- [ ] `Caching/InMemoryCacheProvider.cs` _(active)_
-- [ ] `Caching/RedisCacheProvider.cs` _(commented stub)_
-- [ ] `Caching/CacheKeys.cs`
-- [ ] `Caching/CacheInvalidationService.cs`
+- [x] `Caching/InMemoryCacheProvider.cs` — `AddInMemoryDistributedCache` helper (wraps `AddDistributedMemoryCache`)
+- [x] `Caching/RedisCacheProvider.cs` — commented stub; `AddRedisDistributedCache(settings)` throws if connection string missing
+- [x] `Caching/CacheKeys.cs` — `ForTenant` / `ForPlatform` / `ForUser` builders + `TenantPrefix`
+- [x] `Caching/CacheInvalidationService.cs` — explicit + batched `InvalidateAsync` (batched log guarded by `IsEnabled(Debug)` for CA1873)
 
 ### 7.3 Messaging
-- [ ] `Messaging/Outbox/OutboxProcessor.cs`
-- [ ] `Messaging/Outbox/OutboxCleanupJob.cs`
-- [ ] `Messaging/DomainEvents/DomainEventDispatcher.cs`
-- [ ] `Messaging/IntegrationEvents/IntegrationEventPublisher.cs` _(commented stub)_
+- [–] `Messaging/Outbox/OutboxProcessor.cs` — deferred with D4 (PlatformDb `OutboxMessages` table)
+- [–] `Messaging/Outbox/OutboxCleanupJob.cs` — deferred with D4
+- [x] `Messaging/DomainEvents/DomainEventDispatcher.cs` — in-process dispatcher + `IDomainEventHandler<TEvent>` contract (CA1711 suppressed inline). Handler failures log via source-gen but don't abort the batch
+- [x] `Messaging/IntegrationEvents/IntegrationEventPublisher.cs` — interface + `NullIntegrationEventPublisher` stub
 
 ### 7.4 Resilience
-- [ ] `Resilience/ResiliencePipelineSetup.cs` (retry + circuit breaker + timeout)
-- [ ] `Resilience/HttpClientResilienceSetup.cs`
+- [x] `Resilience/ResiliencePipelineSetup.cs` — `AddStandardResiliencePipeline` registers `"ep-standard"`: retry (3 attempts, exponential+jitter, 200ms base) + 30s timeout. Circuit-breaker deliberately excluded at global layer
+- [x] `Resilience/HttpClientResilienceSetup.cs` — `AddResilientHttpClient(name, baseAddress)` wraps `AddHttpClient` with `AddStandardResilienceHandler`
 
 ### 7.5 Observability
-- [ ] `Observability/OpenTelemetrySetup.cs`
-- [ ] `Observability/StructuredLoggingSetup.cs` (Serilog)
-- [ ] `Observability/BusinessMetrics.cs`
-- [ ] `Observability/PiiScrubber.cs`
+- [x] `Observability/OpenTelemetrySetup.cs` — tracing (AspNetCore + optional HTTP/EF/SQL + OTLP + `TraceIdRatioBasedSampler`) and metrics (AspNetCore + HttpClient + `BusinessMetrics.Meter` + optional OTLP). `AddRuntimeInstrumentation` dropped — separate package not in CPM
+- [x] `Observability/StructuredLoggingSetup.cs` — Serilog: Console + optional Seq, `CultureInfo.InvariantCulture` on both sinks (CA1305), default level overrides for Microsoft/AspNetCore/System
+- [x] `Observability/BusinessMetrics.cs` — central `Meter` + 6 instruments (commands/queries executed, handler-duration histogram, domain-events dispatched, cache hits/misses)
+- [x] `Observability/PiiScrubber.cs` — `Scrub(string)` masks emails / phones / credit cards via `[GeneratedRegex]` (500ms timeout)
 
 ### 7.6 Security
-- [ ] `Security/DataEncryption/EncryptedStringConverter.cs`
-- [ ] `Security/DataEncryption/KeyManagementService.cs` (Azure Key Vault)
-- [ ] `Security/InputSanitizer.cs`
+- [x] `Security/DataEncryption/EncryptedStringConverter.cs` — AES-GCM EF `ValueConverter<string, string>` with versioned (`"v1"`) `nonce||ciphertext||tag` base64 format; 256-bit key required at ctor
+- [x] `Security/DataEncryption/KeyManagementService.cs` — `IKeyManagementService` + `DevKeyManagementService` (HKDF-derived keys). Prod replaces with Key Vault-backed impl
+- [x] `Security/InputSanitizer.cs` — `EscapeHtml`, `StripControlCharacters`, `ToSafeIdentifier`
 
 ### 7.7 Background jobs
-- [ ] `BackgroundJobs/BaseBackgroundJob.cs`
-- [ ] `BackgroundJobs/AuditRetentionJob.cs`
+- [x] `BackgroundJobs/BaseBackgroundJob.cs` — abstract `BackgroundService` with cooperative cancellation + source-gen start/stop/cycle-failed logs
+- [–] `BackgroundJobs/AuditRetentionJob.cs` — deferred with D4
 
 ### 7.8 External services
-- [ ] `ExternalServices/ExternalServiceBase.cs`
+- [x] `ExternalServices/ExternalServiceBase.cs` — `HttpClient` consumer base; `SendAsync<T>(req)` returns `Result<T>`; maps 4xx/5xx + network/timeout to typed `Error`s
 
 ### 7.9 File storage
-- [ ] `FileStorage/AzureBlobStorageService.cs`
-- [ ] `FileStorage/LocalFileStorageService.cs` _(dev)_
+- [x] `FileStorage/LocalFileStorageService.cs` — **dev** impl; `{root}/{container}/{blob}`
+- [x] `FileStorage/AzureBlobStorageService.cs` — placeholder; all methods throw `NotSupportedException`
 
 ### 7.10 Email
-- [ ] `Email/SmtpEmailService.cs` _(active)_
-- [ ] `Email/SendGridEmailService.cs` _(commented)_
+- [x] `Email/SmtpEmailService.cs` — `IOptionsMonitor<SmtpSettings>`; empty host → log+no-op; `System.Net.Mail.SmtpClient` (`#pragma` for SYSLIB0014)
+- [x] `Email/SendGridEmailService.cs` — placeholder; throws `NotSupportedException`
 
 ### 7.11 Feature flags
-- [ ] `FeatureFlags/FeatureFlagService.cs` _(commented stub)_
-- [ ] `FeatureFlags/FeatureFlags.cs` (constants)
+- [x] `FeatureFlags/FeatureFlags.cs` — constants (`MultiTenantDatabaseIsolation`, `OutboxPublishing`, `PreviewEndpoints`, `AiSummaries`)
+- [x] `FeatureFlags/FeatureFlagService.cs` — `IFeatureFlagService` + `ConfigurationFeatureFlagService` reading `FeatureFlags:{key}` from `IConfiguration`
 
 ### 7.12 Multi-tenancy
-- [ ] `MultiTenancy/TenantResolutionStrategy.cs`
-- [ ] `MultiTenancy/SharedDatabaseTenantStrategy.cs` _(active)_
-- [ ] `MultiTenancy/TenantSchemaStrategy.cs` _(commented)_
-- [ ] `MultiTenancy/TenantDatabaseStrategy.cs` _(commented)_
+- [x] `MultiTenancy/ITenantIsolationStrategy.cs` — `Mode` + `ApplyAsync(tenantId)` contract
+- [x] `MultiTenancy/SharedDatabaseTenantStrategy.cs` — **active**; no-op body (write interceptor + query filter do the work)
+- [x] `MultiTenancy/TenantSchemaStrategy.cs` — placeholder; throws `NotSupportedException` with expected-shape docs
+- [x] `MultiTenancy/TenantDatabaseStrategy.cs` — same pattern as SchemaPerTenant
 
-### 7.13 DI
-- [ ] `DependencyInjection.cs` — `AddInfrastructure(IServiceCollection, IConfiguration)` composes all of the above
+### 7.13 DI composition
+- [x] `DependencyInjection.cs` — `AddInfrastructure(services, config)` binds 5 Settings sections (`Database`, `MultiTenancy`, `Azure`, `Cache`, `Smtp`) and wires 20+ service registrations
+- [+] `Common/LogMessages.cs` — **beyond TODO**; source-gen `LoggerMessage` partial class, event ids 2000–2699 partitioned by subsystem
+- [+] `Common/NullAuditWriter.cs` — beyond TODO; no-op `IAuditWriter`
+- [+] `Common/NullIdempotencyStore.cs` — beyond TODO; no-op `IIdempotencyStore`
+- [x] **`EventShopperDbContext` interceptors attached** — `AddEventShopperDb` now resolves all 4 interceptors from DI in the `AddDbContext` options delegate; Phase-6 deferral closed out.
 
-- [ ] **Checkpoint 7:** `dotnet build` green; Infrastructure DI extension composable from Api/Worker startup
+- [x] **Checkpoint 7:** full-solution `dotnet build` 0 warnings / 0 errors; `dotnet test tests/Enterprise.Platform.Infrastructure.Tests` → **3/3 pass** (smoke test exercises the full composed Infrastructure with attached interceptors against the live DB). Test fixture needed `services.AddLogging()` — bare `ServiceCollection` doesn't register `ILoggerFactory`; production hosts get it for free via `WebApplicationBuilder`.
 
 ---
 
@@ -525,6 +529,7 @@
 - **2026-04-18** — **Phase 4 complete (Application — CQRS skeleton).** 35 files total: 5 messaging + 6 behavior markers + 1 persistence abstraction + 1 dispatcher + 6 common interfaces (+2 beyond TODO: `IAuditWriter`, `IIdempotencyStore`) + 6 common models + 2 common extensions + 7 pipeline behaviors (+1 beyond TODO: `LogMessages.cs` source-generated `LoggerMessage` extensions) + DI helper. **Skipped `IMappable` (4.8)** per D2 = Mapster. **CPM additions:** `Microsoft.Extensions.DependencyInjection.Abstractions`, `.Logging.Abstractions`, `.Caching.Abstractions`, `.Configuration.Abstractions`, `.Options`, `.Options.ConfigurationExtensions` — all abstractions-only, no runtime impl leaks. Analyzer battles worth keeping as replay landmines: (a) **CA1848 + CA1873** swept every `logger.LogX(...)` call — resolved properly by a consolidated source-gen `LogMessages` partial class rather than suppression; (b) **CA1711** on `RequestHandlerDelegate` suppressed inline (naming parity with MediatR is worth more than analyzer purity); (c) **CA1805** `Unit.Value = default` — removed redundant init; (d) **CA1859** on two expression-builder helpers — tightened return types to `MethodCallExpression` / `BinaryExpression`.
 - **2026-04-19** — **Phase 5 complete (persistence core, D4-scoped).** 13 files total: `IDbContextFactory` (Application) + 9 Infra/Persistence files (factory, registry, UoW, spec evaluator, generic repo, connection factory, 4 interceptors) + `SystemDateTimeProvider` + `AddInfrastructure` DI root. **Platform-specific 5.3/5.4/5.5/5.6 all `[–]` deferred with D4.** Key design calls worth remembering on replay: (a) `IDbContextFactory` requires Application to reference `Microsoft.EntityFrameworkCore` (abstraction only) — accepted trade-off so the interface can return `DbContext`; (b) beyond-TODO `DbContextRegistry` (singleton, logical-name → Type map) + `RegisterDbContext<T>(name, isDefault)` DI extension is how Phase 6 will wire EventShopperDbContext; (c) beyond-TODO `SpecificationEvaluator` — `GenericRepository` needs it to translate `ISpecification<T>` to `IQueryable<T>`; (d) `DomainEventDispatchInterceptor` dispatches **after** save (handlers must be idempotent; high-value fan-out should use outbox in Phase 7); (e) the sync `SavedChanges` path unwraps the async dispatch via `Task.Run` to avoid sync-context deadlocks. **Build fix after SDK reinstall:** removed a broken `services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork<>))` — non-generic interface cannot be backed by an open-generic impl (fails at runtime; flagged CA2263). `IUnitOfWork` registration now lands in Phase 6 as closed `UnitOfWork<EventShopperDbContext>`. Open-generic `IGenericRepository<> → GenericRepository<>` kept with `#pragma warning disable CA2263` (analyzer has no notion of open-generic bindings). **Checkpoint 5 green after SDK reinstall.**
 - **2026-04-19** — **Phase 6 complete (EventShopperDb scaffold + DtoGen).** 39 scaffolded entity POCOs + `EventShopperDbContext` + 39 `{Entity}Dto` records + `EventShopperMappingRegistry` + `AddEventShopperDb` DI extension + 2 smoke tests. **Replay-critical details:** (a) `Microsoft.EntityFrameworkCore.Design` must be on **Api** csproj (dotnet-ef startup project) with `PrivateAssets=all`; (b) **DtoGen generator body built** with Roslyn syntax parsing — two-pass inventory/emit, `virtual`-keyword heuristic for nav-property skip; (c) emitted files need `#nullable enable` right after the `<auto-generated>` banner or NRT annotations hit CS8669; (d) interceptor attachment on EventShopperDbContext deliberately deferred to Phase 7 (missing dependency impls); (e) per-entity Fluent config extraction (6.3) skipped intentionally — scaffold `--force` would clobber it; (f) CA1707 suppressed project-wide in `Infrastructure.Tests.csproj` for `Given_When_Then` xUnit naming. **CPM additions:** `Microsoft.CodeAnalysis.CSharp` + `Microsoft.Extensions.Configuration{,.Json}` + `Microsoft.Extensions.DependencyInjection`. **Verification:** full-solution `dotnet build` 0/0, live-DB smoke test **3/3 passed** — end-to-end `IDbContextFactory → EventShopperDbContext → SQL Server` wiring confirmed.
+- **2026-04-19** — **Phase 7 complete (cross-cutting services, D4-scoped).** ~30 files landed across Identity, Caching, Messaging, Resilience, Observability, Security, Background Jobs, External Services, File Storage, Email, Feature Flags, Multi-Tenancy, plus a fully-composed `AddInfrastructure`. **Deferred with D4:** OAuthConfiguration, TokenService, RefreshTokenCleanupJob, LoginProtectionService, OutboxProcessor, OutboxCleanupJob, AuditRetentionJob. **Replay-critical design calls:** (a) **`Common/LogMessages.cs`** consolidates every Infrastructure log site into source-gen `LoggerMessage` extensions (event ids 2000–2699 partitioned by subsystem) — same pattern as Application/Behaviors, zero CA1848/CA1873 suppressions in service code; (b) `IDomainEventHandler<TEvent>` needs inline `[SuppressMessage("Naming", "CA1711")]` (EventHandler suffix is CQRS convention); (c) Serilog `WriteTo.Console` / `WriteTo.Seq` require explicit `formatProvider: CultureInfo.InvariantCulture` for CA1305; (d) `AddRuntimeInstrumentation` dropped — needs `OpenTelemetry.Instrumentation.Runtime` (not in CPM); (e) **interceptors now attached to `EventShopperDbContext`** via `(sp, options) => options.AddInterceptors(...)` — closes Phase-6 deferral; (f) null impls (`NullAuditWriter`, `NullIdempotencyStore`, `NullIntegrationEventPublisher`) keep Phase-4 behaviors composable until PlatformDb lands; (g) **Test fixture needed `services.AddLogging()`** — bare `ServiceCollection` doesn't register `ILoggerFactory`, `WebApplicationBuilder` does it automatically. **Verification:** full-solution `dotnet build` 0/0, smoke tests **3/3 pass** (full composed Infrastructure including all 4 attached interceptors against the live DB).
 
 ---
 
