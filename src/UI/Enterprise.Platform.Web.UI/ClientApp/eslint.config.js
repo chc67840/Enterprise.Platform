@@ -44,8 +44,14 @@ export default tseslint.config(
       'out-tsc/**',
       'coverage/**',
       '**/__screenshots__/**',
+      'test-results/**',
+      'playwright-report/**',
       'eslint.config.js',
       'commitlint.config.js',
+      // Playwright E2E specs run under their own tsconfig; the main app
+      // config's `projectService` doesn't resolve them. Cover via Playwright's
+      // own lint pass (not wired yet) when the suite expands.
+      'e2e/**',
     ],
   },
 
