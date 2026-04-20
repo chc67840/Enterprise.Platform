@@ -72,9 +72,11 @@ public static class DependencyInjection
         // Integration-event publisher placeholder until PlatformDb + outbox land.
         services.AddSingleton<IIntegrationEventPublisher, NullIntegrationEventPublisher>();
 
-        // Null behaviour dependencies — let Phase-4 behaviors resolve without PlatformDb.
+        // Null / in-memory behaviour dependencies — Phase-4 behaviors resolve without PlatformDb.
+        // `InMemoryIdempotencyStore` gives real at-most-once semantics in dev + single-instance
+        // prod (H3 hardening); multi-instance deployments swap for a Redis-backed impl.
         services.AddScoped<IAuditWriter, NullAuditWriter>();
-        services.AddScoped<IIdempotencyStore, NullIdempotencyStore>();
+        services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 
         // Persistence core
         services.AddSingleton<DbContextRegistry>();

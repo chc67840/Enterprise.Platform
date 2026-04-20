@@ -13,7 +13,7 @@
     <!-- Identity & Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Identity.Web" Version="3.5.0" />
+    <PackageVersion Include="Microsoft.Identity.Web" Version="3.14.1" />
 
     <!-- Validation -->
     <PackageVersion Include="FluentValidation" Version="11.11.0" />

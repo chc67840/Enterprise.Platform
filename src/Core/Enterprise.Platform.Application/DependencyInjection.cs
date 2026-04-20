@@ -42,10 +42,14 @@ public static class DependencyInjection
         services.AddScoped<IDispatcher, Dispatcher.Dispatcher>();
 
         // Pipeline — registration order = execution order (outermost first).
+        // CacheInvalidation sits *outside* Transaction so eviction only runs after a
+        // successful commit — otherwise a rolled-back handler would invalidate cache
+        // that was still correct.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TenantFilterBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CacheInvalidationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CachingBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));

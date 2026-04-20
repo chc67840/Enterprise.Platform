@@ -44,6 +44,54 @@ public sealed class DateRange : ValueObject
         return Start <= other.End && other.Start <= End;
     }
 
+    /// <summary>
+    /// Returns a new range clipped to the intersection with
+    /// <c>[<paramref name="min"/>, <paramref name="max"/>]</c>. Returns the original
+    /// range when it's already inside the bounds; returns a one-instant range when
+    /// the intersection is empty (caller should prefer <see cref="Overlaps"/> first).
+    /// </summary>
+    public DateRange Clamp(DateTimeOffset min, DateTimeOffset max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("Clamp bounds are inverted (min > max).", nameof(min));
+        }
+
+        var clampedStart = Start < min ? min : Start;
+        var clampedEnd = End > max ? max : End;
+        if (clampedStart > clampedEnd)
+        {
+            clampedEnd = clampedStart;
+        }
+
+        return new DateRange(clampedStart, clampedEnd);
+    }
+
+    /// <summary>UTC "today" as a one-day range from midnight to 23:59:59.</summary>
+    public static DateRange Today(TimeProvider? timeProvider = null)
+    {
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        var startOfDay = new DateTimeOffset(now.Date, TimeSpan.Zero);
+        return new DateRange(startOfDay, startOfDay.AddDays(1).AddTicks(-1));
+    }
+
+    /// <summary>Range spanning the current UTC calendar month.</summary>
+    public static DateRange ThisMonth(TimeProvider? timeProvider = null)
+    {
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        var start = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        var end = start.AddMonths(1).AddTicks(-1);
+        return new DateRange(start, end);
+    }
+
+    /// <summary>Range covering the last <paramref name="days"/> days ending at "now".</summary>
+    public static DateRange LastDays(int days, TimeProvider? timeProvider = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(days);
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        return new DateRange(now.AddDays(-days), now);
+    }
+
     /// <inheritdoc />
     protected override IEnumerable<object?> GetEqualityComponents()
     {

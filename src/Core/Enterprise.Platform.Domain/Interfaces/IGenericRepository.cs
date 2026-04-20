@@ -4,10 +4,30 @@ using Enterprise.Platform.Domain.Specifications;
 namespace Enterprise.Platform.Domain.Interfaces;
 
 /// <summary>
-/// Persistence-agnostic repository contract. Handlers depend on this interface — never
-/// on EF Core's <c>DbSet</c> — so test doubles and alternate providers slot in cleanly.
+/// Persistence-agnostic repository contract for <b>code-first</b> aggregates inheriting
+/// <see cref="BaseEntity"/>. Handlers depend on this interface — never on EF Core's
+/// <c>DbSet</c> — so test doubles and alternate providers slot in cleanly. PlatformDb
+/// aggregates (User / Role / Tenant / AuditLog / OutboxMessage, once the D4 deferral
+/// lifts) are the target consumers.
 /// </summary>
-/// <typeparam name="T">Aggregate or entity type.</typeparam>
+/// <remarks>
+/// <para>
+/// <b>Not applicable to DB-first scaffolded entities</b> like those in EventShopperDb —
+/// they don't derive from <see cref="BaseEntity"/> and have integer (or other)
+/// primary keys, not <see cref="Guid"/>. For DB-first aggregates, write a
+/// <b>per-aggregate repository</b> like
+/// <c>Application.Features.EventShopper.Roles.Repositories.IRolesRepository</c> — it
+/// returns DTOs (never entities), exposes aggregate-specific reads, and lives in the
+/// feature folder so the contract stays close to its handlers.
+/// </para>
+/// <para>
+/// The open-generic DI registration (<c>services.AddScoped(typeof(IGenericRepository&lt;&gt;), typeof(GenericRepository&lt;&gt;))</c>)
+/// is harmless for EventShopperDb entities — DI won't close the generic over types
+/// that don't satisfy the <c>T : BaseEntity</c> constraint, so attempted resolution
+/// fails fast with a clear compiler/runtime error.
+/// </para>
+/// </remarks>
+/// <typeparam name="T">Aggregate or entity type inheriting <see cref="BaseEntity"/>.</typeparam>
 public interface IGenericRepository<T> where T : BaseEntity
 {
     /// <summary>Returns the entity with <paramref name="id"/>, or <c>null</c> if absent.</summary>

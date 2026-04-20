@@ -1,8 +1,11 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json;
 using Enterprise.Platform.Application.Abstractions.Behaviors;
 using Enterprise.Platform.Application.Common.Interfaces;
 using Enterprise.Platform.Domain.Interfaces;
+using Enterprise.Platform.Shared.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Enterprise.Platform.Application.Behaviors;
@@ -27,6 +30,19 @@ public sealed class AuditBehavior<TRequest, TResponse>(
         WriteIndented = false,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+
+    // Per-type snapshot shape: list of (property name, accessor, mask-or-ignore).
+    // Cached so reflection runs once per request type instead of once per command.
+    private static readonly ConcurrentDictionary<Type, IReadOnlyList<SnapshotField>> ShapeCache = new();
+
+    private enum SnapshotAction
+    {
+        Serialize = 0,
+        Mask = 1,
+        Ignore = 2,
+    }
+
+    private sealed record SnapshotField(string Name, Func<object, object?> Accessor, SnapshotAction Action, AuditMaskAttribute? MaskAttribute);
 
     /// <inheritdoc />
     public async Task<TResponse> HandleAsync(
@@ -85,16 +101,83 @@ public sealed class AuditBehavior<TRequest, TResponse>(
         }
     }
 
+    /// <summary>
+    /// Builds an audit-safe snapshot: properties marked <c>[AuditIgnore]</c> are dropped;
+    /// <c>[AuditMask]</c> string values are masked via
+    /// <see cref="StringExtensions.ToMask"/>; remaining properties serialize as-is.
+    /// </summary>
     private static string? SerializeSnapshot(TRequest request)
     {
         try
         {
-            return JsonSerializer.Serialize(request, SnapshotOptions);
+            var shape = ShapeCache.GetOrAdd(typeof(TRequest), BuildShape);
+            var safeDict = new Dictionary<string, object?>(shape.Count, StringComparer.Ordinal);
+
+            foreach (var field in shape)
+            {
+                if (field.Action == SnapshotAction.Ignore)
+                {
+                    continue;
+                }
+
+                var value = field.Accessor(request!);
+
+                if (field.Action == SnapshotAction.Mask)
+                {
+                    safeDict[field.Name] = value switch
+                    {
+                        null => null,
+                        string s => s.ToMask(field.MaskAttribute!.VisiblePrefix, field.MaskAttribute.VisibleSuffix),
+                        _ => $"[{value.GetType().Name}]",    // non-string masks become a type-hint placeholder
+                    };
+                }
+                else
+                {
+                    safeDict[field.Name] = value;
+                }
+            }
+
+            return JsonSerializer.Serialize(safeDict, SnapshotOptions);
         }
         catch (NotSupportedException)
         {
-            // Non-serializable graph — prefer "null snapshot" to throwing in the audit path.
             return null;
         }
+    }
+
+    private static IReadOnlyList<SnapshotField> BuildShape(Type type)
+    {
+        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var fields = new List<SnapshotField>(properties.Length);
+
+        foreach (var property in properties)
+        {
+            if (!property.CanRead || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            var action = SnapshotAction.Serialize;
+            AuditMaskAttribute? maskAttribute = null;
+
+            if (property.GetCustomAttribute<AuditIgnoreAttribute>(inherit: true) is not null)
+            {
+                action = SnapshotAction.Ignore;
+            }
+            else if (property.GetCustomAttribute<AuditMaskAttribute>(inherit: true) is { } mask)
+            {
+                action = SnapshotAction.Mask;
+                maskAttribute = mask;
+            }
+
+            var propertyRef = property;
+            fields.Add(new SnapshotField(
+                Name: JsonNamingPolicy.CamelCase.ConvertName(property.Name),
+                Accessor: instance => propertyRef.GetValue(instance),
+                Action: action,
+                MaskAttribute: maskAttribute));
+        }
+
+        return fields;
     }
 }

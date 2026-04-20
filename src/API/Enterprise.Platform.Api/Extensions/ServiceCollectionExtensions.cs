@@ -34,9 +34,9 @@ public static class ServiceCollectionExtensions
         services.AddInfrastructure(configuration);
         services.AddEventShopperDb(configuration);
 
-        // Api tier
-        var jwt = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
-        services.AddPlatformAuthentication(jwt);
+        // Api tier — authentication signature changed in H9 to read the full config
+        // (Entra B2B + B2C + symmetric-key fallback all live in appsettings).
+        services.AddPlatformAuthentication(configuration);
         services.AddPlatformApiVersioning();
         services.AddPlatformOpenApi();
         services.AddPlatformHealthChecks();

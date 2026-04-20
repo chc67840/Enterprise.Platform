@@ -8,13 +8,19 @@ namespace Enterprise.Platform.Application.Features.EventShopper.Roles.Commands;
 
 /// <summary>Soft-deletes a Role (the scaffolded table carries <c>DeletedAt</c>/<c>DeletedBy</c> columns).</summary>
 public sealed record DeleteRoleCommand(int Id, byte[] RowVersion)
-    : ICommand<Result>, ITransactional, IRequiresAudit
+    : ICommand<Result>, ITransactional, IRequiresAudit, ICacheInvalidating
 {
     /// <inheritdoc />
     public string AuditAction => "DeleteRole";
 
     /// <inheritdoc />
     public string? AuditSubject => Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <inheritdoc />
+    public IEnumerable<string> CacheKeysToInvalidate()
+    {
+        yield return $"roles:byid:{Id}";
+    }
 }
 
 /// <summary>FluentValidation rules for <see cref="DeleteRoleCommand"/>.</summary>

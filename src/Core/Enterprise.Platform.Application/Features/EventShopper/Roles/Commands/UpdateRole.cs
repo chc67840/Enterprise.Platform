@@ -19,13 +19,22 @@ public sealed record UpdateRoleCommand(
     int Priority,
     bool IsActive,
     byte[] RowVersion)
-    : ICommand<Result>, ITransactional, IRequiresAudit
+    : ICommand<Result>, ITransactional, IRequiresAudit, ICacheInvalidating
 {
     /// <inheritdoc />
     public string AuditAction => "UpdateRole";
 
     /// <inheritdoc />
     public string? AuditSubject => Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <inheritdoc />
+    public IEnumerable<string> CacheKeysToInvalidate()
+    {
+        yield return $"roles:byid:{Id}";
+        // List-variant keys are TTL-scoped (5m default). Invalidating every
+        // filter/page combination would require enumeration — a version-key pattern
+        // can layer in later when list-cache churn matters.
+    }
 }
 
 /// <summary>FluentValidation rules for <see cref="UpdateRoleCommand"/>.</summary>

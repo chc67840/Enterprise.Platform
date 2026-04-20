@@ -56,6 +56,45 @@ public sealed class Money : ValueObject
     /// <summary>Scales the amount by a unit-less factor — currency is preserved.</summary>
     public Money Multiply(decimal factor) => new(Amount * factor, Currency);
 
+    /// <summary>Divides the amount by a unit-less divisor. Throws on zero.</summary>
+    public Money Divide(decimal divisor)
+    {
+        if (divisor == 0m)
+        {
+            throw new DivideByZeroException("Cannot divide money by zero.");
+        }
+
+        return new Money(Amount / divisor, Currency);
+    }
+
+    /// <summary>
+    /// Splits the amount into <paramref name="parts"/> roughly equal allocations. Any
+    /// rounding residual is distributed one-cent-at-a-time across the first N slots so
+    /// <c>sum(result) == Amount</c> exactly (to 2 decimals by default, adjustable via
+    /// <paramref name="decimals"/> — e.g. 0 for JPY, 3 for BHD).
+    /// </summary>
+    public IReadOnlyList<Money> Allocate(int parts, int decimals = 2)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(parts);
+        ArgumentOutOfRangeException.ThrowIfNegative(decimals);
+
+        var step = (decimal)Math.Pow(10, -decimals);
+        var rounded = Math.Round(Amount / parts, decimals, MidpointRounding.ToEven);
+        var allocations = Enumerable.Repeat(new Money(rounded, Currency), parts).ToArray();
+
+        var residual = Amount - (rounded * parts);
+        var residualSteps = (int)Math.Round(residual / step, MidpointRounding.AwayFromZero);
+        var direction = residualSteps >= 0 ? 1 : -1;
+
+        for (var i = 0; i < Math.Abs(residualSteps); i++)
+        {
+            var idx = i % parts;
+            allocations[idx] = new Money(allocations[idx].Amount + direction * step, Currency);
+        }
+
+        return allocations;
+    }
+
     private void EnsureSameCurrency(Money other)
     {
         if (!string.Equals(Currency, other.Currency, StringComparison.Ordinal))

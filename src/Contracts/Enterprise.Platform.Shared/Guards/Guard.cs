@@ -143,6 +143,46 @@ public static class GuardClauseExtensions
         return value;
     }
 
+    /// <summary>Throws when <paramref name="value"/>'s length is below <paramref name="minLength"/>.</summary>
+    public static string MinLength(
+        this IGuardClause guardClause,
+        string? value,
+        int minLength,
+        [CallerArgumentExpression(nameof(value))] string? parameterName = null)
+    {
+        _ = guardClause;
+        ArgumentOutOfRangeException.ThrowIfNegative(minLength);
+
+        if (value is null || value.Length < minLength)
+        {
+            throw new ArgumentException(
+                $"Value must be at least {minLength} character(s) long.",
+                parameterName);
+        }
+
+        return value;
+    }
+
+    /// <summary>Throws when <paramref name="value"/>'s length is above <paramref name="maxLength"/>.</summary>
+    public static string MaxLength(
+        this IGuardClause guardClause,
+        string? value,
+        int maxLength,
+        [CallerArgumentExpression(nameof(value))] string? parameterName = null)
+    {
+        _ = guardClause;
+        ArgumentOutOfRangeException.ThrowIfNegative(maxLength);
+
+        if (value is not null && value.Length > maxLength)
+        {
+            throw new ArgumentException(
+                $"Value must be at most {maxLength} character(s) long.",
+                parameterName);
+        }
+
+        return value ?? string.Empty;
+    }
+
     /// <summary>Throws when <paramref name="value"/> does not match the supplied <paramref name="pattern"/>.</summary>
     /// <param name="guardClause">Fluent receiver.</param>
     /// <param name="value">Candidate string.</param>

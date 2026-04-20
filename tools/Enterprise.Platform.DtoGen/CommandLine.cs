@@ -8,7 +8,7 @@ namespace Enterprise.Platform.DtoGen;
 internal static class CommandLine
 {
     private const string UsageText = """
-        Enterprise.Platform.DtoGen — DTO + Mapster config generator
+        Enterprise.Platform.DtoGen — DTO + Mapster config + optional repository skeleton generator
 
         Usage:
           dotnet run --project tools/Enterprise.Platform.DtoGen -- [options]
@@ -22,16 +22,41 @@ internal static class CommandLine
 
         Optional:
           --dry-run                Print the file list that would be written; do not touch disk
-          --force                  Overwrite existing generated files (default: true for idempotency)
+          --force                  Overwrite existing generated files (default: true)
           --help, -h               Show this help
 
-        Example (Phase 6):
+        Repository scaffolding (H8 — emits per-entity I{Entity}Repository + {Entity}Repository
+        stubs following the Roles template; skip existing files unless --repo-force):
+
+          --scaffold-repositories      Enable repository stub emission
+          --repo-app-root     <path>   Root of the Application project (e.g. src/Core/Enterprise.Platform.Application)
+          --repo-infra-root   <path>   Root of the Infrastructure project
+          --repo-app-ns       <ns>     Application root namespace (e.g. Enterprise.Platform.Application)
+          --repo-infra-ns     <ns>     Infrastructure root namespace (e.g. Enterprise.Platform.Infrastructure)
+          --repo-db-name      <name>   Logical DB name (used as feature-folder + namespace segment, e.g. EventShopper)
+          --repo-force                 Overwrite existing repository files (default: preserve hand-edits)
+
+        Example (Phase 6 — DTOs + Mapster only):
           dotnet run --project tools/Enterprise.Platform.DtoGen -- \
             --entities      src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/EventShopper/Entities \
             --dto-out       src/Contracts/Enterprise.Platform.Contracts/DTOs/EventShopper \
             --mapping-out   src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/EventShopper/Mappings \
             --namespace-dto Enterprise.Platform.Contracts.DTOs.EventShopper \
             --namespace-map Enterprise.Platform.Infrastructure.Persistence.EventShopper.Mappings
+
+        Example (H8 — full scaffold for remaining aggregates):
+          dotnet run --project tools/Enterprise.Platform.DtoGen -- \
+            --entities      src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/EventShopper/Entities \
+            --dto-out       src/Contracts/Enterprise.Platform.Contracts/DTOs/EventShopper \
+            --mapping-out   src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/EventShopper/Mappings \
+            --namespace-dto Enterprise.Platform.Contracts.DTOs.EventShopper \
+            --namespace-map Enterprise.Platform.Infrastructure.Persistence.EventShopper.Mappings \
+            --scaffold-repositories \
+            --repo-app-root   src/Core/Enterprise.Platform.Application \
+            --repo-infra-root src/Infrastructure/Enterprise.Platform.Infrastructure \
+            --repo-app-ns     Enterprise.Platform.Application \
+            --repo-infra-ns   Enterprise.Platform.Infrastructure \
+            --repo-db-name    EventShopper
         """;
 
     internal static async Task<int> RunAsync(string[] args)
@@ -67,6 +92,28 @@ internal static class CommandLine
             return 1;
         }
 
+        RepositoryScaffoldOptions? repoScaffold = null;
+        if (flags.ContainsKey("--scaffold-repositories"))
+        {
+            if (!TryGet(flags, "--repo-app-root", out var appRoot)
+                || !TryGet(flags, "--repo-infra-root", out var infraRoot)
+                || !TryGet(flags, "--repo-app-ns", out var appNs)
+                || !TryGet(flags, "--repo-infra-ns", out var infraNs)
+                || !TryGet(flags, "--repo-db-name", out var dbName))
+            {
+                Console.Error.WriteLine("error: --scaffold-repositories requires --repo-app-root, --repo-infra-root, --repo-app-ns, --repo-infra-ns, --repo-db-name.");
+                return 1;
+            }
+
+            repoScaffold = new RepositoryScaffoldOptions(
+                ApplicationOutputRoot: appRoot,
+                InfrastructureOutputRoot: infraRoot,
+                ApplicationNamespaceRoot: appNs,
+                InfrastructureNamespaceRoot: infraNs,
+                DbName: dbName,
+                Force: flags.ContainsKey("--repo-force"));
+        }
+
         var options = new GeneratorOptions(
             EntitiesDirectory: entities,
             DtoOutputDirectory: dtoOut,
@@ -74,7 +121,8 @@ internal static class CommandLine
             DtoNamespace: nsDto,
             MappingNamespace: nsMap,
             DryRun: flags.ContainsKey("--dry-run"),
-            Force: !flags.TryGetValue("--force", out var f) || string.Equals(f, "true", StringComparison.OrdinalIgnoreCase));
+            Force: !flags.TryGetValue("--force", out var f) || string.Equals(f, "true", StringComparison.OrdinalIgnoreCase),
+            RepositoryScaffold: repoScaffold);
 
         return await Generator.RunAsync(options).ConfigureAwait(false);
     }

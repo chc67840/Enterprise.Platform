@@ -521,6 +521,64 @@
 
 ---
 
+## Phase 11.5 — Foundation Hardening (correctness / security / scaling)
+
+Inserted after a deep review: 9 items ordered by risk. Not optional — these close material gaps that would bite when scaling to 38 more aggregates and a second domain.
+
+### H1 · Query filters for tenant + soft-delete — ✅ complete
+- [x] `Infrastructure/Persistence/ModelBuilderExtensions.cs` — `ApplyTenantAndSoftDeleteFilters(Func<Guid?>)` iterates every entity type. Tenant filter: `(tenantAccessor().HasValue == false) || e.TenantId == tenantAccessor().Value` (anonymous scopes see all rows). Soft-delete filter: `e.IsDeleted == false`. ANDed when both markers present. Non-marker entities skipped.
+- [x] `EventShopperDbContext.Extensions.cs` (partial class) — hooks `OnModelCreatingPartial` so customisations survive `--force` re-scaffolds. Resolves `ICurrentTenantService` via EF's `AccessorExtensions.GetService<T>()`.
+
+### H2 · Audit PII scrubbing + `[AuditIgnore]` / `[AuditMask]` — ✅ complete
+- [x] `AuditIgnoreAttribute` + `AuditMaskAttribute` (configurable prefix/suffix) in `Application/Abstractions/Behaviors/`.
+- [x] `AuditBehavior.SerializeSnapshot` rewritten — per-type reflection shape cache (`ConcurrentDictionary`, runs reflection once per request type); serialises a filtered dict so `[AuditIgnore]` properties drop and `[AuditMask]` strings mask via `StringExtensions.ToMask`.
+
+### H3 · Idempotency atomic acquire — ✅ complete
+- [x] `IIdempotencyStore.TryAcquireAsync(key, ttl)` + `RemoveAsync(key)` added.
+- [x] `Infrastructure/Common/InMemoryIdempotencyStore.cs` — `ConcurrentDictionary.TryAdd` for true atomicity; lazy expiry on read. Registered as the default; `NullIdempotencyStore` remains as a test/fallback.
+- [x] `IdempotencyBehavior` rewritten — acquire / wait-for-winner-with-backoff / release-on-throw. No more TOCTOU race.
+
+### H4 · Cache eviction wiring — ✅ complete
+- [x] `ICacheInvalidating` marker + `CacheInvalidationBehavior` sitting **outside** Transaction so eviction fires only on commit. Applies `CacheSettings.KeyPrefix` automatically; per-key failures logged but don't propagate.
+- [x] Pipeline order updated: Logging → Validation → TenantFilter → Audit → **CacheInvalidation** → Transaction → Caching → Idempotency.
+- [x] `UpdateRoleCommand` + `DeleteRoleCommand` implement the marker (invalidate `roles:byid:{Id}`).
+
+### H5 · `IGenericRepository<T>` clarity — ✅ complete
+- [x] `IGenericRepository<T>` XML doc expanded with the two-repo rationale.
+- [x] `Infrastructure/Persistence/EventShopper/Repositories/README.md` documents the per-aggregate pattern and points at `IRolesRepository` / `RolesRepository` as the template.
+
+### H6 · Specification composition — ✅ complete
+- [x] `Domain/Specifications/SpecificationCombinators.cs` — `And` / `Or` / `Not` extension methods using expression-tree composition with a `ParameterReplacer` visitor.
+
+### H7 · Guard + Value-object breadth — ✅ complete
+- [x] Guard: `MinLength` + `MaxLength`.
+- [x] Value objects: `Url` / `Percentage` / `Currency` (ISO 4217 catalogue).
+- [x] `Money.Divide(decimal)` + `Money.Allocate(parts, decimals)` (Ben Parsons allocation).
+- [x] `DateRange.Clamp(min, max)` + `Today` / `ThisMonth` / `LastDays` statics taking optional `TimeProvider`.
+
+### H8 · DtoGen repository skeleton codegen — ✅ complete (skeleton scope)
+- [x] `Generator.cs` extended with `RepositoryScaffoldOptions` + per-entity interface + implementation emitters. Skeleton covers reads + soft-delete detection; `// TODO` markers for aggregate-specific CRUD.
+- [x] CLI: `--scaffold-repositories` + `--repo-app-root` + `--repo-infra-root` + `--repo-app-ns` + `--repo-infra-ns` + `--repo-db-name` + `--repo-force`. Non-overwriting by default so hand-edits survive.
+- [+] **Full command/query/endpoint codegen** (validators, handlers, route groups) scoped as later work — skeleton already removes ~60% of hand-writing for the remaining 38 aggregates.
+
+### H9 · Azure Entra ID / MSAL validation — ✅ complete
+- [x] `Contracts/Settings/EntraIdSettings.cs` — AzureAd section with `Enabled`, `Instance`, `TenantId`, `ClientId`, `Audiences`, `AllowedIssuers`, `RequiredScopes`, `TenantIdClaim`, `PlatformTenantMapping` (Entra tid → platform Guid).
+- [x] `Contracts/Settings/EntraIdB2CSettings.cs` — AzureAdB2C section with `Enabled`, `Instance`, `Domain`, `TenantId`, `ClientId`, `SignUpSignInPolicyId`, `AllowedPolicies`, `Audiences`.
+- [x] `Api/Configuration/AuthenticationSetup.cs` rewritten on `Microsoft.Identity.Web` (bumped 3.5.0 → 3.14.1 for the NU1902 advisory). `PolicyScheme` peeks the incoming bearer's `iss` (base64-url-decodes the JWT payload without signature validation) and forwards to B2B / B2C / dev handlers. B2B `OnTokenValidated` → `MapEntraTenantToPlatformTenant` adds `ep:tenant_id` claim via `PlatformTenantMapping`. B2C validates issuer against `AllowedPolicies`. Dev symmetric-key path remains when both are disabled.
+- [x] `appsettings.Development.json` extended with AzureAd / AzureAdB2C placeholders (Enabled=false) + dev Jwt section.
+- [+] BFF auth, CurrentUserService `oid` fallback, Angular MSAL integration — scheduled alongside Entra-tenant provisioning / Phase 12.
+
+### Checkpoint 11.5 — ✅ green
+
+- [x] `dotnet build` full solution 0 warnings / 0 errors.
+- [x] `Application.Tests` 4/4 — Roles list + not-found + full `Create→Get→Delete` round-trip through the new pipeline (including `CacheInvalidationBehavior`).
+- [x] `Infrastructure.Tests` 3/3.
+- [x] NU1902 audit cleared (Microsoft.Identity.Web 3.14.1).
+- [–] Behavior unit tests for H2/H3/H4 — scoped to Phase 12.
+- [–] Live MSAL probe — awaits Entra tenant provisioning.
+
+---
+
 ## Phase 12 — Test scaffolds
 
 - [ ] `Architecture.Tests/LayerDependencyTests.cs` — Domain has no EF/Azure refs; Application has no Infrastructure refs
