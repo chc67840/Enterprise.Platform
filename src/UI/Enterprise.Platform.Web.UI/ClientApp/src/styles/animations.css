@@ -1,0 +1,87 @@
+/*
+ * ─── ANIMATIONS + MOTION PREFERENCE ─────────────────────────────────────────
+ *
+ * Minimal keyframes used by shared primitives (skeleton shimmer, progress
+ * bar sweep, fade / scale overlays). Components declare their own
+ * `animation` property and pull from these keyframes via name reference.
+ *
+ * REDUCED MOTION (a11y)
+ *   Users with `prefers-reduced-motion: reduce` must not see decorative
+ *   movement. The block at the bottom zeroes every animation + transition
+ *   duration so components retain final-state visuals without the motion
+ *   pass. PrimeNG animations are also disabled via the theme config.
+ *
+ * ENTRANCE CLASSES
+ *   Minor convenience classes (`ep-fade-in`, `ep-scale-in`) so components
+ *   don't have to redeclare the same keyframes. Use sparingly — most
+ *   primitives are static and don't need entrance animations.
+ */
+
+@keyframes ep-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes ep-progress-indeterminate {
+  0% {
+    left: -35%;
+    right: 100%;
+  }
+  60% {
+    left: 100%;
+    right: -90%;
+  }
+  100% {
+    left: 100%;
+    right: -90%;
+  }
+}
+
+@keyframes ep-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ep-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ep-fade-in {
+  animation: ep-fade-in var(--ep-duration-normal) var(--ep-ease-standard) both;
+}
+
+.ep-scale-in {
+  animation: ep-scale-in var(--ep-duration-normal) var(--ep-ease-standard) both;
+}
+
+/*
+ * Respect the user's motion preference. `!important` defeats any utility
+ * class that hard-codes durations; the PrimeNG layer has its own duration
+ * tokens that are also shortened via theme config, so this block covers
+ * app-level animations and Tailwind arbitrary values.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

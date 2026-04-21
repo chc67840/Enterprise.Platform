@@ -122,7 +122,15 @@
       "Bash(echo \"aws_access_key_id = AKIAIOSFODNN7EXAMPLE\")",
       "Bash(echo \"EXIT=$?\")",
       "Bash(rm fake-secret-test.txt)",
-      "Bash(cat)"
+      "Bash(cat)",
+      "Bash(awk '/WebpackCompilationError|compilation errors|Module not found|Cannot|missing/')",
+      "Bash(awk '/WebpackCompilationError/,/at Cache/')",
+      "Bash(awk '/ERROR in|Module parse/')",
+      "Bash(awk '/Module parse failed/,/^$/')",
+      "Bash(awk '/Module parse|Module not found|Module build|ERROR in/,/^[^│]/')",
+      "Bash(awk '/Module parse/,/^$/')",
+      "Bash(awk '/Module parse|Module not found|Module build/,/^[^│]/')",
+      "Bash(awk '/Module parse/,/^<s>/')"
     ]
   }
 }

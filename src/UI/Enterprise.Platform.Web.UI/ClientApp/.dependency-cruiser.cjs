@@ -102,6 +102,7 @@ module.exports = {
         orphan: true,
         pathNot: [
           '\\.spec\\.ts$',
+          '\\.stories\\.ts$',
           '\\.d\\.ts$',
           '^src/main\\.ts$',
           '^src/test-setup\\.ts$',

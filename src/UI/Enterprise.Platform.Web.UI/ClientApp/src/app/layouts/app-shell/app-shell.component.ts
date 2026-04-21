@@ -39,6 +39,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
 import { AuthService, SessionMonitorService } from '@core/auth';
+import { GlobalProgressBarComponent } from '@shared/components/global-progress-bar/global-progress-bar.component';
 import { SessionExpiringDialogComponent } from '@shared/components/session-expiring-dialog/session-expiring-dialog.component';
 
 @Component({
@@ -49,17 +50,29 @@ import { SessionExpiringDialogComponent } from '@shared/components/session-expir
   // `@defer` block below. Angular's compiler detects the exclusive-defer usage
   // and emits a dynamic import for the component + its PrimeNG Dialog/Button
   // dependencies, keeping them out of the initial chunk.
-  imports: [RouterOutlet, ToastModule, ConfirmDialogModule, SessionExpiringDialogComponent],
+  imports: [
+    RouterOutlet,
+    ToastModule,
+    ConfirmDialogModule,
+    GlobalProgressBarComponent,
+    SessionExpiringDialogComponent,
+  ],
   template: `
-    <div class="flex min-h-screen flex-col bg-gray-50">
-      <header class="border-b border-gray-200 bg-white px-6 py-3 shadow-sm">
+    <div class="flex min-h-screen flex-col bg-neutral-50">
+      <!-- Phase 5.4 — thin top progress bar driven by LoadingService. -->
+      <app-global-progress-bar />
+
+      <header
+        class="border-b border-neutral-200 bg-white px-6 py-3 shadow-ep-xs"
+        role="banner"
+      >
         <div class="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 class="text-lg font-semibold tracking-tight text-gray-900">Enterprise Platform</h1>
+          <h1 class="text-lg font-semibold tracking-tight text-neutral-900">Enterprise Platform</h1>
           <div class="flex items-center gap-3 text-sm">
-            <span class="text-gray-600">{{ auth.displayName() || auth.email() }}</span>
+            <span class="text-neutral-600">{{ auth.displayName() || auth.email() }}</span>
             <button
               type="button"
-              class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              class="rounded-ep-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
               (click)="auth.logout()"
             >
               Sign out
@@ -68,9 +81,13 @@ import { SessionExpiringDialogComponent } from '@shared/components/session-expir
         </div>
       </header>
 
-      <div class="mx-auto w-full max-w-7xl flex-1 px-6 py-6">
+      <main
+        class="mx-auto w-full max-w-7xl flex-1 px-6 py-6"
+        role="main"
+        id="main-content"
+      >
         <router-outlet />
-      </div>
+      </main>
 
       <!-- Global toast host — owned by this shell, dispatched via MessageService. -->
       <p-toast position="top-right" [preventOpenDuplicates]="true" />

@@ -1,30 +1,95 @@
 /*
- * Global styles entry point.
+ * ─── GLOBAL STYLES ENTRY POINT ──────────────────────────────────────────────
  *
- * Tailwind v4 + PrimeNG cohabit via CSS layers. PrimeNG's theme is installed
- * (Phase 1.x). For Phase 0 this file carries only the Tailwind import so the
- * build has a valid PostCSS entry; token files, typography, animations, and
- * PrimeNG overrides will be added incrementally in later phases.
+ * Composition order matters:
+ *
+ *   1. Token custom properties (`styles/tokens.css`) come FIRST so they're
+ *      defined before any consumer.
+ *   2. `@theme inline` below aliases a subset of those tokens into Tailwind's
+ *      theme scale. `inline` means Tailwind emits `color: var(--ep-color-…)`
+ *      directly (no computed-value baking), so dark-mode swaps continue to
+ *      work at runtime.
+ *   3. Tailwind core (`@tailwindcss`) generates utilities using the theme.
+ *   4. Animation keyframes + reduced-motion safeguard.
+ *   5. Baseline resets (html/body dimensions, font stack, focus ring).
+ *
+ * WHY INLINE TOKENS AT THE TAILWIND LAYER
+ *   Without `@theme inline { --color-primary-500: var(--ep-color-primary-500) }`,
+ *   Tailwind would bake the current value at build time. With `inline`, the
+ *   class `bg-primary-500` expands to `background-color: var(--ep-color-primary-500)`
+ *   — so flipping `.dark` on `<html>` (Phase 5.x ThemeService) repaints
+ *   instantly without rebuilding CSS.
  */
 
+@import './styles/tokens.css';
+
 @import 'tailwindcss';
+
+@theme inline {
+  /* Colour palette aliases — map Tailwind's scale keys to our EP tokens. */
+  --color-primary-50: var(--ep-color-primary-50);
+  --color-primary-100: var(--ep-color-primary-100);
+  --color-primary-200: var(--ep-color-primary-200);
+  --color-primary-300: var(--ep-color-primary-300);
+  --color-primary-400: var(--ep-color-primary-400);
+  --color-primary-500: var(--ep-color-primary-500);
+  --color-primary-600: var(--ep-color-primary-600);
+  --color-primary-700: var(--ep-color-primary-700);
+  --color-primary-800: var(--ep-color-primary-800);
+  --color-primary-900: var(--ep-color-primary-900);
+  --color-primary-950: var(--ep-color-primary-950);
+
+  /* Semantic colours. Usage: `class="bg-success text-success-bg"`. */
+  --color-success: var(--ep-color-success);
+  --color-success-bg: var(--ep-color-success-bg);
+  --color-warning: var(--ep-color-warning);
+  --color-warning-bg: var(--ep-color-warning-bg);
+  --color-danger: var(--ep-color-danger);
+  --color-danger-bg: var(--ep-color-danger-bg);
+  --color-info: var(--ep-color-info);
+  --color-info-bg: var(--ep-color-info-bg);
+
+  /* Radii. `class="rounded-ep-xl"` → 1rem. */
+  --radius-ep-sm: var(--ep-radius-sm);
+  --radius-ep-md: var(--ep-radius-md);
+  --radius-ep-lg: var(--ep-radius-lg);
+  --radius-ep-xl: var(--ep-radius-xl);
+  --radius-ep-2xl: var(--ep-radius-2xl);
+
+  /* Shadows. `class="shadow-ep-md"`. */
+  --shadow-ep-xs: var(--ep-shadow-xs);
+  --shadow-ep-sm: var(--ep-shadow-sm);
+  --shadow-ep-md: var(--ep-shadow-md);
+  --shadow-ep-lg: var(--ep-shadow-lg);
+  --shadow-ep-xl: var(--ep-shadow-xl);
+
+  /* Font stacks. */
+  --font-sans: var(--ep-font-sans);
+  --font-mono: var(--ep-font-mono);
+}
+
+@import './styles/animations.css';
 
 /* Baseline — intentionally minimal. */
 html,
 body {
   height: 100%;
+  background: var(--ep-surface-0);
+  color: var(--ep-text-primary);
 }
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: var(--ep-font-sans);
+  font-size: var(--ep-text-base);
+  line-height: var(--ep-leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Uniform focus ring — used by `:focus-visible` across primitives. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ep-shadow-focus);
+  border-radius: var(--ep-radius-md);
 }

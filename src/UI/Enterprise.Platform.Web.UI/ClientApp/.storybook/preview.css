@@ -1,0 +1,23 @@
+/*
+ * Storybook preview styles.
+ *
+ * Imports the token custom properties directly (plain CSS, no Tailwind).
+ * Storybook's webpack CSS pipeline under @storybook/angular doesn't process
+ * `@import 'tailwindcss'` / `@theme inline` out of the box — wiring PostCSS
+ * into that pipeline is a Phase 5 follow-up (tracked in the TODO). Until
+ * then, stories render with design-tokens fidelity but without utility
+ * classes.
+ *
+ * NOTE — primitives that rely on Tailwind utility classes (e.g. `text-sm`,
+ * `gap-2`) will appear unstyled here. This is a Storybook-preview-only
+ * limitation; the app itself uses the full Tailwind pipeline.
+ */
+@import '../src/styles/tokens.css';
+
+body {
+  font-family: var(--ep-font-sans);
+  color: var(--ep-text-primary);
+  background: var(--ep-surface-0);
+  margin: 0;
+  padding: 1rem;
+}
