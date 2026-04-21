@@ -1,32 +1,34 @@
 /**
- * ─── AUTH SERVICE (MSAL + Signal-Based) ─────────────────────────────────────────
+ * ─── AUTH SERVICE (BFF Cookie-Session, Signal-Based) ───────────────────────────
  *
  * WHY
- *   A thin, signal-based facade over `@azure/msal-angular` so:
+ *   A thin, signal-based facade over the BFF's cookie-session auth so:
  *
- *     1. Components never inject `MsalService` directly — they see a stable
- *        `AuthService` contract that hides the raw library surface.
- *     2. Login / logout / active-account state is exposed as signals, so
- *        zoneless change detection Just Works and templates bind naturally.
+ *     1. Components never talk to the OIDC handler directly — they see a
+ *        stable `AuthService` contract (identical public shape to the old
+ *        MSAL-backed version, so feature code didn't change during Phase-9
+ *        cutover).
+ *     2. Login / logout / current-user state is exposed as signals for
+ *        zoneless change detection + natural template bindings.
  *     3. Permission hydration is triggered automatically on sign-in (see
- *        `AuthStore.hydrate()`), so guards never race the effective-permissions
- *        fetch.
- *     4. The BFF-cookie alternative (U1 hybrid path, Phase 9) can later implement
- *        the same public contract — components won't notice the swap.
+ *        `AuthStore.hydrate()`), so guards never race the effective-
+ *        permissions fetch.
  *
- * WHAT MSAL HANDLES FOR US (reading these saves re-implementing them):
- *   - PKCE code_verifier + code_challenge exchange.
- *   - Token cache in `localStorage` (per `BrowserCacheLocation.LocalStorage`).
- *   - Silent refresh via `acquireTokenSilent` (with interactive fallback).
- *   - Concurrent-401 deduplication — one refresh, all requests wait.
- *   - Bearer-token attachment via `MsalInterceptor` + `protectedResourceMap`.
- *
- * WHAT WE ADD ON TOP:
- *   - Signals for reactive auth state.
- *   - Cross-tab logout broadcast via `BroadcastChannel('msal:auth')`.
- *   - Permission hydration triggered via `effect(() => ...)` on login.
- *   - `takeUntilDestroyed(DestroyRef)` for RxJS lifetime — no manual destroy$
- *     subject, no `ngOnDestroy` dance.
+ * HOW AUTH WORKS POST-PHASE-9
+ *   - The browser NEVER sees an access token. The BFF runs OIDC code + PKCE
+ *     against Entra server-side, stashes tokens in a HttpOnly session cookie,
+ *     and attaches a bearer to downstream Api calls via `BffProxyController`.
+ *   - `login()` is a **top-level navigation** to `/api/auth/login` — we leave
+ *     the SPA so the browser follows Entra's redirects and lands back on our
+ *     origin with a session cookie set. Top-level (not XHR) is critical —
+ *     cross-origin redirects silently drop cookie writes on XHR.
+ *   - `logout()` posts to `/api/auth/logout` and follows the 302 to Entra's
+ *     end-session endpoint, which returns the browser to our BFF (which
+ *     clears the cookie and redirects to the landing page).
+ *   - `refreshSession()` calls `GET /api/auth/session` — the BFF returns
+ *     `{ isAuthenticated, name, email, roles, expiresAt }`. This replaces
+ *     MSAL's `inProgress$` polling and is also the single proof-of-life call
+ *     `SessionMonitorService` makes on its tick.
  *
  * PROVIDED IN: root (singleton — one instance per app).
  */
@@ -39,267 +41,198 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MsalBroadcastService, MsalService } from '@azure/msal-angular';
-import { InteractionStatus, type AccountInfo } from '@azure/msal-browser';
-import { RUNTIME_CONFIG } from '@config/runtime-config';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+
 import { AuthStore } from '@core/auth/auth.store';
 import { SessionMonitorService } from '@core/auth/session-monitor.service';
 import type { CurrentUser } from '@core/models';
 import { LoggerService } from '@core/services/logger.service';
 
 /** BroadcastChannel name used to sync logout events across open tabs. */
-const LOGOUT_CHANNEL = 'msal:auth';
+const LOGOUT_CHANNEL = 'ep:auth';
 const LOGOUT_MESSAGE = 'logout';
 
 /**
- * OIDC scopes requested on login. The custom API scope from
- * `RUNTIME_CONFIG.msal.apiScope` is appended dynamically — including it in
- * the initial login request means the user consents once and every
- * subsequent `acquireTokenSilent({ scopes: [apiScope] })` finds a cached
- * token, so `MsalInterceptor` can attach the bearer on Api calls without
- * triggering an interactive redirect mid-XHR.
+ * JSON contract returned by `GET /api/auth/session`. Mirrors the C#
+ * `SessionInfo` record in `Enterprise.Platform.Web.UI.Controllers.AuthController`.
+ * Kept narrow — the SPA has no business reading tokens, TIDs, or refresh
+ * metadata; that all stays server-side.
  */
-const BASE_LOGIN_SCOPES = ['openid', 'profile', 'User.Read'];
+interface SessionInfo {
+  readonly isAuthenticated: boolean;
+  readonly name: string | null;
+  readonly email: string | null;
+  readonly roles: readonly string[];
+  /** ISO-8601 timestamp of cookie expiration, or `null` when anonymous. */
+  readonly expiresAt: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly msal = inject(MsalService);
-  private readonly broadcast = inject(MsalBroadcastService);
+  private readonly http = inject(HttpClient);
   private readonly log = inject(LoggerService);
   private readonly authStore = inject(AuthStore);
   private readonly sessionMonitor = inject(SessionMonitorService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly runtime = inject(RUNTIME_CONFIG);
 
   // ── PUBLIC SIGNALS (reactive auth state) ─────────────────────────────────
 
   /**
-   * Raw MSAL account (or `null` if anonymous). Most components should bind to
-   * the derived `currentUser` signal below instead of this.
-   *
-   * Kept readable for advanced use (token introspection, claim-specific logic).
+   * Current session info from the BFF, or `null` when anonymous. Components
+   * should bind to the derived `currentUser` signal below instead of this.
    */
-  private readonly _account = signal<AccountInfo | null>(null);
+  private readonly _session = signal<SessionInfo | null>(null);
 
-  /** Is MSAL still initialising or handling a redirect? */
+  /** Is the initial session fetch in flight? */
   readonly isLoading = signal<boolean>(true);
 
-  /** Convenient projection of the raw account into app-facing `CurrentUser`. */
+  /** Expiry instant surfaced for `SessionMonitorService` — ms since epoch, or `null`. */
+  readonly expiresAt = computed<number | null>(() => {
+    const raw = this._session()?.expiresAt ?? null;
+    if (!raw) return null;
+    const ts = Date.parse(raw);
+    return Number.isNaN(ts) ? null : ts;
+  });
+
+  /** Convenient projection into the app-facing `CurrentUser` shape. */
   readonly currentUser = computed<CurrentUser | null>(() => {
-    const acc = this._account();
-    if (!acc) return null;
-    const claims = (acc.idTokenClaims ?? {}) as Record<string, unknown>;
+    const s = this._session();
+    if (!s || !s.isAuthenticated) return null;
     return {
-      id: (claims['oid'] as string | undefined) ?? acc.localAccountId,
-      displayName: acc.name ?? '',
-      email: acc.username,
-      aadTenantId: acc.tenantId ?? (claims['tid'] as string | undefined) ?? '',
+      displayName: s.name ?? '',
+      email: s.email ?? '',
     };
   });
 
   /** Whether the user is currently authenticated. */
-  readonly isAuthenticated = computed(() => this._account() !== null);
+  readonly isAuthenticated = computed(() => this._session()?.isAuthenticated === true);
 
   /** Convenience signals for chrome bindings. */
   readonly displayName = computed(() => this.currentUser()?.displayName ?? '');
   readonly email = computed(() => this.currentUser()?.email ?? '');
 
   /**
-   * Roles from the id-token claim — coarse labels. Components doing UX gating
-   * should prefer `permissions()` from `AuthStore` (authoritative, hydrated
-   * from the backend).
+   * Roles from the BFF's session response — coarse labels. Components doing
+   * UX gating should prefer `permissions()` from `AuthStore` (authoritative,
+   * hydrated from the backend).
    */
-  readonly roles = computed<readonly string[]>(() => {
-    const claims = (this._account()?.idTokenClaims ?? {}) as Record<string, unknown>;
-    const raw = claims['roles'];
-    return Array.isArray(raw) ? (raw as readonly string[]) : [];
-  });
+  readonly roles = computed<readonly string[]>(() => this._session()?.roles ?? []);
 
   constructor() {
-    // MSAL `initialize()` + `handleRedirectPromise()` are already invoked by
-    // `provideAppInitializer(...)` in `app.config.ts` BEFORE this constructor
-    // runs. By the time we get here, the MSAL cache is valid and any redirect
-    // callback has been processed.
-    //
-    // What this constructor does:
-    //   1. Sync the current active account into our `_account` signal.
-    //   2. Subscribe to `inProgress$` so subsequent interactions
-    //      (silent refresh, interactive login) update our state.
-    //   3. Flip `isLoading` to false once the first `InteractionStatus.None`
-    //      arrives (MSAL uses `Startup` until then).
-    //   4. Set up cross-tab logout sync.
-    //   5. Trigger permission hydration whenever we transition into an
-    //      authenticated state (`effect` runs on signal change).
-    this.syncAccountFromMsal();
-    this.subscribeToMsalInteractions();
     this.subscribeToCrossTabLogout();
     this.triggerHydrationOnLogin();
+  }
 
-    // `provideAppInitializer(...)` in app.config.ts already awaits
-    // `msal.initialize()` + `handleRedirectPromise()` before Angular
-    // finishes bootstrap — by the time this constructor runs, MSAL IS idle.
-    // MSAL-Angular v5's `inProgress$` doesn't reliably replay the pre-
-    // subscription `None` transition, so the filter-based subscription below
-    // may never fire on first load. Flip the loading flag eagerly here; the
-    // subscription keeps it accurate across future interactions (silent
-    // refresh, logout, interactive reauth).
-    this.isLoading.set(false);
+  // ── INITIALIZATION ───────────────────────────────────────────────────────
+
+  /**
+   * Fetches `/api/auth/session` and populates signals. Invoked by the
+   * `provideAppInitializer` hook in `app.config.ts` so the first render
+   * already knows whether the user is authenticated — no flicker between
+   * "loading" and "login required".
+   *
+   * Tolerant of network errors: when the BFF is unreachable, we log and
+   * treat the user as anonymous rather than throwing (which would block app
+   * bootstrap). Subsequent requests' interceptors surface the real failure.
+   */
+  async refreshSession(): Promise<void> {
+    try {
+      const session = await firstValueFrom(
+        this.http.get<SessionInfo>('/api/auth/session', {
+          withCredentials: true,
+        }),
+      );
+      this._session.set(session);
+      this.log.info('auth.session.loaded', {
+        isAuthenticated: session.isAuthenticated,
+      });
+    } catch (err: unknown) {
+      this.log.warn('auth.session.load.failed', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      this._session.set(null);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   // ── AUTH OPERATIONS ──────────────────────────────────────────────────────
 
   /**
-   * Starts the Azure AD redirect login flow.
+   * Starts the Entra login flow via a top-level navigation to the BFF. The
+   * browser follows `302 → Entra authorize → sign-in → Entra redirect → BFF
+   * /signin-oidc → session cookie set → 302 to returnUrl`. The SPA restarts
+   * at `returnUrl` with a valid session cookie.
    *
-   * The caller typically supplies `redirectUrl` from `ActivatedRoute` so the
-   * user lands where they were going before the auth guard intercepted.
+   * MUST be a top-level navigation (not XHR) — cross-origin redirects silently
+   * drop `Set-Cookie` when initiated from XHR even with `credentials: 'include'`.
    *
-   * @param redirectUrl Optional full URL to navigate to once login completes.
+   * @param returnUrl Optional local path to land on after login (default `/`).
    */
-  login(redirectUrl?: string): void {
-    // Compose scopes: OIDC baseline + the runtime-configured custom API
-    // scope. Requesting the custom scope here means Entra shows a consent
-    // screen once (first login) and every subsequent silent token acquisition
-    // for the Api succeeds from cache — MsalInterceptor can attach the
-    // bearer without an interactive redirect mid-XHR.
-    const apiScope = this.runtime.msal.apiScope;
-    const scopes = apiScope
-      ? [...BASE_LOGIN_SCOPES, apiScope]
-      : [...BASE_LOGIN_SCOPES];
-    this.log.info('auth.login.start', { redirectUrl, scopes });
-    this.msal.loginRedirect({
-      scopes,
-      redirectStartPage: redirectUrl,
-    });
+  login(returnUrl?: string): void {
+    const target = this.buildAuthUrl('/api/auth/login', returnUrl);
+    this.log.info('auth.login.start', { returnUrl });
+    // Top-level navigation leaves the SPA — the browser handles the redirect chain.
+    window.location.href = target;
   }
 
   /**
-   * Logs the user out locally, broadcasts to other tabs, and triggers the
-   * Azure AD sign-out redirect.
+   * Clears the local session signal, broadcasts to other tabs, then posts to
+   * `/api/auth/logout` as a top-level form submit so the browser follows the
+   * 302 through Entra's end-session endpoint. Same top-level-nav reasoning
+   * as `login()`.
    *
-   * Why clear local state BEFORE the redirect: between the
-   * `msal.logoutRedirect()` call and the actual navigation, a small window
-   * exists where the UI might render with stale signals. Clearing first
-   * avoids that flicker.
-   *
-   * Why `/auth/login` as post-logout URL (not `/`): `/` resolves to a
-   * protected route, the auth guard triggers `loginRedirect()`, which MSAL
-   * rejects because the logout interaction is still in progress — an
-   * "interaction_in_progress" error loop. Pointing straight at `/auth/login`
-   * sidesteps it.
+   * @param returnUrl Optional local path to land on after logout completes.
    */
-  logout(): void {
+  logout(returnUrl?: string): void {
     this.log.info('auth.logout.start');
 
-    // 1. Clear local signals first.
-    this._account.set(null);
+    // 1. Clear local state immediately so the UI doesn't render stale data
+    //    during the redirect chain.
+    this._session.set(null);
     this.authStore.reset();
     this.sessionMonitor.stop();
 
-    // 2. Broadcast to other tabs so they also clear.
+    // 2. Tell other tabs to clear their state too.
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         new BroadcastChannel(LOGOUT_CHANNEL).postMessage(LOGOUT_MESSAGE);
       }
     } catch {
-      // BroadcastChannel can fail in older browsers / security contexts —
-      // not fatal; the redirect still clears this tab.
+      // BroadcastChannel unavailable (older browsers, strict security contexts).
+      // Non-fatal; the server-side sign-out still clears THIS tab.
     }
 
-    // 3. Redirect to Azure AD sign-out.
-    this.msal.logoutRedirect({
-      postLogoutRedirectUri: '/auth/login',
-    });
-  }
-
-  /**
-   * Acquires an access token for specific scopes. Used by code paths that
-   * can't go through the `MsalInterceptor` (WebSocket handshake, manual
-   * `fetch`, etc.).
-   *
-   * On silent failure, MSAL falls back to an interactive redirect — the
-   * current page unmounts. Callers should assume the Promise never resolves
-   * after a failure in that case.
-   */
-  async getAccessToken(scopes: readonly string[]): Promise<string | null> {
-    const account = this.msal.instance.getActiveAccount();
-    if (!account) return null;
-
-    try {
-      const result = await this.msal.instance.acquireTokenSilent({
-        scopes: [...scopes],
-        account,
-      });
-      return result.accessToken;
-    } catch (err) {
-      this.log.warn('auth.token.silent.failed', { err });
-      this.msal.acquireTokenRedirect({ scopes: [...scopes] });
-      return null;
-    }
+    // 3. Top-level POST to the BFF. Build a transient <form> because POST
+    //    requires it (a plain `window.location.href = 'POST…'` isn't a thing).
+    const target = this.buildAuthUrl('/api/auth/logout', returnUrl);
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = target;
+    form.style.display = 'none';
+    document.body.appendChild(form);
+    form.submit();
   }
 
   // ── INTERNALS ────────────────────────────────────────────────────────────
 
   /**
-   * Reads MSAL's cache and writes the active account into our signal.
-   *
-   * MSAL supports multiple cached accounts; we prefer the one explicitly
-   * marked "active" (set via `setActiveAccount`), falling back to the first
-   * cached account. If there are none, we clear our signal.
+   * Builds a BFF auth URL with a validated `returnUrl` query string. The BFF
+   * validates it again server-side via `Url.IsLocalUrl`, but validating
+   * client-side prevents a round-trip for obvious-nonsense inputs.
    */
-  private syncAccountFromMsal(): void {
-    // Defensive: MSAL-Browser v5 throws `uninitialized_public_client_application`
-    // from `getAllAccounts()` when called before `initialize()` has resolved —
-    // easy to trip on hard-refresh because Angular's `provideAppInitializer`
-    // hooks run in parallel (Promise.all) and `TelemetryUserSyncService`
-    // constructs `AuthService` (triggering this sync) during the telemetry
-    // initializer, which may race the MSAL-init initializer.
-    //
-    // On the race losing branch we simply skip this sync. The follow-up
-    // `inProgress$.subscribe(... InteractionStatus.None …)` below re-invokes
-    // `syncAccountFromMsal()` once MSAL transitions to idle, so no account
-    // data is permanently missed.
-    let active: AccountInfo | null;
-    try {
-      const accounts = this.msal.instance.getAllAccounts();
-      active = this.msal.instance.getActiveAccount() ?? accounts[0] ?? null;
-    } catch (err) {
-      this.log.warn('auth.sync.deferred', {
-        reason: 'MSAL not yet initialized; will retry on first idle event',
-        err: err instanceof Error ? err.message : String(err),
-      });
-      return;
-    }
-
-    if (active) {
-      this.msal.instance.setActiveAccount(active);
-    }
-    this._account.set(active);
-  }
-
-  /**
-   * Subscribes to MSAL `inProgress$`, which emits an `InteractionStatus` as
-   * the user navigates login/logout/refresh flows. We re-sync whenever the
-   * status returns to `None` (i.e. MSAL is idle again).
-   *
-   * `takeUntilDestroyed(destroyRef)` handles cleanup — no manual destroy$
-   * subject, no `ngOnDestroy`.
-   */
-  private subscribeToMsalInteractions(): void {
-    this.broadcast.inProgress$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((status) => {
-        if (status === InteractionStatus.None) {
-          this.syncAccountFromMsal();
-          this.isLoading.set(false);
-        } else {
-          // Interaction in flight (silent refresh, interactive login, etc).
-          // Gate the UI briefly so components that read `isLoading` reflect
-          // MSAL's real state, not just the initial-bootstrap snapshot.
-          this.isLoading.set(true);
-        }
-      });
+  private buildAuthUrl(path: string, returnUrl?: string): string {
+    if (!returnUrl) return path;
+    // Open-redirect defense mirrors the BFF: only allow paths starting with
+    // `/` (not `//` — protocol-relative), not containing backslashes.
+    const safe =
+      returnUrl.startsWith('/') &&
+      !returnUrl.startsWith('//') &&
+      !returnUrl.includes('\\')
+        ? returnUrl
+        : '/';
+    return `${path}?returnUrl=${encodeURIComponent(safe)}`;
   }
 
   /**
@@ -310,19 +243,19 @@ export class AuthService {
   private subscribeToCrossTabLogout(): void {
     if (typeof BroadcastChannel === 'undefined') return;
     const channel = new BroadcastChannel(LOGOUT_CHANNEL);
-    channel.onmessage = (evt) => {
+    channel.onmessage = (evt): void => {
       if (evt.data === LOGOUT_MESSAGE) {
-        this._account.set(null);
+        this._session.set(null);
         this.authStore.reset();
+        this.sessionMonitor.stop();
       }
     };
-    // Close the channel when this service is destroyed.
     this.destroyRef.onDestroy(() => channel.close());
   }
 
   /**
    * Reactive hydration: every time `isAuthenticated()` becomes `true`, fire
-   * `AuthStore.hydrate()` to fetch effective permissions.
+   * `AuthStore.hydrate()` + start the session monitor.
    *
    * `untracked(() => ...)` prevents the effect from re-registering on
    * permission-state changes — we only care about the `isAuthenticated`
@@ -335,8 +268,7 @@ export class AuthService {
         if (authed) {
           untracked(() => {
             this.authStore.hydrate();
-            // Phase 2.4 — start the session monitor once we're logged in.
-            // Idempotent; safe to call on every transition.
+            // Idempotent — safe to call on every transition.
             this.sessionMonitor.start();
           });
         }

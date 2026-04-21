@@ -27,7 +27,9 @@
  *     `Observable<ApiResponse<T>>` / `Observable<void>`.
  *
  * WHAT THIS CLASS DOES **NOT** OWN
- *   - Auth headers — `MsalInterceptor` attaches the bearer token.
+ *   - Auth — handled by the BFF. The browser's session cookie rides every
+ *     request; the BFF attaches the downstream bearer token server-side on
+ *     `/api/proxy/*` routes. The SPA never sees a bearer.
  *   - Tenant headers — `tenantInterceptor` attaches `X-Tenant-ID`.
  *   - Retry / error normalization / loading indication — separate interceptors.
  *

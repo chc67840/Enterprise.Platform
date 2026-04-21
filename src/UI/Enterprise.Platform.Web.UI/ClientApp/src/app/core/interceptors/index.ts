@@ -1,17 +1,17 @@
 /**
  * Canonical interceptor chain, exported as an ordered tuple for convenience.
  *
- * Order matches Architecture §4.3:
- *   1. MsalInterceptor (class-based; registered separately via HTTP_INTERCEPTORS)
- *   2. correlationInterceptor
- *   3. tenantInterceptor
- *   4. securityInterceptor
- *   5. (cacheInterceptor    — Phase 6)
- *   6. (dedupInterceptor    — Phase 6)
- *   7. loadingInterceptor
- *   8. loggingInterceptor
- *   9. retryInterceptor
- *  10. errorInterceptor
+ * Order matches Architecture §4.3 (updated for Phase 9 — MSAL removed;
+ * bearer-token attachment now happens server-side in the BFF proxy):
+ *   1. correlationInterceptor
+ *   2. tenantInterceptor
+ *   3. securityInterceptor — reads XSRF-TOKEN cookie → X-XSRF-TOKEN header
+ *   4. cacheInterceptor    (Phase 6)
+ *   5. dedupInterceptor    (Phase 6)
+ *   6. loadingInterceptor
+ *   7. loggingInterceptor
+ *   8. retryInterceptor
+ *   9. errorInterceptor
  */
 export { correlationInterceptor } from './correlation.interceptor';
 export { tenantInterceptor } from './tenant.interceptor';

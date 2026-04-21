@@ -411,16 +411,254 @@ it doesn't exist yet. Comments are verbose per the project rule (why / what / ho
 
 ---
 
-## Phase 9 — BFF Integration (optional per U1, ~3 days)
+## Phase 9 — BFF Activation (~2-3 days)
 
-**Goal:** cookie-session + CSRF + server-rendered config path. Only if BFF is adopted.
+**Goal:** flip the scaffolded `Enterprise.Platform.Web.UI` BFF from dormant to live so
+the SPA runs cookie-session + CSRF behind a same-origin reverse proxy, and MSAL is
+ripped out of the browser entirely. Closes the XSS token-exposure window, eliminates
+CORS, shrinks the SPA bundle by ~150 kB, and unifies telemetry on the BFF.
 
-- [ ] **9.1** `AuthStrategy` abstraction in `core/auth/` — `IAuthStrategy` with `login`, `logout`, `isAuthenticated$`, `getAccessToken`. Implementations: `MsalDirectStrategy`, `BffCookieStrategy`.
-- [ ] **9.2** Swap MSAL usage behind strategy; DI picks strategy from runtime config (`authMode: 'msal-direct' | 'bff-cookie'`).
-- [ ] **9.3** `BffCookieStrategy` — no `Authorization` header; relies on BFF-set cookies; `securityInterceptor` reads XSRF-TOKEN cookie → `X-XSRF-TOKEN` header; `credentials: 'include'` on fetch.
-- [ ] **9.4** BFF emits `/config.json` server-rendered (no extra HTTP roundtrip). `loadRuntimeConfig` detects embedded config and skips fetch.
-- [ ] **9.5** Nonce-based CSP (Phase 2.2) now emitted by BFF — wire through.
-- [ ] **9.6** Checkpoint: cookie-auth login → API call → logs on BFF show same correlation ID.
+**Entry state (as of 2026-04-21).** Phase 7.6 activated the SPA→Api direct path with
+MSAL-in-browser (the "public SPA" shortcut). The BFF scaffold is ~70 % complete but
+inert: cookie scheme + AntiForgery + BffProxyController + SecurityHeaders are all in
+tree, OIDC is commented with a `D4` marker, and the SPA never calls
+`Enterprise.Platform.Web.UI` at all. Phase 9 turns all of that on.
+
+**Companion docs.**
+- Portal + secret runbook: [`../Security/bff-oidc-setup.md`](../Security/bff-oidc-setup.md)
+- Current auth smoke (MSAL path — kept until G3 cutover): [`../Observability/auth-smoke-runbook.md`](../Observability/auth-smoke-runbook.md)
+
+---
+
+### 9.A Decisions (must resolve before code)
+
+- [x] **9.A.1** Entra App Registration shape — **Option B chosen**: provision a
+  second confidential-client registration for the BFF (name
+  `Enterprise.Platform.Web.UI (BFF) — Dev`). Keeps the existing SPA registration
+  (`a703a89e-…`) alive for rollback. Full portal walkthrough in
+  [`../Security/bff-oidc-setup.md`](../Security/bff-oidc-setup.md) § 1-4.
+- [ ] **9.A.2** Session store — in-memory (dev) → Redis (`AddStackExchangeRedisCache`)
+  for prod. Affects `BffAuthenticationSetup.AddCookieScheme`. Land Redis wiring at G2.
+- [ ] **9.A.3** Refresh-token storage — **Option A chosen**: encrypted inside the
+  cookie ticket via `SaveTokens = true` (wired in 9.B.1). PlatformDb-backed store
+  deferred until D4 lifts.
+- [ ] **9.A.4** XSRF issuance — **explicit endpoint chosen**: SPA calls
+  `GET /api/antiforgery/token` once per session (matches existing
+  `AntiForgeryController`).
+- [ ] **9.A.5** Local dev HTTPS — **HTTP loopback chosen**: BFF runs on
+  `http://localhost:5001`; Entra's localhost exception means no dev cert needed.
+  Non-localhost environments require HTTPS.
+
+### 9.B BFF host — `Enterprise.Platform.Web.UI`
+
+- [x] **9.B.1** Activate OIDC scheme in `Configuration/BffAuthenticationSetup.cs`.
+  New `AzureAdBffSettings` POCO bound from `AzureAd` section. `AddOpenIdConnect`
+  wired with Authority = `{Instance}/{TenantId}/v2.0`, `ResponseType = code`,
+  `UsePkce = true`, `SaveTokens = true`, scopes = `openid profile offline_access
+  {ApiScope}`. Validation aborts startup loudly when `Enabled=true` but
+  TenantId / ClientId / ClientSecret are missing. Localhost redirect_uri rewrite
+  added so Entra accepts the dev loopback URL.
+- [x] **9.B.2** `DefaultChallengeScheme = OidcScheme` gated on `AzureAd.Enabled`
+  so disabling the flag reverts the BFF to cookie-only (401-everything) without
+  code changes.
+- [x] **9.B.3** `AuthController` rewritten with three real endpoints:
+  - `GET /api/auth/login?returnUrl=…` → validates via `Url.IsLocalUrl`
+    (open-redirect defense), idempotent if already signed in, otherwise
+    `Challenge(OidcScheme)` with returnUrl threaded through
+    `AuthenticationProperties.RedirectUri`.
+  - `POST /api/auth/logout?returnUrl=…` → tolerant of already-anonymous;
+    otherwise `SignOut(CookieScheme, OidcScheme)` triggers Entra single
+    sign-out.
+  - `GET /api/auth/session` → `SessionInfo` DTO projection from claims
+    (+ `ExpiresUtc` from cookie properties). Handles duplicate `roles`
+    claims via `FindAll` + `Distinct`. Returns `SessionInfo.Anonymous`
+    when no session.
+  - `LoggerMessage` source-generated delegates for CA1848 compliance.
+  - Smoke-tested: all 5 curl scenarios (anonymous session, login challenge,
+    open-redirect attack, anonymous logout short-circuit, returnUrl logout)
+    pass.
+- [ ] **9.B.4** `GET /api/auth/me/permissions` placeholder moved under
+  `AuthController` so D4 hydration lands server-side (resolves the 404 seen in
+  Phase 7 console).
+- [x] **9.B.5** `Bff:Proxy:AttachBearerToken` flipped to `true` in
+  `appsettings.Development.json` so `BffProxyController` pulls
+  `HttpContext.GetTokenAsync("access_token")` onto downstream calls.
+- [x] **9.B.6** `[AutoValidateAntiforgeryToken]` applied at the class level on
+  `BffProxyController`. Validates unsafe verbs (POST/PUT/PATCH/DELETE),
+  skips safe ones (GET/HEAD/OPTIONS/TRACE). Ordering note: the default
+  `AuthorizeFilter` runs before the anti-forgery filter, so unauthenticated
+  attackers get a 302-to-login before CSRF ever checks. For *authenticated*
+  sessions the filter fires correctly — missing / mismatched
+  `X-XSRF-TOKEN` returns 400. Combined with `SameSite=Strict` session
+  cookie this is full CSRF defense-in-depth.
+- [x] **9.B.7** `BffTokenRefreshService` rotates the stashed access token
+  before Entra's copy expires. Hooked into
+  `CookieAuthenticationEvents.OnValidatePrincipal`; resolves per-request
+  from DI (no singleton HttpClient capture). Refresh threshold: 5 min.
+  Posts `grant_type=refresh_token` to the tenant's v2 token endpoint with
+  the same scope set as the original login. Success → `StoreTokens` +
+  `ShouldRenew = true`. Failure (HTTP error, malformed payload, missing
+  stashed tokens, expired refresh token) → `RejectPrincipal()` → SPA
+  sees 401 on next request → re-login. Six source-gen log delegates
+  cover skip/attempt/success/fail/missing/exception. Named HTTP client
+  `ep-bff-token-refresh` registered via `IHttpClientFactory`.
+- [ ] **9.B.8** Correlation-id forwarding — existing middleware mints/echoes
+  `X-Correlation-ID`; extend `BffProxyController` to copy it onto the outbound
+  `HttpRequestMessage` so Api logs tie to BFF logs with one id. Add structured
+  log per proxy hop (`downstreamPath`, status, duration, `sub` claim).
+- [ ] **9.B.9** Rate limiting at the BFF edge — `AddRateLimiter` with a
+  per-session token bucket (keyed off the cookie), plus a per-IP bucket as
+  defense in depth. Api keeps its own limiter.
+- [ ] **9.B.10** `BffSecurityHeaders` — replace the SPA's `<meta>` CSP with a
+  **header-delivered CSP + per-request nonce**. Middleware rewrites
+  `<script nonce="__NONCE__">` in `index.html` served from the BFF. Lock
+  `connect-src 'self'` (post-cutover — Entra calls are top-level navs, not XHR).
+- [ ] **9.B.11** BFF health endpoints — `/health/live` (self), `/health/ready`
+  (probes downstream Api reachability).
+
+### 9.C Downstream Api — `Enterprise.Platform.Api`
+
+- [ ] **9.C.1** No audience changes during overlap — current
+  `AzureAd.Audiences` (`a703a89e-…` + `api://a703a89e-…`) accepts both
+  SPA-direct and BFF-acquired tokens. Add telemetry dimension
+  `audience_matched` to observe path adoption.
+- [ ] **9.C.2** Post-cutover CORS tightening — remove `http://localhost:4200`
+  from `Cors.AllowedOrigins`; remove the dev `UseHttpsRedirection` skip in
+  `WebApplicationExtensions.cs`. Api becomes non-browser-callable — by design.
+- [ ] **9.C.3** Optional hardening (post-G3) — require `aud: api://…` only,
+  rejecting the implicit client-id audience. Only BFF-acquired tokens
+  accepted.
+
+### 9.D.0 Dev topology — SPA-in-BFF proxy (prerequisite for 9.D)
+
+- [x] **9.D.0.a** `BffSpaSettings` POCO + `SpaProxyMiddleware` + `MapSpaProxyFallback`
+  extension. BFF at `:5001` becomes the single browser-visible origin:
+  controllers + OIDC middleware handle `/api/*` and `/signin-oidc*`; everything
+  else falls through to a streaming reverse proxy targeting Angular dev
+  server at `:4200`. In prod the same fallback serves `wwwroot/index.html`
+  for client-side routing.
+- [x] **9.D.0.b** Gotcha caught: single-arg `MapFallback` uses the
+  `{*path:nonfile}` route constraint which excludes file-extensioned paths.
+  Switched to `MapFallback("/{**catchAll}", …)` so `/styles.css`, `/main.js`,
+  etc. reach the proxy.
+- [x] **9.D.0.c** Gotcha caught: `Content-Type` is end-to-end (RFC 7230),
+  not hop-by-hop. Removed it from `HopByHopHeaders` strip list; split into
+  separate hop-by-hop + request-only lists to keep the intent clear.
+- [x] **9.D.0.d** Smoke: `http://localhost:5001/` returns SPA index.html via
+  proxy; `/styles.css` 200 with `Content-Type: text/css`; arbitrary SPA
+  routes (`/proxy-probe-nonexistent`) proxy through; BFF API routes still
+  owned (`/api/auth/session` returns 200 JSON).
+- [x] **9.D.0.e** Expected consequence: MSAL throws `state_mismatch` on
+  `:5001` because `config.json` still has `redirectUri: localhost:4200`.
+  No action — 9.D removes MSAL entirely.
+
+### 9.D Angular SPA — MSAL rip-out
+
+- [x] **9.D.1** `npm uninstall @azure/msal-browser @azure/msal-angular` (3
+  packages removed including one transitive). `msal.config.ts` deleted;
+  MSAL providers / interceptor / init-hook removed from `app.config.ts`.
+- [x] **9.D.2** `AuthService` rewritten around the BFF session surface:
+  `login(returnUrl)` → top-level nav to `/api/auth/login`; `logout()` →
+  transient form POST to `/api/auth/logout` so browser follows the Entra
+  end-session 302 chain; `refreshSession()` → `GET /api/auth/session`.
+  Signals narrowed to `{ displayName, email, roles, isAuthenticated,
+  expiresAt, isLoading }` — tokens never reach the SPA.
+- [x] **9.D.3** HTTP stack: `withXsrfConfiguration({ cookieName:
+  'XSRF-TOKEN', headerName: 'X-XSRF-TOKEN' })` in `provideHttpClient`.
+  `withCredentials: true` passed explicitly on auth/session calls. MSAL
+  interceptor registration removed from `HTTP_INTERCEPTORS`.
+- [x] **9.D.4** `API_BASE_URL` → `/api/proxy/v1` via `config.json`
+  (same-origin relative). `Dashboard.verifyBackend()` now calls
+  `GET /api/proxy/v1/whoami`.
+- [x] **9.D.5** `public/config.json` — entire `msal` block dropped;
+  `apiBaseUrl` now `/api/proxy/v1`. `RuntimeConfigSchema` rejects MSAL
+  fields (spec updated).
+- [x] **9.D.6** Auth guard unchanged (still reads
+  `AuthService.isAuthenticated()`); the underlying signal now comes from
+  the `/api/auth/session` app initializer.
+- [x] **9.D.7** `SessionMonitorService` polls `/api/auth/session` instead
+  of MSAL account claims. `renew()` calls `/api/auth/session` which
+  triggers the BFF's `OnValidatePrincipal` refresh-rotation.
+- [x] **9.D.8** / **9.D.9** N/A for Option B — BFF is the single origin;
+  the Angular dev server stays on `:4200` internally but users only ever
+  hit `:5001`. No `proxy.conf.json` needed.
+- [x] **9.D.10** `DashboardComponent.verifyBackend()` — URL follows
+  `API_BASE_URL` so the path flipped automatically. Template copy +
+  error diagnostic text refreshed for the BFF topology.
+- [x] **9.D.Z** Smoke: `npm run build:dev` clean, `npm run lint` 0/0,
+  `npm run arch:check` 0 violations across 122 modules, `npx vitest run`
+  121 passed / 2 skipped. No TS errors, no dep-cruiser violations.
+
+### 9.E Tests
+
+- [ ] **9.E.1** Playwright e2e — swap MSAL redirect capture for a test-only
+  session seeder (`POST /api/test/seed-session`, gated
+  `IsDevelopment() && env == "Test"`) that mints a ticket cookie directly.
+- [ ] **9.E.2** Vitest `AuthService` spec — mock `HttpClient` for
+  `/api/auth/session` instead of `MsalService`.
+- [ ] **9.E.3** BFF integration tests (xUnit + `WebApplicationFactory` —
+  subject to WDAC per `feedback_wdac_blocks_runtime` memory; may need clean
+  agent). Cover:
+  - OIDC challenge 302 shape (authorize URL, scopes, redirect_uri).
+  - Session cookie issuance post-callback.
+  - Proxy without session → 401.
+  - Proxy with session → bearer attached, 200.
+  - Mutating proxy without `X-XSRF-TOKEN` → 400.
+  - Logout signs out both schemes.
+- [ ] **9.E.4** Anti-forgery spec — mutating request missing header fails.
+
+### 9.F Observability + ops
+
+- [ ] **9.F.1** App Insights — keep SPA SDK (web vitals) but strip auth/token
+  dimensions. Add BFF App Insights with operation-id correlation across
+  both.
+- [ ] **9.F.2** Metrics — session-lifetime histogram, refresh rotations/sec,
+  session-expired redirect rate.
+- [ ] **9.F.3** Update `Docs/Observability/auth-smoke-runbook.md` with a "BFF
+  cookie flow" section; keep the MSAL section tagged deprecated until G3
+  cutover completes.
+- [ ] **9.F.4** Dashboards — BFF proxy latency (p50/p95/p99), downstream 5xx
+  rate, 401-spike alarm (session-expiry waves).
+
+### 9.G Rollout
+
+- [ ] **9.G.1** Feature flag `features.bffMode` in `config.json` — SPA picks
+  path at boot. Lets staging ramp before prod.
+- [ ] **9.G.2** Staging BFF-flow bake → prod dark launch (BFF live, no SPA
+  traffic) → gradual ramp via Front Door weighting.
+- [ ] **9.G.3** Rollback plan — keep MSAL path behind flag for N sprints; Api
+  keeps accepting direct-SPA tokens until BFF proven.
+
+### 9.H Docs
+
+- [ ] **9.H.1** `Docs/Architecture/UI-Architecture.md` — BFF section flipped
+  from "deferred" to "active".
+- [ ] **9.H.2** `Docs/Architecture/BFF-Session-Flow.md` — sequence diagrams
+  for login, proxy, refresh, logout.
+- [ ] **9.H.3** Close Phase 9 checkpoint here.
+
+### 9.Z Checkpoint — the Phase-9 definition of done
+
+- [ ] Full SPA → BFF → Api round trip under a session cookie; no `Authorization`
+  header ever leaves the browser.
+- [ ] MSAL packages removed from `package.json`; bundle gate shows the ~150 kB
+  shrink (Phase 7 baseline was 1.22 MB raw → expect ~1.08 MB raw).
+- [ ] `npm run lint` / `npm run arch:check` / `npx vitest run` all green.
+- [ ] `Docs/Observability/auth-smoke-runbook.md` BFF section passes manual
+  smoke.
+- [ ] Feature flag flip reproducibly switches SPA between MSAL + BFF paths
+  (rollback path proven).
+
+**Phase-9 hotspots (from the deep analysis):**
+1. App Registration provisioning is the one irreversible move — 9.A.1 and the
+   `Docs/Security/bff-oidc-setup.md` runbook walk through it non-destructively.
+2. CSRF on proxied mutations — 9.B.6 must land before the first mutating feature.
+3. Refresh-token rotation timing — 9.B.7 has to refresh proactively or users see
+   unnecessary 401s after idle.
+4. Dev HTTPS — loopback HTTP works by Entra's localhost exception; non-loopback
+   dev hosts require a dev cert (noted in runbook).
+5. Don't re-add MSAL as a "backup path" — 9.G.1 gates via URL choice, not dual
+   code paths. Protects the bundle win.
 
 ---
 
@@ -513,7 +751,7 @@ then fan out into 5/6/7 in parallel across 2 engineers.
 | 6 — State + HTTP maturity | 4 |
 | 7 — Performance | 3 |
 | 8 — i18n (optional) | 5 |
-| 9 — BFF (optional) | 3 |
+| 9 — BFF activation (active — Phase-9 expanded scope) | 3 |
 | 10 — SSR/PWA (optional) | 5 |
 | 11 — DX polish | 2 |
 | **Subtotal (required only)** | **30 days** |

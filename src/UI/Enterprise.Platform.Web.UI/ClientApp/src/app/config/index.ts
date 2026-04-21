@@ -1,10 +1,5 @@
 /** Barrel for `@config/*`. */
 export { appConfig } from './app.config';
-export {
-  msalGuardConfig,
-  msalInstanceFactory,
-  msalInterceptorConfigFactory,
-} from './msal.config';
 export { primeNgConfig } from './primeng.config';
 export {
   RUNTIME_CONFIG,
@@ -15,7 +10,6 @@ export {
 export {
   RuntimeConfigSchema,
   type RuntimeConfig,
-  type MsalRuntimeConfig,
   type TelemetryRuntimeConfig,
   type SessionRuntimeConfig,
 } from './runtime-config.model';

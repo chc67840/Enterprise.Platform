@@ -134,7 +134,10 @@
       "Bash(node scripts/bundle-check.mjs)",
       "Bash(node -e \"const s = require\\('K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/ClientApp/dist/enterprise-platform-client/stats.json'\\); const outputs = s.outputs || {}; const entries = Object.entries\\(outputs\\).slice\\(0, 5\\); for \\(const [k, v] of entries\\) console.log\\(k, '->', { bytes: v.bytes, entryPoint: v.entryPoint, hasImports: Array.isArray\\(v.imports\\) && v.imports.length }\\);\")",
       "Bash(node -e \"const s = require\\('K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/ClientApp/dist/enterprise-platform-client/stats.json'\\); const outputs = s.outputs || {}; const entries = Object.entries\\(outputs\\); for \\(const [k, v] of entries\\) { console.log\\(\\(v.bytes/1024\\).toFixed\\(1\\).padStart\\(8\\) + ' kB  ' + \\(v.entryPoint || '\\(no entry\\)'\\).padEnd\\(80\\) + ' ' + k\\); }\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(dotnet user-secrets *)",
+      "Bash(dotnet clean *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('authorization_endpoint:', d['authorization_endpoint']\\); print\\('token_endpoint:', d['token_endpoint']\\); print\\('issuer:', d['issuer']\\)\")"
     ]
   }
 }

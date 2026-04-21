@@ -33,9 +33,12 @@ export class TelemetryUserSyncService {
   constructor() {
     effect(() => {
       // `currentUser` is a computed signal — the effect re-runs whenever the
-      // active MSAL account (and therefore the user id) changes.
+      // BFF session's user identity changes (login / logout / tab refresh).
+      // Email doubles as the telemetry user id — stable, unique in-tenant,
+      // and the Phase-9 SPA doesn't see deeper identifiers (`oid` stays
+      // server-side on the BFF ticket).
       const user = this.auth.currentUser();
-      this.telemetry.setUserContext(user?.id ?? null);
+      this.telemetry.setUserContext(user?.email ?? null);
     });
   }
 }

@@ -54,24 +54,13 @@ import { RuntimeConfigSchema, type RuntimeConfig } from './runtime-config.model'
  * Build-time fallback used when `/config.json` is unreachable. Derived from
  * `environment.*.ts` so dev / staging / production builds ship a usable
  * default even if the deployment forgets to overwrite `/config.json`.
- *
- * The redirect URI defaults to the current origin at runtime so localhost dev
- * Just Works without editing config files.
  */
 function buildFallbackConfig(): RuntimeConfig {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const env = environment;
 
   return RuntimeConfigSchema.parse({
     apiBaseUrl: env.apiBaseUrl,
     bffBaseUrl: env.bffBaseUrl,
-    msal: {
-      clientId: env.msal.clientId,
-      tenantId: env.msal.tenantId,
-      apiScope: env.msal.apiScope,
-      redirectUri: env.msal.redirectUri || origin,
-      postLogoutRedirectUri: origin ? `${origin}/auth/login` : undefined,
-    },
     telemetry: {
       appInsightsConnectionString: '',
       sampleRate: 1,
@@ -211,7 +200,6 @@ function applyConfig(next: RuntimeConfig): void {
   // deliberate mutation visible to readers of this file.
   RUNTIME_CONFIG_HOLDER.apiBaseUrl = next.apiBaseUrl;
   RUNTIME_CONFIG_HOLDER.bffBaseUrl = next.bffBaseUrl;
-  RUNTIME_CONFIG_HOLDER.msal = next.msal;
   RUNTIME_CONFIG_HOLDER.telemetry = next.telemetry;
   RUNTIME_CONFIG_HOLDER.session = next.session;
   RUNTIME_CONFIG_HOLDER.features = next.features;

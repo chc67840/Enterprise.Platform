@@ -26,11 +26,6 @@ function validPayload() {
   return {
     apiBaseUrl: 'https://api.example.test/api/v1',
     bffBaseUrl: 'https://app.example.test',
-    msal: {
-      clientId: 'a4d8a8ae-0000-4000-8000-000000000000',
-      tenantId: 'b4d8a8ae-0000-4000-8000-000000000000',
-      apiScope: 'api://enterprise/access_as_user',
-    },
   };
 }
 
@@ -58,8 +53,7 @@ describe('loadRuntimeConfig', () => {
 
     expect(outcome).toBe('fetched');
     expect(RUNTIME_CONFIG_HOLDER.apiBaseUrl).toBe(payload.apiBaseUrl);
-    expect(RUNTIME_CONFIG_HOLDER.msal.clientId).toBe(payload.msal.clientId);
-    expect(RUNTIME_CONFIG_HOLDER.msal.apiScope).toBe(payload.msal.apiScope);
+    expect(RUNTIME_CONFIG_HOLDER.bffBaseUrl).toBe(payload.bffBaseUrl);
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
@@ -127,7 +121,7 @@ describe('loadRuntimeConfig', () => {
     const fetchImpl = vi.fn(
       async () =>
         jsonResponse({
-          // Missing required fields (`apiBaseUrl`, `msal.clientId`, etc.).
+          // Missing required `apiBaseUrl`.
           bffBaseUrl: 'https://foo',
         }),
     );

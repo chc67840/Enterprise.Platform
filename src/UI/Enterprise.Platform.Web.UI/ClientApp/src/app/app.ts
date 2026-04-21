@@ -3,17 +3,17 @@
  *
  * Responsibilities:
  *   1. Mount the router outlet where layouts and features attach.
- *   2. Gate the UI behind `AuthService.isLoading()` during MSAL bootstrap so
- *      no flash of protected content appears before the redirect callback
- *      finishes processing.
+ *   2. Gate the UI behind `AuthService.isLoading()` during the initial session
+ *      probe so no flash of protected content appears before we know whether
+ *      we're signed in.
  *
- * MSAL BOOTSTRAP ORDER
- *   - `provideAppInitializer(initializeMsal)` in `app.config.ts` awaits
- *     `msal.initialize()` + `handleRedirectPromise()` before Angular finishes
- *     bootstrap. By the time THIS component renders, MSAL is ready.
- *   - But: `AuthService.isLoading` stays `true` until
- *     `MsalBroadcastService.inProgress$` emits `InteractionStatus.None`. That
- *     last flip happens microseconds later. We use it as the UI gate.
+ * SESSION BOOTSTRAP ORDER (Phase 9)
+ *   - `provideAppInitializer(() => inject(AuthService).refreshSession())` in
+ *     `app.config.ts` calls `GET /api/auth/session` and awaits the response
+ *     before Angular finishes bootstrap. By the time THIS component renders,
+ *     the session signal is populated (or `null` on network failure).
+ *   - `AuthService.isLoading` flips to `false` when the initializer resolves;
+ *     we gate the UI on it to avoid flicker.
  *
  * ZONELESS + ONPUSH
  *   This component runs under `ChangeDetectionStrategy.OnPush` with zoneless
@@ -50,11 +50,8 @@ export class AppComponent {
   /*
    * Constructs `TelemetryUserSyncService` post-bootstrap. Its `effect`
    * forwards `AuthService.currentUser` → `TelemetryService.setUserContext`.
-   * Wiring it here (rather than in the telemetry `provideAppInitializer`)
-   * keeps `AuthService`'s first MSAL sync AFTER the MSAL-init initializer
-   * has finished — avoids the `uninitialized_public_client_application`
-   * race on hard refresh. Assigned to a protected field so tree-shaking
-   * can't drop the side-effect-only injection.
+   * Assigned to a protected field so tree-shaking can't drop the
+   * side-effect-only injection.
    */
   protected readonly _telemetryUserSync = inject(TelemetryUserSyncService);
 }

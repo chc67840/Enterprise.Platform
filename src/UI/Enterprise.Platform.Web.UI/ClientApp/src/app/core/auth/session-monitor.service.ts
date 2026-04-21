@@ -1,35 +1,35 @@
 /**
- * ─── SESSION MONITOR SERVICE ────────────────────────────────────────────────────
+ * ─── SESSION MONITOR SERVICE (BFF Cookie-Session) ───────────────────────────────
  *
  * WHY
- *   Users on long-lived tabs hit an auth-token expiry every ~15 minutes.
+ *   Users on long-lived tabs hit a session-cookie expiry every ~8 hours (the
+ *   cookie's sliding window). The BFF's `OnValidatePrincipal` hook silently
+ *   renews the stashed access token via refresh_token — but if the refresh
+ *   token itself expires (or Entra revokes it), the session invalidates and
+ *   the next request returns 401.
+ *
  *   Surfacing this as a timed warning (rather than a surprise 401 mid-action)
  *   is a core enterprise-app expectation:
  *
- *     - At `exp - warningLeadTimeSeconds` (default 120 s), `expiringSoon` flips
- *       to `true` — the UI shows a modal offering "Stay signed in" or
- *       "Sign out".
- *     - At `exp`, `expired` flips to `true` — the next outbound request will
- *       trip MSAL silent-refresh; if that fails, the `errorInterceptor`
- *       already owns the redirect back to `/auth/login`.
- *     - When the tab returns to the foreground (`visibilitychange`), we
- *       re-compute from the current active account so a tab that was
- *       suspended past expiry immediately reflects the expired state instead
- *       of waiting for the next poll tick.
+ *     - At `expiresAt - warningLeadTimeSeconds` (default 120 s),
+ *       `expiringSoon()` flips to `true` — the UI shows a modal offering
+ *       "Stay signed in" or "Sign out".
+ *     - At `expiresAt`, `expired()` flips to `true` — any subsequent request
+ *       will 401 and the `errorInterceptor` redirects back to
+ *       `/api/auth/login`.
+ *     - On foreground (`visibilitychange`) we re-poll so a tab suspended past
+ *       expiry updates immediately rather than waiting for the next tick.
  *
- * WHERE `exp` COMES FROM
- *   MSAL exposes the decoded id token on `AccountInfo.idTokenClaims`. The
- *   JWT spec guarantees `exp` as a number of seconds since epoch. We multiply
- *   by 1000 to work in milliseconds throughout this service.
+ * WHERE `expiresAt` COMES FROM
+ *   The BFF returns the cookie's ExpiresUtc on every `/api/auth/session`
+ *   response. We read it straight from the same call. No JWT decoding
+ *   client-side — the SPA never sees tokens.
  *
- * INTERACTIONS WITH THE REST OF THE SYSTEM
- *   - `AuthService` triggers `start()` when the user becomes authenticated
- *     and `stop()` on logout. The service's effects handle the rest.
- *   - `SessionExpiringDialogComponent` binds to `expiringSoon()` /
- *     `secondsUntilExpiry()` to render the warning. "Stay" calls `renew()`;
- *     "Sign out" calls `AuthService.logout()` directly.
- *   - `renew()` uses MSAL's `acquireTokenSilent` with the default login
- *     scopes — successful refresh resets the timer.
+ * RENEWAL STRATEGY
+ *   `renew()` calls `GET /api/auth/session`. That request is authenticated,
+ *   so the BFF's `OnValidatePrincipal` hook fires → refresh-token rotation
+ *   runs → new expiresAt returned. Any authenticated request would renew,
+ *   but using `/session` avoids side-effects on real endpoints.
  *
  * PROVIDED IN: root. Exactly one monitor for the whole tab.
  */
@@ -41,19 +41,29 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { MsalService } from '@azure/msal-angular';
-import type { AccountInfo } from '@azure/msal-browser';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 
 import { RUNTIME_CONFIG } from '@config/runtime-config';
 import { LoggerService } from '@core/services/logger.service';
 import { NotificationService } from '@core/services/notification.service';
 
-/** Default scopes for silent renewal — matches `AuthService.login`. */
-const RENEW_SCOPES: readonly string[] = ['openid', 'profile', 'User.Read'];
+/**
+ * JSON contract — mirror of the BFF's `SessionInfo`. Duplicated locally (not
+ * imported from auth.service) so there's no cyclic dependency: AuthService →
+ * SessionMonitorService and back.
+ */
+interface SessionInfo {
+  readonly isAuthenticated: boolean;
+  readonly name: string | null;
+  readonly email: string | null;
+  readonly roles: readonly string[];
+  readonly expiresAt: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class SessionMonitorService {
-  private readonly msal = inject(MsalService);
+  private readonly http = inject(HttpClient);
   private readonly log = inject(LoggerService);
   private readonly notify = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
@@ -66,42 +76,38 @@ export class SessionMonitorService {
   // ── Reactive state ────────────────────────────────────────────────────
 
   /**
-   * Epoch milliseconds at which the current id token expires. `null` when no
-   * account is active (pre-login or post-logout).
+   * Epoch milliseconds at which the current BFF session cookie expires.
+   * `null` pre-login or post-logout.
    */
   private readonly _expiresAt = signal<number | null>(null);
 
   /** Last tick — drives re-computation of `secondsUntilExpiry`. */
   private readonly _now = signal<number>(Date.now());
 
-  /** Whole seconds remaining until expiry. `null` when no active account. */
+  /** Whole seconds remaining until expiry. `null` when no active session. */
   readonly secondsUntilExpiry = computed<number | null>(() => {
     const exp = this._expiresAt();
     if (exp === null) return null;
     return Math.max(0, Math.floor((exp - this._now()) / 1000));
   });
 
-  /**
-   * `true` in the warning window — i.e. less than `warningLeadTimeSeconds`
-   * remaining but still positive. `false` before and after.
-   */
+  /** Warning window — `warningLeadTimeSeconds` before expiry. */
   readonly expiringSoon = computed<boolean>(() => {
     const secs = this.secondsUntilExpiry();
     if (secs === null) return false;
     return secs > 0 && secs <= this.runtime.session.warningLeadTimeSeconds;
   });
 
-  /** `true` iff the token has already expired and no refresh has landed yet. */
+  /** `true` iff the session has already expired and no renew has landed yet. */
   readonly expired = computed<boolean>(() => {
     const secs = this.secondsUntilExpiry();
     return secs !== null && secs <= 0;
   });
 
   constructor() {
-    // When the token expires without a successful silent refresh, surface a
-    // sticky toast so the user understands why the next action will bounce
-    // them to the login page. The `errorInterceptor` handles the hard
-    // redirect; this is the advisory.
+    // Surface expiry as a sticky toast so the user understands why their
+    // next action bounces them to login. `errorInterceptor` handles the
+    // actual redirect; this is advisory.
     effect(() => {
       if (this.expired()) {
         this.log.warn('session.expired');
@@ -117,31 +123,27 @@ export class SessionMonitorService {
   // ── Lifecycle ────────────────────────────────────────────────────────
 
   /**
-   * Begins polling. Idempotent. Called by `AuthService` once the first
-   * authenticated state is observed. Pulling the monitor start out of the
-   * service constructor means pre-login ticks don't churn when the app is
-   * still booting.
+   * Begins polling `/api/auth/session`. Idempotent. Called by `AuthService`
+   * when the first authenticated state is observed.
    */
   start(): void {
     if (this.pollHandle !== null) {
       return;
     }
 
-    this.refreshExpiryFromMsal();
+    void this.poll();
 
     const intervalMs = this.runtime.session.pollIntervalSeconds * 1000;
     this.pollHandle = setInterval(() => {
       this._now.set(Date.now());
-      // Re-read expiry each tick — MSAL may have silently refreshed the token
-      // in the background, extending the deadline.
-      this.refreshExpiryFromMsal();
+      void this.poll();
     }, intervalMs);
 
     if (typeof document !== 'undefined') {
       const listener = (): void => {
         if (document.visibilityState === 'visible') {
           this._now.set(Date.now());
-          this.refreshExpiryFromMsal();
+          void this.poll();
         }
       };
       document.addEventListener('visibilitychange', listener);
@@ -165,70 +167,66 @@ export class SessionMonitorService {
   }
 
   /**
-   * "Stay signed in" action — silently acquires a new access token for the
-   * default scopes and re-reads the expiry. Returns `true` on success, `false`
-   * if MSAL fell back to interactive (in which case the current page is
-   * about to unmount anyway).
+   * "Stay signed in" action — calls `/api/auth/session` which triggers the
+   * BFF's `OnValidatePrincipal` refresh-token rotation (when the access
+   * token is within the 5-min threshold). Returns `true` when the session
+   * remains valid after the call, `false` when the BFF reported the session
+   * has died (401 or `isAuthenticated: false`).
    */
   async renew(): Promise<boolean> {
-    const account = this.activeAccount();
-    if (!account) {
-      return false;
-    }
-
     try {
-      const result = await this.msal.instance.acquireTokenSilent({
-        scopes: [...RENEW_SCOPES],
-        account,
-        // `forceRefresh: true` is NOT set — we want MSAL's cache-first
-        // behaviour; we're refreshing proactively, not because the existing
-        // token is known-stale.
-      });
-      // `expiresOn` is authoritative for the access token's lifetime; fall
-      // back to id-token claims if the provider omits it.
-      const exp =
-        result.expiresOn?.getTime() ??
-        this.expiryFromClaims(result.account) ??
-        null;
-      this._expiresAt.set(exp);
+      const session = await firstValueFrom(
+        this.http.get<SessionInfo>('/api/auth/session', {
+          withCredentials: true,
+        }),
+      );
+      if (!session.isAuthenticated) {
+        this.log.warn('session.renew.rejected', {
+          reason: 'BFF reported anonymous after renew attempt',
+        });
+        return false;
+      }
+      this._expiresAt.set(this.parseExpiry(session.expiresAt));
       this._now.set(Date.now());
       this.log.info('session.renewed');
       return true;
     } catch (err) {
       this.log.warn('session.renew.failed', { err });
-      // Hand back to MSAL for interactive refresh — the current page unmounts.
-      this.msal.instance.acquireTokenRedirect({ scopes: [...RENEW_SCOPES] });
       return false;
     }
   }
 
   // ── Internals ────────────────────────────────────────────────────────
 
-  private refreshExpiryFromMsal(): void {
-    const account = this.activeAccount();
-    if (!account) {
-      this._expiresAt.set(null);
-      return;
+  /**
+   * Shared code path for `start()`'s initial call + every `setInterval` tick
+   * + every `visibilitychange → visible` transition. Updates `_expiresAt`
+   * with whatever the BFF currently reports.
+   */
+  private async poll(): Promise<void> {
+    try {
+      const session = await firstValueFrom(
+        this.http.get<SessionInfo>('/api/auth/session', {
+          withCredentials: true,
+        }),
+      );
+      if (!session.isAuthenticated) {
+        this._expiresAt.set(null);
+        return;
+      }
+      this._expiresAt.set(this.parseExpiry(session.expiresAt));
+    } catch (err) {
+      // Don't kill the monitor on a single failed poll — could be a transient
+      // network blip. Leave _expiresAt alone so the UI keeps its last-known
+      // state; the next successful poll (or error-interceptor 401 redirect)
+      // will resolve the ambiguity.
+      this.log.warn('session.poll.failed', { err });
     }
-    const exp = this.expiryFromClaims(account);
-    this._expiresAt.set(exp);
   }
 
-  private activeAccount(): AccountInfo | null {
-    const active = this.msal.instance.getActiveAccount();
-    if (active) return active;
-    // Fall back to the first cached account — MSAL occasionally loses the
-    // "active" flag across storage migrations; being defensive here keeps the
-    // monitor functioning during those edge cases.
-    const all = this.msal.instance.getAllAccounts();
-    return all[0] ?? null;
-  }
-
-  private expiryFromClaims(account: AccountInfo | null | undefined): number | null {
-    if (!account) return null;
-    const claims = account.idTokenClaims as Record<string, unknown> | undefined;
-    const exp = claims?.['exp'];
-    if (typeof exp !== 'number') return null;
-    return exp * 1000;
+  private parseExpiry(raw: string | null): number | null {
+    if (!raw) return null;
+    const ts = Date.parse(raw);
+    return Number.isNaN(ts) ? null : ts;
   }
 }

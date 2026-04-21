@@ -1,14 +1,7 @@
 {
-  "_comment": "Runtime config — consumed at boot by loadRuntimeConfig(). NEVER commit secrets here: MSAL clientId is a public identifier; anything with entropy (keys, signing material) belongs in deployment configuration (Key Vault, pipeline variables). Each deployment overwrites this file with environment-specific values during release.",
-  "apiBaseUrl": "http://localhost:5044/api/v1",
-  "bffBaseUrl": "http://localhost:5001",
-  "msal": {
-    "clientId": "a703a89e-19ba-4ffb-bdfc-aa65b72833f4",
-    "tenantId": "f404bba4-4ff2-4d0b-a967-484b87662ab0",
-    "apiScope": "api://a703a89e-19ba-4ffb-bdfc-aa65b72833f4/access_as_user",
-    "redirectUri": "http://localhost:4200",
-    "postLogoutRedirectUri": "http://localhost:4200/auth/login"
-  },
+  "_comment": "Runtime config — consumed at boot by loadRuntimeConfig(). Post-Phase-9 the SPA is cookie-session authenticated via the BFF; no Entra IDs live here anymore. Each deployment overwrites this file with environment-specific values during release. NEVER commit secrets.",
+  "apiBaseUrl": "/api/proxy/v1",
+  "bffBaseUrl": "",
   "telemetry": {
     "appInsightsConnectionString": "",
     "sampleRate": 1.0,

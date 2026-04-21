@@ -5,49 +5,44 @@
  *   Two distinct things the auth layer deals with:
  *
  *     1. `CurrentUser` — what the UI displays in headers, avatars, greetings.
- *        Projected from the MSAL `AccountInfo` plus select id-token claims.
+ *        Projected from the BFF's `/api/auth/session` response (Phase 9).
  *
  *     2. `EffectivePermissions` — authoritative authorization decisions.
- *        Fetched from `GET /api/v1/me/permissions` after login (see
- *        Architecture §3.2, TODO 1.2.2). Never derived from the id-token
- *        client-side — roles in the JWT are coarse labels, not fine-grained
- *        permission strings.
+ *        Fetched from `GET /me/permissions` (via the BFF proxy) after login.
+ *        Never derived from token claims client-side — the SPA doesn't see
+ *        tokens at all in the Phase-9 topology; even if it did, role/group
+ *        claims are coarse labels, not fine-grained permission strings.
  *
  * WHY SEPARATE
  *   The current user is a public UX concern (signal any template can bind to).
  *   Permissions are a guarded authorization concern — their hydration is
  *   side-effect-producing and can fail (network, 401). Separating the types
  *   prevents accidental coupling (e.g. "show user menu only when permissions
- *   loaded" would be a bug — show the menu as soon as the account resolves).
+ *   loaded" would be a bug — show the menu as soon as the session resolves).
  *
  * HOW IT'S USED
  *   - `AuthService.currentUser()`: `Signal<CurrentUser | null>`
  *   - `AuthStore.roles() / permissions() / bypass() / tenantId()`: signal state
- *     populated by `AuthStore.hydrate()` (Phase 1.2.2).
+ *     populated by `AuthStore.hydrate()`.
  *   - Guards (`authGuard`, `permissionGuard`, `roleGuard`) + structural
  *     directives (`*appHasPermission`, `*appHasRole`) read these signals.
  */
 
 /**
- * Projection of `@azure/msal-browser`'s `AccountInfo` plus a few id-token claims
- * we care about. MSAL's type is wider; keeping our own narrow shape means:
+ * Projection of the BFF's `/api/auth/session` response. Keeping our own
+ * narrow shape means template bindings have stable, obvious properties
+ * (`displayName`, `email`).
  *
- *   - Template bindings have stable, obvious properties (`displayName`, `email`);
- *   - A future BFF cookie-mode swap (U1 hybrid path) can populate this same
- *     shape from a `/me` call without touching MSAL at all.
+ * Anything deeper (user id, tenant id, role breakdowns) lives in the
+ * hydrated `AuthStore` state — the SPA deliberately doesn't need Entra's
+ * `oid` / `tid` claims to render chrome.
  */
 export interface CurrentUser {
-  /** OID claim — stable Azure AD object id. */
-  readonly id: string;
-
-  /** Full display name (`name` claim / MSAL `AccountInfo.name`). */
+  /** Full display name (BFF's `name` claim projection). */
   readonly displayName: string;
 
-  /** Primary email / UPN (`preferred_username` / MSAL `AccountInfo.username`). */
+  /** Primary email / UPN (BFF tries `email` → `preferred_username` → schema claim). */
   readonly email: string;
-
-  /** Azure AD tenant id (`tid` claim). May differ from the platform tenant id. */
-  readonly aadTenantId: string;
 }
 
 /**

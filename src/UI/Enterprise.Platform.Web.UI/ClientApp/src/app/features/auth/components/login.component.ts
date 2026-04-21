@@ -4,8 +4,10 @@
  * WHY
  *   The single public-facing sign-in screen. Does three things:
  *
- *     1. Offers a "Sign in with Microsoft" button that triggers MSAL's
- *        redirect flow via `AuthService.login(returnUrl)`.
+ *     1. Offers a "Sign in with Microsoft" button that triggers the BFF's
+ *        OIDC redirect flow via `AuthService.login(returnUrl)` — a top-level
+ *        navigation to `/api/auth/login`, which challenges Entra and returns
+ *        the browser to our origin with a session cookie set.
  *
  *     2. Reads the `returnUrl` query param (set by `authGuard` when a
  *        protected route redirected here) so after sign-in the user lands
@@ -60,9 +62,9 @@ export class LoginComponent {
 
   constructor() {
     // Reactive redirect: if the auth state flips to authenticated while
-    // this page is mounted (e.g. MSAL just processed a redirect), bounce
-    // straight to returnUrl. `effect()` re-runs on signal change; zoneless
-    // CD makes this synchronous + safe.
+    // this page is mounted (e.g. the initial session probe just landed a
+    // signed-in session), bounce straight to returnUrl. `effect()` re-runs
+    // on signal change; zoneless CD makes this synchronous + safe.
     effect(() => {
       if (this.auth.isAuthenticated()) {
         void this.router.navigateByUrl(this.returnUrl);

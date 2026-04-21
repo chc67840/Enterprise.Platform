@@ -5,20 +5,17 @@
  * end. Phase 12 replaces this with the real KPI/chart dashboard wired to
  * the stores.
  *
- * Phase-7.6 addition: a "Verify backend" button that calls
- * `GET /api/v1/whoami` to prove the full SPA → Entra → Api chain works:
+ * Phase-9 addition: a "Verify backend" button that calls
+ * `GET /api/proxy/v1/whoami` to prove the full SPA → BFF → Api chain works:
  *
- *   1. MSAL interceptor attaches the bearer token (from the Entra ID
- *      token obtained at login).
- *   2. Api's `AuthenticationSetup` validates the token against the
- *      AzureAd.Audiences + AllowedIssuers + RequiredScopes configured
- *      in `appsettings.Development.json`.
- *   3. `/api/v1/whoami` returns 200 with the decoded claims, OR the
- *      request fails with a diagnosable status + error body.
+ *   1. Browser ships the BFF session cookie automatically.
+ *   2. BFF validates the cookie, reads the stashed access token, forwards
+ *      to the Api with `Authorization: Bearer`.
+ *   3. Api's `AuthenticationSetup` validates the token and returns claims.
  *
- * This is the canonical smoke test when swapping Azure app registrations
- * or rotating tenants — a green round-trip here means every piece of
- * auth wiring is correct.
+ * A green round-trip here means every piece of auth wiring is correct —
+ * OIDC flow, cookie session, refresh rotation, proxy bearer attachment,
+ * JWT validation. Canonical smoke test after any Phase-9 config change.
  */
 import {
   ChangeDetectionStrategy,
@@ -98,8 +95,8 @@ type VerifyState =
           <div>
             <div class="text-sm font-semibold text-gray-900">Verify backend connectivity</div>
             <div class="mt-1 text-xs text-gray-500">
-              Calls <code class="text-gray-700">GET {{ whoamiUrl }}</code>. Proves the MSAL
-              token flow + Api JWT validation are correctly wired.
+              Calls <code class="text-gray-700">GET {{ whoamiUrl }}</code>. Proves the BFF
+              cookie session + proxy bearer attachment + Api JWT validation are correctly wired.
             </div>
           </div>
           <button
@@ -134,8 +131,8 @@ type VerifyState =
                 ✗ {{ errorStatus() }} — {{ errorMessage() }}
               </div>
               <div class="mt-1 text-xs text-red-700">
-                Common causes: aud/iss mismatch in the Api's AzureAd config, CORS
-                blocking the origin, or the Api not running on the expected port.
+                Common causes: BFF session cookie expired (re-login), BFF not running on :5001,
+                Api not running on :5044, or aud/iss mismatch in the Api's AzureAd config.
               </div>
             </div>
           }

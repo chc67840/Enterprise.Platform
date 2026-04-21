@@ -20,9 +20,10 @@
  *
  * STATUS-CODE POLICY
  *   401 (Unauthenticated):
- *     MSAL interceptor owns the refresh flow. If a 401 still reaches us here,
- *     it means silent refresh failed — show a sticky "session expired" toast
- *     and redirect to login.
+ *     The BFF's `OnValidatePrincipal` hook rotates the access token silently;
+ *     a 401 reaching us means the refresh token itself was rejected (session
+ *     invalidated). Show a sticky "session expired" toast and redirect to
+ *     `/api/auth/login` for a fresh OIDC flow.
  *
  *   403 (Forbidden):
  *     Server refused. Show toast + navigate to `/error/forbidden`.
@@ -132,7 +133,9 @@ function handleSideEffects(err: ApiError, notify: NotificationService, router: R
       return;
 
     case HttpStatusCode.Unauthorized:
-      // MSAL owns the happy path here. If we're reached, silent refresh failed.
+      // BFF owns token rotation via OnValidatePrincipal. A 401 reaching us
+      // means the session itself is dead — navigate to the local login page
+      // where the user triggers a fresh OIDC flow via AuthService.login().
       notify.sticky('warn', 'Session expired', 'Please sign in again to continue.');
       router.navigate(['/auth/login'], {
         queryParams: { returnUrl: router.url },
