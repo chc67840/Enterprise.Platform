@@ -61,11 +61,16 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         title: 'Dashboard',
+        // Phase 7.1 — `preload: true` is the CustomPreloader's opt-in flag.
+        // Dashboard is the default landing after sign-in, so pre-fetching
+        // its chunk while the user is still on /auth/login shaves perceived
+        // load time. Respects `navigator.connection.saveData`.
         data: {
           label: 'Dashboard',
           icon: 'pi-home',
           breadcrumb: 'Dashboard',
           showInNav: true,
+          preload: true,
         } satisfies RouteMetadata,
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),

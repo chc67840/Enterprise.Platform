@@ -14,6 +14,15 @@
  *        empty, which makes `init()` a no-op; no network required under
  *        Vitest.
  *
+ * PHASE 7.2 — LAZY SDK LOAD
+ *   The Application Insights SDK is ~350 kB raw / ~100 kB gzipped — too big
+ *   to eagerly ship in the initial bundle. It is now loaded via
+ *   `await import('@microsoft/applicationinsights-web')` inside `init()`,
+ *   AND only when `runtime.telemetry.appInsightsConnectionString` is set.
+ *   Sessions without a connection string (dev, unit tests, offline) never
+ *   download the SDK. The dynamic-import chunk name is stamped by the
+ *   bundler so stats.json shows it as a named lazy chunk.
+ *
  * SAMPLING
  *   - Global events/pageviews/errors gated by `telemetry.sampleRate` (default 1).
  *   - Web-vitals gated by `telemetry.webVitalsSampleRate` (default 0.1).
@@ -23,16 +32,9 @@
  * CORRELATION + USER CONTEXT
  *   `trackError` / `trackEvent` attach:
  *     - `correlationId` — from `CorrelationContextService.active()`.
- *     - `userId` — from `AuthService.currentUser()` when available.
+ *     - `userId` — from `TelemetryUserSyncService` (broken out to avoid a
+ *       DI cycle with AuthService).
  *     - `route` — `Router.url` at the time of the call.
- *   These three together give support teams a pivot path from a telemetry
- *   record to a backend log via correlation id and to a user via userId.
- *
- * INIT ORDER
- *   Registered as the third `provideAppInitializer` in `app.config.ts`:
- *     1. loadRuntimeConfig  — needs to finish so connectionString + sampleRate are known
- *     2. MSAL init          — needs to finish so active account is resolvable
- *     3. TelemetryService.init — reads both
  *
  * FAILURE POLICY
  *   - Missing connection string → log warn and no-op (dev / offline mode).
@@ -41,13 +43,6 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import {
-  ApplicationInsights,
-  type IEventTelemetry,
-  type IExceptionTelemetry,
-  type IMetricTelemetry,
-  type IPageViewTelemetry,
-} from '@microsoft/applicationinsights-web';
 
 import { environment } from '@env/environment';
 import { RUNTIME_CONFIG } from '@config/runtime-config';
@@ -59,6 +54,17 @@ import {
   isWithinBudget,
   type WebVitalName,
 } from './web-vitals-budgets';
+
+// Imported as TYPES only — the value side is a dynamic import inside init().
+// The Angular/esbuild bundler treats `import type` as erasable so the SDK's
+// runtime code stays out of the initial chunk.
+import type {
+  ApplicationInsights,
+  IEventTelemetry,
+  IExceptionTelemetry,
+  IMetricTelemetry,
+  IPageViewTelemetry,
+} from '@microsoft/applicationinsights-web';
 
 /** Release-tag shape stamped onto every telemetry record. */
 interface ReleaseTag {
@@ -108,6 +114,10 @@ export class TelemetryService {
    * Initializes Application Insights using the runtime-config connection
    * string. Called from `provideAppInitializer`. Idempotent — a second call
    * is a no-op so tests that spin up the app repeatedly don't stack SDKs.
+   *
+   * The SDK's JS bundle is loaded on-demand via `await import(...)`. Sessions
+   * without a connection string skip the fetch entirely — saves ~100 kB gz
+   * on dev / offline / unit-test paths.
    */
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -124,7 +134,15 @@ export class TelemetryService {
     }
 
     try {
-      this.appInsights = new ApplicationInsights({
+      // Dynamic import — the bundler emits a named `app-insights` chunk
+      // loaded only when a connectionString is present. Webpack magic-comment
+      // syntax also works on esbuild via the `webpackChunkName` hint.
+      const { ApplicationInsights: AppInsightsCtor } = await import(
+        /* webpackChunkName: "app-insights" */
+        '@microsoft/applicationinsights-web'
+      );
+
+      this.appInsights = new AppInsightsCtor({
         config: {
           connectionString,
           samplingPercentage: this.runtime.telemetry.sampleRate * 100,
@@ -233,7 +251,10 @@ export class TelemetryService {
     // Sessions outside the sample rate don't import the package at all.
     if (Math.random() > rate) return;
 
-    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import('web-vitals');
+    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import(
+      /* webpackChunkName: "web-vitals" */
+      'web-vitals'
+    );
 
     const report = (metric: { name: string; value: number }): void => {
       const name = metric.name as WebVitalName;

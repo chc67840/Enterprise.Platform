@@ -61,9 +61,12 @@ import {
 import {
   provideRouter,
   withComponentInputBinding,
+  withPreloading,
   withRouterConfig,
   withViewTransitions,
 } from '@angular/router';
+
+import { CustomPreloader } from '@core/routing/custom-preloader';
 
 import {
   MSAL_GUARD_CONFIG,
@@ -133,13 +136,17 @@ export const appConfig: ApplicationConfig = {
      *  - `withRouterConfig({ onSameUrlNavigation: 'reload' })`: clicking the active
      *    nav link re-runs resolvers + guards (required UX for "refresh" buttons).
      *
-     * Preloading strategy lands in Phase 7 (performance).
+     * Phase 7.1 — `CustomPreloader` honours `data.preload: true` on each
+     * route + skips when `navigator.connection.saveData` is on. Routes that
+     * aren't explicitly tagged are NOT preloaded; the user pays the lazy-
+     * chunk download on first navigation, not at boot.
      */
     provideRouter(
       routes,
       withComponentInputBinding(),
       withViewTransitions(),
       withRouterConfig({ onSameUrlNavigation: 'reload' }),
+      withPreloading(CustomPreloader),
     ),
 
     // ── 4. HTTP client + interceptor chain ──────────────────────────────

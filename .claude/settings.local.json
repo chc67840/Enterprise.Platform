@@ -130,7 +130,11 @@
       "Bash(awk '/Module parse|Module not found|Module build|ERROR in/,/^[^│]/')",
       "Bash(awk '/Module parse/,/^$/')",
       "Bash(awk '/Module parse|Module not found|Module build/,/^[^│]/')",
-      "Bash(awk '/Module parse/,/^<s>/')"
+      "Bash(awk '/Module parse/,/^<s>/')",
+      "Bash(node scripts/bundle-check.mjs)",
+      "Bash(node -e \"const s = require\\('K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/ClientApp/dist/enterprise-platform-client/stats.json'\\); const outputs = s.outputs || {}; const entries = Object.entries\\(outputs\\).slice\\(0, 5\\); for \\(const [k, v] of entries\\) console.log\\(k, '->', { bytes: v.bytes, entryPoint: v.entryPoint, hasImports: Array.isArray\\(v.imports\\) && v.imports.length }\\);\")",
+      "Bash(node -e \"const s = require\\('K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/ClientApp/dist/enterprise-platform-client/stats.json'\\); const outputs = s.outputs || {}; const entries = Object.entries\\(outputs\\); for \\(const [k, v] of entries\\) { console.log\\(\\(v.bytes/1024\\).toFixed\\(1\\).padStart\\(8\\) + ' kB  ' + \\(v.entryPoint || '\\(no entry\\)'\\).padEnd\\(80\\) + ' ' + k\\); }\")",
+      "Bash(node *)"
     ]
   }
 }
