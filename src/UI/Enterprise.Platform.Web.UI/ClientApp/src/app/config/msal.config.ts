@@ -135,8 +135,10 @@ export function msalInterceptorConfigFactory(): MsalInterceptorConfiguration {
   return {
     interactionType: InteractionType.Redirect,
     protectedResourceMap: new Map<string, string[]>([
-      ['https://graph.microsoft.com/v1.0/', ['User.Read']],
-      [rc.apiBaseUrl, rc.msal.apiScope ? [rc.msal.apiScope] : []],
+      // Keys are regex patterns (not prefixes) — without `*`, MSAL-Angular
+      // requires an exact URL match and the interceptor skips any sub-path.
+      ['https://graph.microsoft.com/v1.0/*', ['User.Read']],
+      [`${rc.apiBaseUrl}/*`, rc.msal.apiScope ? [rc.msal.apiScope] : []],
     ]),
   };
 }

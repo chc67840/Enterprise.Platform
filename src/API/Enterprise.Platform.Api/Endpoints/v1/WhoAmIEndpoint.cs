@@ -18,12 +18,17 @@ public static class WhoAmIEndpoint
         app.MapGet("/api/v1/whoami", (HttpContext ctx) =>
         {
             var user = ctx.User;
-            var claims = user.Claims.ToDictionary(c => c.Type, c => c.Value, StringComparer.Ordinal);
+            // Entra tokens can emit the same claim type multiple times (e.g. `amr`
+            // for multi-factor auth, `roles`, `groups`). Group-by collapses them
+            // into a comma-joined value so the dictionary projection is lossless.
+            var claims = user.Claims
+                .GroupBy(c => c.Type, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => string.Join(",", g.Select(c => c.Value)), StringComparer.Ordinal);
             return Results.Ok(new
             {
                 isAuthenticated = user.Identity?.IsAuthenticated == true,
                 name = user.Identity?.Name,
-                claimCount = claims.Count,
+                claimCount = user.Claims.Count(),
                 claims,
             });
         })

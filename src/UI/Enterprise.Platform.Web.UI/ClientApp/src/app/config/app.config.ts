@@ -94,7 +94,6 @@ import { CspViolationReporterService } from '@core/services/csp-violation-report
 import {
   GlobalErrorHandlerService,
   TelemetryService,
-  TelemetryUserSyncService,
 } from '@core/observability';
 
 import {
@@ -280,20 +279,21 @@ export const appConfig: ApplicationConfig = {
 
     // ── 10. APP INITIALIZER — Telemetry (Phase 3.1) ─────────────────────
     /*
-     * Wires Application Insights + web-vitals. Must run AFTER runtime config
-     * (reads connectionString + sampleRate) and AFTER MSAL init (so
-     * currentUser() can populate user context). Missing connection string
+     * Wires Application Insights + web-vitals. Runs after runtime config
+     * (reads connectionString + sampleRate). Missing connection string
      * causes init() to no-op — dev builds boot clean without a real sink.
      *
-     * `TelemetryUserSyncService` is constructed at the same step so its
-     * `effect` starts forwarding `AuthService.currentUser` → Telemetry
-     * `setUserContext` from bootstrap onward. The service is otherwise
-     * unreferenced; touching it via `inject` is enough to instantiate.
+     * NOTE: `TelemetryUserSyncService` is NOT injected here — it would
+     * transitively construct `AuthService` during the initializer phase,
+     * which races the MSAL-init initializer (Angular runs hooks via
+     * `Promise.all`, not sequentially). The resulting stale `AuthService`
+     * state caused the auth guard to wrongly redirect refreshed sessions
+     * to `/auth/login`. `TelemetryUserSyncService` is now constructed by
+     * `AppComponent` — by that point all initializers have completed,
+     * MSAL is fully initialized, and `AuthService.syncAccountFromMsal()`
+     * succeeds on first call.
      */
-    provideAppInitializer(() => {
-      inject(TelemetryUserSyncService);
-      return inject(TelemetryService).init();
-    }),
+    provideAppInitializer(() => inject(TelemetryService).init()),
 
     /*
      * Replace Angular's default `ErrorHandler` with our telemetry-aware

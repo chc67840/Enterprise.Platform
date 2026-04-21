@@ -42,8 +42,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MsalBroadcastService, MsalService } from '@azure/msal-angular';
 import { InteractionStatus, type AccountInfo } from '@azure/msal-browser';
-import { filter } from 'rxjs';
-
+import { RUNTIME_CONFIG } from '@config/runtime-config';
 import { AuthStore } from '@core/auth/auth.store';
 import { SessionMonitorService } from '@core/auth/session-monitor.service';
 import type { CurrentUser } from '@core/models';
@@ -53,8 +52,15 @@ import { LoggerService } from '@core/services/logger.service';
 const LOGOUT_CHANNEL = 'msal:auth';
 const LOGOUT_MESSAGE = 'logout';
 
-/** Default scopes requested on login — the platform's "sign in" baseline. */
-const LOGIN_SCOPES = ['openid', 'profile', 'User.Read'];
+/**
+ * OIDC scopes requested on login. The custom API scope from
+ * `RUNTIME_CONFIG.msal.apiScope` is appended dynamically — including it in
+ * the initial login request means the user consents once and every
+ * subsequent `acquireTokenSilent({ scopes: [apiScope] })` finds a cached
+ * token, so `MsalInterceptor` can attach the bearer on Api calls without
+ * triggering an interactive redirect mid-XHR.
+ */
+const BASE_LOGIN_SCOPES = ['openid', 'profile', 'User.Read'];
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -64,6 +70,7 @@ export class AuthService {
   private readonly authStore = inject(AuthStore);
   private readonly sessionMonitor = inject(SessionMonitorService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly runtime = inject(RUNTIME_CONFIG);
 
   // ── PUBLIC SIGNALS (reactive auth state) ─────────────────────────────────
 
@@ -128,6 +135,16 @@ export class AuthService {
     this.subscribeToMsalInteractions();
     this.subscribeToCrossTabLogout();
     this.triggerHydrationOnLogin();
+
+    // `provideAppInitializer(...)` in app.config.ts already awaits
+    // `msal.initialize()` + `handleRedirectPromise()` before Angular
+    // finishes bootstrap — by the time this constructor runs, MSAL IS idle.
+    // MSAL-Angular v5's `inProgress$` doesn't reliably replay the pre-
+    // subscription `None` transition, so the filter-based subscription below
+    // may never fire on first load. Flip the loading flag eagerly here; the
+    // subscription keeps it accurate across future interactions (silent
+    // refresh, logout, interactive reauth).
+    this.isLoading.set(false);
   }
 
   // ── AUTH OPERATIONS ──────────────────────────────────────────────────────
@@ -141,9 +158,18 @@ export class AuthService {
    * @param redirectUrl Optional full URL to navigate to once login completes.
    */
   login(redirectUrl?: string): void {
-    this.log.info('auth.login.start', { redirectUrl });
+    // Compose scopes: OIDC baseline + the runtime-configured custom API
+    // scope. Requesting the custom scope here means Entra shows a consent
+    // screen once (first login) and every subsequent silent token acquisition
+    // for the Api succeeds from cache — MsalInterceptor can attach the
+    // bearer without an interactive redirect mid-XHR.
+    const apiScope = this.runtime.msal.apiScope;
+    const scopes = apiScope
+      ? [...BASE_LOGIN_SCOPES, apiScope]
+      : [...BASE_LOGIN_SCOPES];
+    this.log.info('auth.login.start', { redirectUrl, scopes });
     this.msal.loginRedirect({
-      scopes: LOGIN_SCOPES,
+      scopes,
       redirectStartPage: redirectUrl,
     });
   }
@@ -223,8 +249,29 @@ export class AuthService {
    * cached account. If there are none, we clear our signal.
    */
   private syncAccountFromMsal(): void {
-    const accounts = this.msal.instance.getAllAccounts();
-    const active = this.msal.instance.getActiveAccount() ?? accounts[0] ?? null;
+    // Defensive: MSAL-Browser v5 throws `uninitialized_public_client_application`
+    // from `getAllAccounts()` when called before `initialize()` has resolved —
+    // easy to trip on hard-refresh because Angular's `provideAppInitializer`
+    // hooks run in parallel (Promise.all) and `TelemetryUserSyncService`
+    // constructs `AuthService` (triggering this sync) during the telemetry
+    // initializer, which may race the MSAL-init initializer.
+    //
+    // On the race losing branch we simply skip this sync. The follow-up
+    // `inProgress$.subscribe(... InteractionStatus.None …)` below re-invokes
+    // `syncAccountFromMsal()` once MSAL transitions to idle, so no account
+    // data is permanently missed.
+    let active: AccountInfo | null;
+    try {
+      const accounts = this.msal.instance.getAllAccounts();
+      active = this.msal.instance.getActiveAccount() ?? accounts[0] ?? null;
+    } catch (err) {
+      this.log.warn('auth.sync.deferred', {
+        reason: 'MSAL not yet initialized; will retry on first idle event',
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
     if (active) {
       this.msal.instance.setActiveAccount(active);
     }
@@ -241,13 +288,17 @@ export class AuthService {
    */
   private subscribeToMsalInteractions(): void {
     this.broadcast.inProgress$
-      .pipe(
-        filter((status) => status === InteractionStatus.None),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => {
-        this.syncAccountFromMsal();
-        this.isLoading.set(false);
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((status) => {
+        if (status === InteractionStatus.None) {
+          this.syncAccountFromMsal();
+          this.isLoading.set(false);
+        } else {
+          // Interaction in flight (silent refresh, interactive login, etc).
+          // Gate the UI briefly so components that read `isLoading` reflect
+          // MSAL's real state, not just the initial-bootstrap snapshot.
+          this.isLoading.set(true);
+        }
       });
   }
 

@@ -24,6 +24,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 import { AuthService } from '@core/auth/auth.service';
+import { TelemetryUserSyncService } from '@core/observability';
 
 @Component({
   selector: 'app-root',
@@ -45,4 +46,15 @@ import { AuthService } from '@core/auth/auth.service';
 })
 export class AppComponent {
   readonly auth = inject(AuthService);
+
+  /*
+   * Constructs `TelemetryUserSyncService` post-bootstrap. Its `effect`
+   * forwards `AuthService.currentUser` → `TelemetryService.setUserContext`.
+   * Wiring it here (rather than in the telemetry `provideAppInitializer`)
+   * keeps `AuthService`'s first MSAL sync AFTER the MSAL-init initializer
+   * has finished — avoids the `uninitialized_public_client_application`
+   * race on hard refresh. Assigned to a protected field so tree-shaking
+   * can't drop the side-effect-only injection.
+   */
+  protected readonly _telemetryUserSync = inject(TelemetryUserSyncService);
 }

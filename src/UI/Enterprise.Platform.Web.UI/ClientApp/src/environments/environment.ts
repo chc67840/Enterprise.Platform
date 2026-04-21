@@ -24,12 +24,21 @@ export const environment = {
     enableLogging: true,
   },
 
-  /** MSAL placeholder — real values flow in via `/config.json` (Phase 2). */
+  /**
+   * MSAL offline-dev fallback. Matches `public/config.json` so dev sessions
+   * that can't reach `/config.json` still boot against the real Entra
+   * tenant. `/config.json` wins when present.
+   *
+   * NOTE: `apiScope` follows the single-app-registration pattern
+   * (`api://{SPA-clientId}/access_as_user`). If a separate Api app
+   * registration is introduced, swap to `api://{Api-clientId}/access_as_user`
+   * in both places.
+   */
   msal: {
-    clientId: '',
-    tenantId: '',
+    clientId: 'a703a89e-19ba-4ffb-bdfc-aa65b72833f4',
+    tenantId: 'f404bba4-4ff2-4d0b-a967-484b87662ab0',
     redirectUri: 'http://localhost:4200',
-    apiScope: '',
+    apiScope: 'api://a703a89e-19ba-4ffb-bdfc-aa65b72833f4/access_as_user',
   },
 
   /** Network timeouts + retry policy. */
