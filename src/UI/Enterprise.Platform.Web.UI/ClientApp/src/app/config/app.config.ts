@@ -95,7 +95,9 @@ import {
 } from '@core/observability';
 
 import {
+  cacheInterceptor,
   correlationInterceptor,
+  dedupInterceptor,
   errorInterceptor,
   loadingInterceptor,
   loggingInterceptor,
@@ -161,6 +163,10 @@ export const appConfig: ApplicationConfig = {
         correlationInterceptor,
         tenantInterceptor,
         securityInterceptor,
+        // Phase 6.1 — cache first (hit short-circuits the rest of the chain)
+        // then dedup (collapses identical in-flight GETs to one observable).
+        cacheInterceptor,
+        dedupInterceptor,
         loadingInterceptor,
         loggingInterceptor,
         retryInterceptor,

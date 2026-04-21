@@ -81,6 +81,10 @@ module.exports = {
           '^src/app/core/observability/global-error-handler\\.service\\.ts$',
           '^src/app/core/services/logger\\.service\\.ts$',
           '^src/app/core/interceptors/retry\\.interceptor\\.ts$',
+          // Phase 6.2.4 — `withDevtools` branches on `environment.production`
+          // to no-op in prod builds. Reading the build-time flag directly is
+          // the whole point; it must never be a runtime-config override.
+          '^src/app/core/store/base/store-features/with-devtools\\.feature\\.ts$',
         ],
       },
       to: { path: '^src/environments' },

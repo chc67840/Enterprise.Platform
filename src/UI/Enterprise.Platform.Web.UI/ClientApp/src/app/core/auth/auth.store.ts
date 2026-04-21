@@ -37,9 +37,9 @@
  *   route-scoped provision; auth state is the global exception.)
  */
 import { HttpClient } from '@angular/common/http';
-import { computed, inject } from '@angular/core';
+import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 
@@ -107,11 +107,6 @@ export const AuthStore = signalStore(
   { providedIn: 'root' },
   withState<AuthState>(INITIAL_STATE),
 
-  withComputed((store) => ({
-    /** True when the cached permission set has expired (or was never loaded). */
-    isStale: computed(() => store.expiresAt() <= Date.now()),
-  })),
-
   withMethods((store) => {
     const http = inject(HttpClient);
     const baseUrl = inject(API_BASE_URL);
@@ -119,6 +114,17 @@ export const AuthStore = signalStore(
     const tenant = inject(TenantService);
 
     return {
+      /**
+       * Returns `true` when the cached permission set has expired (or was
+       * never loaded). Implemented as a method (not a `computed`) because the
+       * staleness test involves `Date.now()` which is not reactive — a
+       * computed would latch the first value. Guards call this at navigation
+       * time and always see a fresh read.
+       */
+      isStale(): boolean {
+        return store.expiresAt() <= Date.now();
+      },
+
       /**
        * Fetches `GET /api/v1/me/permissions`. Called by `AuthService` after
        * login and by the permission/role guards on demand (when data is stale).

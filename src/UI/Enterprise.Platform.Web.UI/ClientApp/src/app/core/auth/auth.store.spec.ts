@@ -80,12 +80,10 @@ describe('AuthStore', () => {
     expect(tenant.current()).toBe('t1');
   });
 
-  it('isStale() is false immediately after a successful hydrate', () => {
-    // Note: `isStale` is a `computed` over `expiresAt`; it only re-evaluates
-    // when a source signal changes. Passing-clock-time alone does NOT mark it
-    // dirty. Re-hydration (or a future reactive-clock refactor in Phase 6.2.1
-    // "loadAllIfStale") forces recomputation. This test pins the immediate
-    // invariant — guards today call hydrate on stale detection elsewhere.
+  it('isStale() flips to true after expiresAt elapses (Phase 6.2.1 reactivity fix)', () => {
+    // Phase 6.2.1 converted `isStale` from a `computed` to a method so the
+    // `Date.now()` comparison re-evaluates on every call. Advancing the fake
+    // clock past the TTL must flip the method's return value.
     hydrateWith({
       roles: [],
       permissions: [],
@@ -94,6 +92,9 @@ describe('AuthStore', () => {
       ttlSeconds: 10,
     });
     expect(store.isStale()).toBe(false);
+
+    vi.advanceTimersByTime(11_000);
+    expect(store.isStale()).toBe(true);
   });
 
   it('hydrate error preserves prior state + captures the error message', () => {

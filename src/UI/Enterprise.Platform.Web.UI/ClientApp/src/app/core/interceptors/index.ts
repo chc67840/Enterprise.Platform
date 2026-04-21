@@ -16,6 +16,8 @@
 export { correlationInterceptor } from './correlation.interceptor';
 export { tenantInterceptor } from './tenant.interceptor';
 export { securityInterceptor } from './security.interceptor';
+export { cacheInterceptor } from './cache.interceptor';
+export { dedupInterceptor } from './dedup.interceptor';
 export { loadingInterceptor } from './loading.interceptor';
 export { loggingInterceptor } from './logging.interceptor';
 export { retryInterceptor } from './retry.interceptor';

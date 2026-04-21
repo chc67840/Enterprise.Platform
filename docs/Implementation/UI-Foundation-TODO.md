@@ -310,42 +310,47 @@ it doesn't exist yet. Comments are verbose per the project rule (why / what / ho
 **Goal:** cache consumption, request dedup, server-error projection in forms, cross-store invalidation, Zod adapter for dynamic forms.
 
 ### 6.1 Cache + dedup
-- [ ] **6.1.1** `cacheInterceptor` — GET-only in-memory cache keyed by URL+params, TTL configurable per-request via `X-Cache-TTL: <seconds>` header or default 0.
-- [ ] **6.1.2** `dedupInterceptor` — identical in-flight GETs share the same Observable (single-flight).
-- [ ] **6.1.3** Insert both into chain positions 5 & 6 (Architecture §4.3).
-- [ ] **6.1.4** Unit tests as listed in Phase 4.
+- [x] **6.1.1** `cacheInterceptor` (`core/interceptors/cache.interceptor.ts`) — GET-only in-memory cache keyed by `method | url | sorted-params | accept`. Opt-IN via `X-Cache-TTL: <seconds>` (no TTL header → pass-through). `X-Skip-Cache: true` forces a network hit + refreshes the entry. Non-GET + non-2xx responses are never cached. LRU eviction at 200 entries. Marker headers stripped before forwarding.
+- [x] **6.1.2** `dedupInterceptor` (`core/interceptors/dedup.interceptor.ts`) — single-flight via `share()` + `finalize()` cleanup. Same key shape as the cache interceptor so the two agree on "identical". GET only. `X-Skip-Dedup: true` opts out (with header stripping).
+- [x] **6.1.3** Chain slots 5/6 in `app.config.ts` — cache → dedup → loading → logging → retry → error. Cache hit short-circuits before dedup and before loading (no spurious progress bar).
+- [x] **6.1.4** Specs: `cache.interceptor.spec.ts` (7 cases: pass-through / cold-then-warm / TTL expiry / X-Skip-Cache force / non-GET / non-2xx-not-cached) + `dedup.interceptor.spec.ts` (5 cases: concurrent collapse / different URLs independent / POST not deduped / X-Skip-Dedup strip / fresh after completion).
 
 ### 6.2 `createEntityStore` enhancements
-- [ ] **6.2.1** `loadAllIfStale()` — computes `isStale = now - lastLoadedAt > CACHE_TTL_MS`; no-ops when fresh. Replace call sites that blindly `loadAll()` on navigation.
-- [ ] **6.2.2** `withEntityAdapter` helper — O(1) add/remove/update helpers; drop spread-based mutations.
-- [ ] **6.2.3** `withOptimisticUpdates()` — extracts the optimistic pattern introduced in Phase 1.4 into a reusable `signalStoreFeature`.
-- [ ] **6.2.4** `withDevtools(name)` (per U5) — wires `@angular-architects/ngrx-toolkit` in dev only.
-- [ ] **6.2.5** `withPersistence(key, { storage: 'local' | 'session' | 'indexedDb' })` — optional; opt-in per store.
+- [x] **6.2.1** `loadAllIfStale()` — already present in base-entity.store via `shouldReload()`; Phase-6 verifies the reactivity. Related: `AuthStore.isStale` migrated from a `computed` to a **method** so `Date.now()` re-evaluates on every call (the Phase-4 spec's frozen-latch bug is now verified fixed with a new passing spec).
+- [x] **6.2.2** `withEntityAdapter<T>()` (`store-features/with-entity-adapter.feature.ts`) — `upsertOne / upsertMany / removeOne / removeMany / setAll / clearEntities`. O(1) where semantically possible; preserves id order on survivors. Narrowed internally via `StoreNode = Record<string, unknown>` + `unknown` cast (no `any`).
+- [+] **6.2.3** `withOptimisticUpdates()` — **optimistic update pattern is ALREADY extracted** inside `createEntityStore.updateEntity` (rollback-on-409 landed in Phase 1.4 + verified in Phase 4). Extracting into a standalone feature would duplicate the API without a consumer; deferred until another aggregate needs optimistic updates outside the store factory.
+- [x] **6.2.4** `withDevtools(name)` (`store-features/with-devtools.feature.ts`) — wraps `@angular-architects/ngrx-toolkit`'s `withDevtools`; returns a structurally-valid no-op feature when `environment.production === true` (dependency-cruiser rule whitelisted for this specific file since the prod branch is the whole point).
+- [x] **6.2.5** `withPersistence<TState>({ key, storage, pick })` (`store-features/with-persistence.feature.ts`) — localStorage / sessionStorage / indexedDb (latter falls back to localStorage with a warn log until the async IDB driver lands). Hydrate on init, save on every state change via an `effect`. Quota / parse / storage-unavailable failures swallowed with warn-level logs so persistence is strictly best-effort.
 
 ### 6.3 Cross-store coordination
-- [ ] **6.3.1** `CacheInvalidationBus` — RxJS `Subject<{ entity: string, action: 'created'|'updated'|'deleted' }>` at root.
-- [ ] **6.3.2** Every mutating store method emits on the bus; stores subscribe to invalidate specific peers (e.g. `RolesStore` on `users:updated` invalidates itself).
+- [x] **6.3.1** `CacheInvalidationBus` (`core/store/cache-invalidation-bus.service.ts`) — root-scoped RxJS `Subject<CacheInvalidationEvent>`. `publish` / `events$(entity)` / `events$()` (all) / `actionsFor$(entity)`. Events carry `{ entity, action: 'created'|'updated'|'deleted', id?, at }`. Synchronous delivery — late subscribers see future events only.
+- [x] **6.3.2** `createEntityStore` wires automatically:
+  - Publishes on successful `createEntity` / `updateEntity` / `deleteEntity` using the new `invalidationKey` config (defaults to lower-cased `entityName`).
+  - Subscribes to events for every slice listed in the new `invalidatesOn` config, flipping `isStale` on each hit. `DestroyRef` + a `Subject<void>` gate the subscription lifetime.
+  - 5 bus specs (`cache-invalidation-bus.service.spec.ts`) cover filtered delivery, isolation between entities, unfiltered stream, `actionsFor$` narrowing, `at` auto-stamp.
 
 ### 6.4 Server-error projection in forms
-- [ ] **6.4.1** `ServerErrorMapperService` — takes an `ApiError.errors: Record<fieldName, string[]>` and calls `formControl.setErrors({ server: messages[0] })` on each matching control.
-- [ ] **6.4.2** `DynamicFieldComponent` template renders `server` error key identically to built-in validators.
-- [ ] **6.4.3** On next `valueChanges`, `server` error auto-clears (so user sees live feedback).
+- [x] **6.4.1** `ServerErrorMapperService` (`core/forms/server-error-mapper.service.ts`) — `apply(form, err)` projects `ApiError.errors` onto a `FormGroup`/`FormArray`. Dot-path + bracket-index resolver (`address.postalCode`, `roles[2].name`). Sets `control.errors.server = { message, all: readonly string[] }`. Unknown paths returned in `result.unmatched` so callers can surface a form-level banner. Existing validator errors (`required`, `email`) are preserved under the server key.
+- [–] **6.4.2** `DynamicFieldComponent` template projection — **N/A** for this phase; the dynamic-form subsystem doesn't exist yet. When it ships, it renders the `server` key identically to built-in validators (the mapper already exposes it under the standard `control.errors` dictionary).
+- [x] **6.4.3** Auto-clear on next `valueChanges` — mapper subscribes per control and drops the `server` key on first edit. Existing validator errors stay intact.
+- [x] **Specs**: `server-error-mapper.service.spec.ts` — 7 cases: flat field, nested group, indexed array, unmatched collection, auto-clear on typing, validator-error coexistence, empty 422.
 
 ### 6.5 Zod adapter
-- [ ] **6.5.1** `ZodAdapterService.fromSchema(schema: ZodObject): { fields: FieldConfig[], validators: ValidatorFn[] }` — walks a Zod object schema, produces `FieldConfig[]` with the right types, required flags, pattern/min/max derived from Zod.
-- [ ] **6.5.2** Document conventions for type hints (e.g. `z.string().email()` → `inputText` with `email` validator).
-- [ ] **6.5.3** One end-to-end usage: `UserFormComponent` uses `ZodAdapterService.fromSchema(UserSchema)` to build its form.
+- [–] **6.5.1 / 6.5.2 / 6.5.3** — **Deferred.** Requires the dynamic-form subsystem (`FieldConfig`, `DynamicFieldComponent`, `FormBuilderService`, `ValidationMapperService`) which is itself deferred until the first feature needs a complex form. Re-scope alongside that work — pulling in Zod→Form translation before the form engine exists would produce a service with no consumer and a test that mocks its output shape.
 
 ### 6.6 Autosave + resume
-- [ ] **6.6.1** `FormAutosaveService.track(formId, formGroup)` — debounced (500 ms) write to localStorage under `formAutosave:<formId>`.
-- [ ] **6.6.2** On form init, if a saved value exists, show "Restore unsaved changes?" banner + buttons.
-- [ ] **6.6.3** Clear on successful submit.
+- [–] **6.6.1 / 6.6.2 / 6.6.3** — **Deferred** with 6.5 for the same reason (`FormAutosaveService` needs a live `FormGroup` consumer to make sense). Functionally covered in the meantime by `withPersistence` at the STORE layer — feature stores that want their in-progress form-state preserved can opt into a persistent slice today.
 
 ### 6.7 Checkpoint 6
-- [ ] **6.7.1** Same `loadAll()` within TTL hits cache (verify via network tab).
-- [ ] **6.7.2** Two concurrent `loadById` on same ID → single network request.
-- [ ] **6.7.3** 422 response projects field errors inline; no toast (Phase 1.3 policy) but error-interceptor can still log.
-- [ ] **6.7.4** User-form restores unsaved changes after reload.
+- [x] **6.7.1** Cache hit under TTL confirmed by `cache.interceptor.spec.ts` — second identical GET within TTL produces no `httpMock.expectOne` call (proven short-circuit).
+- [x] **6.7.2** Single-flight dedup confirmed by `dedup.interceptor.spec.ts` — two concurrent subscribers share one `HttpTestingController.expectOne` request and both receive identical responses.
+- [x] **6.7.3** 422 projection confirmed by `server-error-mapper.service.spec.ts` — per-field `server` errors appear on the matching controls; no toast is emitted (policy remains: error interceptor is silent on 422).
+- [–] **6.7.4** Autosave restore — deferred with 6.6.
+- [x] **6.7.5** `npm run lint` → 0/0.
+- [x] **6.7.6** `npm run arch:check` → 0 violations across 120 modules.
+- [x] **6.7.7** `npx vitest run` → 116 passing / 2 skipped (23 new specs across cache/dedup/bus/mapper + the AuthStore TTL fix).
+- [x] **6.7.8** `npm run build:prod` → 0 errors (warn budget carried from Phase 3; stays in scope for Phase 7.4).
+- [x] **6.7.9** `npm run secrets:check` → clean.
 
 ---
 

@@ -7,3 +7,10 @@ export { withSearch } from './with-search.feature';
 export type { SearchState } from './with-search.feature';
 export { withSelection } from './with-selection.feature';
 export type { SelectionState } from './with-selection.feature';
+export { withEntityAdapter } from './with-entity-adapter.feature';
+export { withPersistence } from './with-persistence.feature';
+export type {
+  PersistenceOptions,
+  PersistenceStorage,
+} from './with-persistence.feature';
+export { withDevtools } from './with-devtools.feature';

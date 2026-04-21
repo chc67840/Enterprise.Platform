@@ -39,17 +39,20 @@
  *     withMethods                         // CRUD methods
  *   )
  */
-import { computed, inject, type Type } from '@angular/core';
+import { computed, DestroyRef, inject, type Type } from '@angular/core';
 import {
+  getState,
   patchState,
   signalStore,
   withComputed,
+  withHooks,
   withMethods,
   withState,
+  type WritableStateSource,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { tapResponse } from '@ngrx/operators';
-import { pipe, switchMap, tap } from 'rxjs';
+import { pipe, switchMap, takeUntil, tap, Subject } from 'rxjs';
 
 import type { BaseApiService } from '@core/http/base-api.service';
 import type {
@@ -60,6 +63,8 @@ import type {
   QueryParams,
 } from '@core/models';
 import { NotificationService } from '@core/services/notification.service';
+
+import { CacheInvalidationBus } from '../cache-invalidation-bus.service';
 
 import {
   DEFAULT_CACHE_TTL_MS,
@@ -101,6 +106,24 @@ export interface EntityStoreConfig<T extends BaseEntity> {
 
   /** Cache TTL in ms for `loadAllIfStale`. Defaults to `DEFAULT_CACHE_TTL_MS` (5 min). */
   readonly cacheTtlMs?: number;
+
+  /**
+   * Entity slice name used for cache-invalidation events. Defaults to the
+   * lowercased `entityName`. Other stores subscribing to
+   * `CacheInvalidationBus.events$(name)` get notified when this store
+   * performs a create / update / delete. Keep it stable across feature
+   * slices so peer subscriptions continue to match.
+   */
+  readonly invalidationKey?: string;
+
+  /**
+   * Peer entity slices whose mutation events mark THIS store stale. When any
+   * of these fire, the store's `isStale` flag flips to `true` — next
+   * `loadAllIfStale()` will refetch. Example: a Users store listing role
+   * assignments sets `invalidatesOn: ['roles']` so renaming a role marks
+   * users stale.
+   */
+  readonly invalidatesOn?: readonly string[];
 }
 
 /**
@@ -115,6 +138,8 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
     defaultPageSize = 20,
     showNotifications = true,
     cacheTtlMs = DEFAULT_CACHE_TTL_MS,
+    invalidationKey = entityName.toLowerCase(),
+    invalidatesOn = [],
   } = config;
 
   // `providedIn` is either `'root'` or omitted. Passing `null` to signalStore
@@ -167,6 +192,7 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
     withMethods((store) => {
       const api = inject(serviceType);
       const notify = showNotifications ? inject(NotificationService) : null;
+      const bus = inject(CacheInvalidationBus);
 
       /** Evaluates whether a cache refetch is needed. */
       const shouldReload = (): boolean => {
@@ -271,6 +297,13 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
                       isStale: true, // next list view re-fetches to see server-sorted order
                     });
                     notify?.success(`${entityName} created`, `${entityName} was created successfully.`);
+                    // Phase 6.3 — announce the mutation so peer stores can mark
+                    // themselves stale if they declared `invalidatesOn`.
+                    bus.publish({
+                      entity: invalidationKey,
+                      action: 'created',
+                      id: created.id,
+                    });
                   },
                   error: (error: ApiError) => patchState(store, { saving: false, error }),
                 }),
@@ -311,6 +344,7 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
                     });
                     (rollbackMap as Map<string, T | undefined>).delete(id);
                     notify?.success(`${entityName} updated`, `${entityName} was updated successfully.`);
+                    bus.publish({ entity: invalidationKey, action: 'updated', id });
                   },
                   error: (error: ApiError) => {
                     const snapshot = (rollbackMap as Map<string, T | undefined>).get(id);
@@ -351,6 +385,7 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
                       isStale: true,
                     });
                     notify?.success(`${entityName} deleted`, `${entityName} was deleted successfully.`);
+                    bus.publish({ entity: invalidationKey, action: 'deleted', id });
                   },
                   error: (error: ApiError) => patchState(store, { deleting: false, error }),
                 }),
@@ -369,6 +404,37 @@ export function createEntityStore<T extends BaseEntity>(config: EntityStoreConfi
           patchState(store, { activeId: id });
         },
       };
+    }),
+
+    // Phase 6.3 — cross-store invalidation subscribers. When any of the
+    // peer slices this store declared (`invalidatesOn`) fires a mutation
+    // event, flip `isStale` so `loadAllIfStale()` refetches next time.
+    withHooks({
+      onInit(store) {
+        if (invalidatesOn.length === 0) return;
+        const bus = inject(CacheInvalidationBus);
+        const destroyRef = inject(DestroyRef);
+        const destroyed$ = new Subject<void>();
+        destroyRef.onDestroy(() => {
+          destroyed$.next();
+          destroyed$.complete();
+        });
+
+        for (const peer of invalidatesOn) {
+          bus
+            .events$(peer)
+            .pipe(takeUntil(destroyed$))
+            .subscribe(() =>
+              patchState(
+                store as unknown as WritableStateSource<EntityDataState<T>>,
+                { isStale: true },
+              ),
+            );
+        }
+        // Reference `getState` so the hook types stay aligned with the
+        // rest of the feature graph during compilation.
+        void getState(store);
+      },
     }),
   );
 }
