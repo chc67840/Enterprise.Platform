@@ -60,6 +60,10 @@ public static class BffAuthenticationSetup
         services.AddHttpClient(BffTokenRefreshService.HttpClientName);
         services.AddScoped<BffTokenRefreshService>();
 
+        // Session metrics (Phase 9.F.2). Singleton — the underlying Meter is
+        // process-wide; instruments are thread-safe.
+        services.AddSingleton<BffSessionMetrics>();
+
         var authBuilder = services.AddAuthentication(options =>
         {
             options.DefaultScheme = CookieScheme;
@@ -87,6 +91,13 @@ public static class BffAuthenticationSetup
     }
 
     // ── cookie session ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Authentication-property key used to stash the session start instant
+    /// (UTC ticks as string). Read on sign-out to record the session-lifetime
+    /// histogram bucket.
+    /// </summary>
+    private const string SessionStartedAtPropertyKey = ".ep.bff.session_started_at";
 
     private static void AddCookieScheme(AuthenticationBuilder authBuilder, AzureAdBffSettings azureAd)
     {
@@ -119,6 +130,42 @@ public static class BffAuthenticationSetup
                 var refresher = ctx.HttpContext.RequestServices
                     .GetRequiredService<BffTokenRefreshService>();
                 await refresher.ValidateAsync(ctx).ConfigureAwait(false);
+            };
+
+            // Session-created metric (9.F.2) — fires on each new sign-in
+            // (cookie issued). Stash a UTC start-time on the ticket so
+            // OnSigningOut can compute lifetime.
+            options.Events.OnSigningIn = ctx =>
+            {
+                ctx.Properties.SetString(
+                    SessionStartedAtPropertyKey,
+                    DateTimeOffset.UtcNow.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+                var metrics = ctx.HttpContext.RequestServices
+                    .GetRequiredService<BffSessionMetrics>();
+                metrics.SessionsCreated.Add(1);
+                return Task.CompletedTask;
+            };
+
+            // Session-lifetime metric — emit the wall-clock seconds the
+            // session lived, indexed by reason (`signout` for explicit
+            // sign-out, `expired` if SignOut is fired by expiry handling).
+            options.Events.OnSigningOut = ctx =>
+            {
+                var metrics = ctx.HttpContext.RequestServices
+                    .GetRequiredService<BffSessionMetrics>();
+
+                var startedAtRaw = ctx.Properties.GetString(SessionStartedAtPropertyKey);
+                if (long.TryParse(startedAtRaw, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var startedAtTicks))
+                {
+                    var lifetime = DateTimeOffset.UtcNow - new DateTimeOffset(startedAtTicks, TimeSpan.Zero);
+                    metrics.SessionLifetimeSeconds.Record(
+                        lifetime.TotalSeconds,
+                        KeyValuePair.Create<string, object?>("reason", "signout"));
+                }
+
+                return Task.CompletedTask;
             };
         });
     }

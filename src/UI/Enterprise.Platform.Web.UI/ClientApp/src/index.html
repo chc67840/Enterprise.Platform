@@ -9,35 +9,18 @@
     <meta name="description" content="Enterprise Platform — Angular 21 SPA" />
 
     <!--
-      Content Security Policy (static-host baseline).
-
-      Full rationale + directive-by-directive breakdown:
-        Docs/Security/csp-policy.md  (Phase 2.2)
-
-      WHY VIA <meta>
-        Phase 2 deploys the SPA as a static-host artefact; <meta> is the
-        portable way to ship the baseline policy without pinning to any one
-        host's header-injection mechanism. When the BFF fronts the SPA
-        (Phase 9) the policy is emitted as an HTTP response header with
-        per-request nonces, and this <meta> is removed.
-
-      DIRECTIVE NOTES
-        - `style-src 'unsafe-inline'` is the only relaxation vs. production.
-          PrimeNG's runtime theme engine appends inline <style> nodes; the
-          nonce-based BFF path (Phase 9) eliminates this allowance.
-        - `connect-src` enumerates the dev + prod hosts we expect to call.
-          Add new external fetch targets here AND in csp-policy.md.
-        - `report-uri` is intentionally absent — static hosts can't configure
-          Report-To and a cross-origin report-uri would itself violate CORS.
-          The in-app CspViolationReporterService captures violations via
-          the `securitypolicyviolation` DOM event instead.
+      Phase 9.B.10 — Content-Security-Policy + X-Content-Type-Options +
+      Referrer-Policy are emitted as HTTP response headers by the BFF
+      (`BffSecurityHeaders` middleware in Enterprise.Platform.Web.UI). The
+      header path is strictly more capable than `<meta>`:
+        • `frame-ancestors` works when delivered as a header (browsers
+          ignore it via meta — the warning we used to see in console).
+        • Header CSP carries a per-request nonce that future inline-script
+          use can opt into via `<script nonce="…">` without globally
+          relaxing the policy.
+        • A single source of truth — see Docs/Security/csp-policy.md for
+          the directive-by-directive breakdown.
     -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://api.example.com https://login.microsoftonline.com https://graph.microsoft.com https://*.in.applicationinsights.azure.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
-    />
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta name="referrer" content="strict-origin-when-cross-origin" />
 
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>

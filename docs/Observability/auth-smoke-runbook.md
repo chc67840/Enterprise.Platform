@@ -1,18 +1,135 @@
-# Auth smoke test — SPA → Entra → Api round trip
+# Auth smoke test — SPA → BFF → Entra → Api round trip
 
-> **Scope.** Confirms the Phase-7 MSAL wiring works end-to-end against a
-> real Azure Entra tenant: SPA redirects to Entra, user authenticates,
-> SPA receives token, Api validates token, `/api/v1/whoami` returns claim set.
+> **Scope.** Confirms the Phase-9 BFF cookie-session wiring works end-to-end
+> against a real Azure Entra tenant. The browser navigates to the BFF, the
+> BFF runs the OIDC code+PKCE dance against Entra, a session cookie is set,
+> and `GET /api/proxy/v1/whoami` returns the Api's claim dump.
 >
 > **When to run.**
-> 1. After rotating Azure App Registration values.
-> 2. After changing `public/config.json` or the Api's `AzureAd` /
->    `Cors` sections.
-> 3. When auth-related changes land on a PR.
+> 1. After rotating either App Registration's values (BFF or Api).
+> 2. After changing `public/config.json`, the BFF's `appsettings.*.json`
+>    (especially `AzureAd` / `Bff:Proxy`), or the Api's `EntraId` section.
+> 3. When auth-related code lands on a PR.
+>
+> **The MSAL-direct path (Phase 7.6) is RETIRED.** This runbook reflects the
+> Phase-9 cookie-session topology. Sections 1–5 below cover the live BFF
+> flow; the legacy MSAL section (numbered 6+) is kept for archival reference
+> only and SHOULD NOT be used for new smoke tests.
+
+## 0. Topology at a glance (as of 2026-04-22)
+
+```
+Browser (localhost:5001)
+   │
+   │ session cookie (HttpOnly, Secure, SameSite=Strict)
+   ▼
+BFF — Enterprise.Platform.Web.UI on :5001
+   ├─ /api/auth/{login,logout,session}    → AuthController
+   ├─ /api/auth/me/permissions            → AuthController (placeholder until D4)
+   ├─ /api/antiforgery/token              → AntiForgeryController
+   ├─ /api/proxy/{**path}                 → BffProxyController
+   │     │ stashed bearer token (server-side)
+   │     ▼
+   │   Api — Enterprise.Platform.Api on :5044
+   │     │ JWT validation (audience, issuer, scope)
+   │     ▼
+   │   /api/v1/whoami → 200 + claim dump
+   ├─ /signin-oidc, /signout-callback-oidc → OpenIdConnectHandler
+   ├─ /health/{live,ready}                → BFF health endpoints
+   └─ (anything else)                     → SpaProxyMiddleware → Angular dev server (:4200)
+```
 
 ---
 
-## 1. Current wiring (as of 2026-04-21)
+## A. BFF cookie-flow smoke (current path)
+
+### A.1 Pre-flight
+
+| Service | How to start | Expected URL |
+|---|---|---|
+| Api (.NET) | VS 2026 F5 → `Enterprise.Platform.Api` | `http://localhost:5044` |
+| Angular dev server | `npm --prefix src/UI/Enterprise.Platform.Web.UI/ClientApp start` | `http://localhost:4200` (internal — never visit directly) |
+| BFF (.NET) | VS 2026 F5 → `Enterprise.Platform.Web.UI` (http profile) | `http://localhost:5001` |
+
+Sanity check all three:
+
+```bash
+curl -s http://localhost:5044/health/live | head -c 200    # Api alive
+curl -s http://localhost:5001/health/live | head -c 200    # BFF alive
+curl -s http://localhost:5001/health/ready | head -c 400   # BFF + Api reachable
+curl -s http://localhost:4200/ | head -c 100               # Angular dev server alive
+```
+
+### A.2 The test
+
+1. Open `http://localhost:5001/` in an incognito window.
+2. App router redirects to `/auth/login` → click **Sign in with Microsoft**.
+3. SPA fires a top-level navigation to `/api/auth/login?returnUrl=/dashboard`.
+4. BFF responds 302 to Entra's authorize endpoint (PKCE-protected).
+5. Sign in with a tenant user; consent if first run.
+6. Entra POSTs to `http://localhost:5001/signin-oidc`. The OIDC middleware
+   exchanges code → tokens, stashes them in the cookie ticket, sets the
+   `ep.bff.session` cookie, redirects to `/dashboard`.
+7. Dashboard renders. The header shows your name; **Roles** and **Permissions**
+   cards may be empty (D4-deferred placeholder until PlatformDb).
+8. Click **Test now** on the "Verify backend connectivity" card.
+9. ✓ Expected — green banner with claim dump:
+   ```
+   ✓ Authenticated — Api returned ~27 claims
+   { aud: 'api://a703a89e-…', iss: 'https://sts.windows.net/f404bba4-…/', scp: 'access_as_user', name: '…', … }
+   ```
+
+### A.3 What to inspect in DevTools
+
+Open Network tab, filter to XHR. Find the `whoami` call:
+
+- **Request URL:** `http://localhost:5001/api/proxy/v1/whoami` (same-origin, no CORS preflight)
+- **Request headers:**
+  - `Cookie: ep.bff.session=…` — the BFF session cookie (HttpOnly so JS can't read it; the browser ships it automatically)
+  - `X-Correlation-ID: <uuid>` — minted by the BFF's correlation middleware
+  - **No `Authorization` header** — by design; the bearer is server-side only
+- **Response:** 200 OK, JSON body with the Api's claim dump
+
+Find the corresponding Api log line — it should carry the same `X-Correlation-ID` value (forwarded by `BffProxyController` per Phase 9.B.8).
+
+### A.4 Common failure modes
+
+| Symptom | Diagnosis | Fix |
+|---|---|---|
+| Browser stuck on `localhost:5001/dashboard` with no claims | Initial `GET /api/auth/session` failed before bootstrap. Check `auth.session.load.failed` log line | Confirm BFF is up and returning JSON for `/api/auth/session` |
+| Login redirect → Entra error `AADSTS50011: redirect URI mismatch` | A redirect URI registered with the BFF App Registration doesn't match what the OIDC handler is sending | Verify the App Registration has `http://localhost:5001/signin-oidc` AND `http://localhost:5001/signout-callback-oidc` under Redirect URIs |
+| `Test now` returns 401 | BFF stashed token expired and refresh failed | Check BFF logs for `Token.Refresh.Failed` (event id 2005) — common cause: client secret rotated. Re-set via `dotnet user-secrets set "AzureAd:ClientSecret" <value>` |
+| `Test now` returns 502 BadGateway | BFF reached the proxy logic but downstream Api unreachable | Confirm Api is running on :5044; check BFF `Bff.Proxy.Unreachable` log line for the exception type |
+| `Test now` returns 500 with a long stack trace | Api validated the token but the endpoint itself errored | Check Api log for the actual exception. Common: `ToDictionary` on duplicate claim types — see [`feedback_entra_duplicate_claims`](../../C:/Users/hkgou/.claude/projects/...) memory |
+| Mutating XHR (POST/PUT/PATCH/DELETE) returns 400 with anti-forgery error | SPA didn't echo `X-XSRF-TOKEN` header | Confirm SPA called `GET /api/antiforgery/token` once at session start; Angular's built-in `withXsrfConfiguration` should auto-attach the header on subsequent unsafe verbs |
+| Multiple "rate limit exceeded" 429s in DevTools | Hot-loop or test harness exceeded the BFF edge limiter (120/sec/session, 600/sec/IP) | Confirmed expected behaviour; back off or temporarily raise `BffRateLimiterSetup` thresholds for the test |
+
+### A.5 What this runbook DOESN'T prove
+
+- **PlatformDb-backed permission hydration** — D4-deferred. The placeholder
+  `/api/auth/me/permissions` returns empty fine-grained permissions until then.
+- **Cookie / refresh-token rotation under sustained load** — the
+  `OnValidatePrincipal` hook fires on each authenticated request; refresh
+  rotation is observable as `Token.Refresh.Success` log lines (event id 2004)
+  + `ep.bff.session.refreshed` counter ticks.
+- **HTTPS-only cookie behaviour** — dev runs HTTP-loopback on `:5001`; the
+  cookie's `SecurePolicy = SameAsRequest` lets it ride. Stage/prod enforce
+  HTTPS-only via `SecurePolicy = Always`.
+
+---
+
+---
+
+## B. Legacy MSAL direct-SPA flow — DEPRECATED (kept for archival reference only)
+
+> ⚠️ **DO NOT use this section for new smoke tests.** Phase 9 retired the
+> direct-SPA path. The MSAL config + factories were removed from the SPA;
+> the @azure/msal-* packages are uninstalled. The Entra App Registration
+> for direct-SPA (`a703a89e-…`) still exists for token-audience validation
+> on the Api side, but the SPA cannot use it for sign-in anymore. This
+> section documents the historical wiring for posterity.
+
+## 1. Legacy direct-SPA wiring (Phase 7.6, retired 2026-04-21)
 
 | Setting | SPA (`public/config.json` + `environment.ts`) | Api (`appsettings.Development.json`) |
 |---|---|---|

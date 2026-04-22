@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using Enterprise.Platform.Web.UI.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using HttpHeaderNames = Enterprise.Platform.Shared.Constants.HttpHeaderNames;
 
 namespace Enterprise.Platform.Web.UI.Controllers;
 
@@ -35,11 +37,25 @@ namespace Enterprise.Platform.Web.UI.Controllers;
 [ApiController]
 [AutoValidateAntiforgeryToken]
 [Route("api/proxy")]
-public sealed class BffProxyController(
+public sealed partial class BffProxyController(
     IHttpClientFactory httpClientFactory,
     IOptionsMonitor<BffProxySettings> settings,
     ILogger<BffProxyController> logger) : ControllerBase
 {
+    // ── source-generated log delegates (CA1848 compliance) ─────────────
+
+    [LoggerMessage(EventId = 4001, Level = LogLevel.Information,
+        Message = "Bff.Proxy.Hop — {Method} {DownstreamPath} → {Status} in {ElapsedMs}ms (sub={Sub})")]
+    private partial void LogHop(string method, string downstreamPath, int status, long elapsedMs, string sub);
+
+    [LoggerMessage(EventId = 4002, Level = LogLevel.Warning,
+        Message = "Bff.Proxy.Unreachable — {Target} failed: {Reason}")]
+    private partial void LogUnreachable(Uri target, string reason, Exception ex);
+
+    [LoggerMessage(EventId = 4003, Level = LogLevel.Error,
+        Message = "Bff.Proxy.CopyFailed — {Target} response copy threw {Reason}")]
+    private partial void LogCopyFailed(Uri target, string reason, Exception ex);
+
     /// <summary>Named HTTP client registered in Program.cs.</summary>
     public const string HttpClientName = "ep-bff-api";
 
@@ -63,6 +79,7 @@ public sealed class BffProxyController(
     public async Task<IActionResult> Forward(string downstreamPath, CancellationToken cancellationToken)
     {
         var opts = _settings.CurrentValue;
+        var stopwatch = Stopwatch.StartNew();
 
         if (!Uri.TryCreate(new Uri(opts.ApiBaseUri), downstreamPath + HttpContext.Request.QueryString.Value, out var target))
         {
@@ -92,7 +109,19 @@ public sealed class BffProxyController(
             request.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
         }
 
-        // Attach bearer token when the session has one (OIDC SaveTokens path; deferred D4).
+        // Correlation ID — explicit set so the downstream Api log line ties
+        // back to the BFF + browser request via a single id, even though the
+        // generic header-copy loop above also covers this. Belt + braces;
+        // also ensures the header is set when the loop's Cookie/Auth filtering
+        // changes in the future.
+        var correlationId = HttpContext.Response.Headers[HttpHeaderNames.CorrelationId].ToString();
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            request.Headers.Remove(HttpHeaderNames.CorrelationId);
+            request.Headers.TryAddWithoutValidation(HttpHeaderNames.CorrelationId, correlationId);
+        }
+
+        // Attach bearer token when the session has one (OIDC SaveTokens path).
         if (opts.AttachBearerToken)
         {
             var accessToken = await HttpContext.GetTokenAsync("access_token").ConfigureAwait(false);
@@ -117,9 +146,7 @@ public sealed class BffProxyController(
             // abort) or InvalidOperationException (bad request shape). All three
             // mean "we couldn't get a response from the Api"; the SPA treats any
             // 502 as a transport-layer issue (not a server error).
-#pragma warning disable CA1848
-            _logger.LogWarning(ex, "BFF proxy call to {Target} failed: {Reason}.", target, ex.GetType().Name);
-#pragma warning restore CA1848
+            LogUnreachable(target, ex.GetType().Name, ex);
             return StatusCode(StatusCodes.Status502BadGateway, new
             {
                 detail = "Downstream Api unreachable.",
@@ -145,6 +172,21 @@ public sealed class BffProxyController(
             HttpContext.Response.Headers.ContentLength = null;
 
             await response.Content.CopyToAsync(HttpContext.Response.Body, cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            // Per-hop structured log — ties this proxy round-trip to the
+            // BFF/Api correlation id stream. The `sub` claim narrows queries
+            // to a single user across both BFF and Api logs.
+            var sub = User.FindFirst("sub")?.Value
+                ?? User.FindFirst("preferred_username")?.Value
+                ?? "anonymous";
+            LogHop(
+                request.Method.Method,
+                downstreamPath,
+                (int)response.StatusCode,
+                stopwatch.ElapsedMilliseconds,
+                sub);
+
             return new EmptyResult();
         }
         catch (Exception ex)
@@ -153,9 +195,7 @@ public sealed class BffProxyController(
             // headers may already be committed). Log it loudly — we likely
             // can't change the status code anymore so ASP.NET will emit 500,
             // but the log captures the real cause for diagnosis.
-#pragma warning disable CA1848
-            _logger.LogError(ex, "BFF proxy response copy failed for {Target}: {Reason}.", target, ex.GetType().Name);
-#pragma warning restore CA1848
+            LogCopyFailed(target, ex.GetType().Name, ex);
             throw;
         }
         finally

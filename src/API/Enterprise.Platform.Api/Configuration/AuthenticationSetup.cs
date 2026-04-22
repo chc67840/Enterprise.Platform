@@ -1,9 +1,12 @@
+using System.Diagnostics.Metrics;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure.Configuration.Validation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 using EpClaimTypes = Enterprise.Platform.Shared.Constants.ClaimTypes;
@@ -108,6 +111,14 @@ public static class AuthenticationSetup
 
         if (entraEnabled)
         {
+            // Audience-match telemetry (Phase 9.C.1). Singleton wrapper holds
+            // the Counter<long> so the OnTokenValidated event can emit it
+            // without per-request meter construction. Drives the decision to
+            // harden audience validation (Phase 9.C.3) — flip to api-prefixed
+            // only when the implicit-clientid counter is zero across a
+            // representative window in prod.
+            services.AddSingleton<AudienceMatchMetric>();
+
             authBuilder.AddMicrosoftIdentityWebApi(
                 jwtBearerOptions => ConfigureEntraB2BJwt(jwtBearerOptions, entraSettings),
                 microsoftIdentityOptions => configuration.Bind(EntraIdSettings.SectionName, microsoftIdentityOptions),
@@ -167,9 +178,36 @@ public static class AuthenticationSetup
             OnTokenValidated = ctx =>
             {
                 MapEntraTenantToPlatformTenant(ctx.Principal, settings);
+                EmitAudienceMatchedTelemetry(ctx);
                 return Task.CompletedTask;
             },
         };
+    }
+
+    /// <summary>
+    /// Records which configured audience matched the validated token (Phase 9.C.1).
+    /// </summary>
+    private static void EmitAudienceMatchedTelemetry(TokenValidatedContext ctx)
+    {
+        var metric = ctx.HttpContext.RequestServices.GetService<AudienceMatchMetric>();
+        if (metric is null)
+        {
+            return;
+        }
+
+        var aud = ctx.SecurityToken is JwtSecurityToken jwt
+            ? jwt.Audiences.FirstOrDefault()
+            : null;
+
+        var kind = aud switch
+        {
+            null => "missing",
+            { } a when a.StartsWith("api://", StringComparison.OrdinalIgnoreCase) => "api_prefixed",
+            { } a when Guid.TryParse(a, out _) => "implicit_clientid",
+            _ => "other",
+        };
+
+        metric.Counter.Add(1, KeyValuePair.Create<string, object?>("audience_kind", kind));
     }
 
     private static void ConfigureEntraB2CJwt(JwtBearerOptions options, EntraIdB2CSettings settings)
@@ -252,4 +290,38 @@ public static class AuthenticationSetup
             return null;
         }
     }
+}
+
+/// <summary>
+/// Singleton holder for the audience-match counter (Phase 9.C.1). Lives as a
+/// dedicated DI service so <see cref="JwtBearerEvents.OnTokenValidated"/> can
+/// resolve it cheaply per request without re-creating the underlying
+/// <see cref="Counter{T}"/> on each call.
+/// </summary>
+internal sealed class AudienceMatchMetric : IDisposable
+{
+    /// <summary>Meter name surfaced to OpenTelemetry / dotnet-counters.</summary>
+    public const string MeterName = "Enterprise.Platform.Api";
+
+    private readonly Meter _meter;
+
+    /// <summary>
+    /// Counter incremented per validated token. Tag <c>audience_kind</c>
+    /// distinguishes which configured <c>AzureAd.Audiences</c> entry matched
+    /// — drives the Phase 9.C.3 "drop implicit-clientid acceptance" decision.
+    /// </summary>
+    public Counter<long> Counter { get; }
+
+    public AudienceMatchMetric(IMeterFactory meterFactory)
+    {
+        ArgumentNullException.ThrowIfNull(meterFactory);
+        _meter = meterFactory.Create(MeterName);
+        Counter = _meter.CreateCounter<long>(
+            "ep.api.token.audience_matched",
+            unit: "{token}",
+            description: "Validated tokens grouped by the audience claim shape (api_prefixed | implicit_clientid | other | missing).");
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => _meter.Dispose();
 }

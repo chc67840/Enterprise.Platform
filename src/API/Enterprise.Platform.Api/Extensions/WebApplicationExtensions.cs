@@ -31,9 +31,9 @@ public static class WebApplicationExtensions
         }
 
         // HTTPS redirection is skipped in Development because:
-        //   (a) The dev SPA calls `http://localhost:5044` — a 307 redirect to
-        //       the HTTPS port breaks the CORS preflight (browsers refuse to
-        //       follow redirects on OPTIONS requests, blocking the whole call).
+        //   (a) Phase-9 cutover removed browser-direct CORS, but the BFF still
+        //       proxies BFF→Api over plain http://localhost:5044 to avoid the
+        //       dev-cert-trust dance for HttpClientFactory.
         //   (b) Production sits behind an L7 load balancer / reverse proxy that
         //       terminates TLS and enforces HTTPS upstream; the app-layer
         //       redirect would be redundant there anyway.

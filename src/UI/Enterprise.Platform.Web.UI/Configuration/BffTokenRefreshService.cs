@@ -36,6 +36,7 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 public sealed partial class BffTokenRefreshService(
     IHttpClientFactory httpClientFactory,
     IOptionsMonitor<AzureAdBffSettings> settings,
+    BffSessionMetrics metrics,
     ILogger<BffTokenRefreshService> logger)
 {
     /// <summary>Named HTTP client used for the Entra token exchange call.</summary>
@@ -50,6 +51,7 @@ public sealed partial class BffTokenRefreshService(
 
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
     private readonly IOptionsMonitor<AzureAdBffSettings> _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    private readonly BffSessionMetrics _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
     private readonly ILogger<BffTokenRefreshService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     // ── source-generated log delegates (CA1848 compliance) ─────────────
@@ -94,6 +96,7 @@ public sealed partial class BffTokenRefreshService(
         if (accessToken is null || refreshToken is null || expiresAtRaw is null)
         {
             LogMissingTokens();
+            _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", "missing_tokens"));
             context.RejectPrincipal();
             return;
         }
@@ -102,6 +105,7 @@ public sealed partial class BffTokenRefreshService(
         if (!DateTimeOffset.TryParse(expiresAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var expiresAt))
         {
             LogMissingTokens();
+            _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", "missing_tokens"));
             context.RejectPrincipal();
             return;
         }
@@ -141,6 +145,7 @@ public sealed partial class BffTokenRefreshService(
         catch (HttpRequestException ex)
         {
             LogRefreshException(ex);
+            _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", "network"));
             context.RejectPrincipal();
             return;
         }
@@ -150,6 +155,7 @@ public sealed partial class BffTokenRefreshService(
             if (!response.IsSuccessStatusCode)
             {
                 LogRefreshFailed((int)response.StatusCode);
+                _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", $"http_{(int)response.StatusCode}"));
                 context.RejectPrincipal();
                 return;
             }
@@ -164,6 +170,7 @@ public sealed partial class BffTokenRefreshService(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 LogRefreshException(ex);
+                _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", "deserialize"));
                 context.RejectPrincipal();
                 return;
             }
@@ -171,6 +178,7 @@ public sealed partial class BffTokenRefreshService(
             if (payload is null || string.IsNullOrEmpty(payload.AccessToken))
             {
                 LogRefreshFailed((int)response.StatusCode);
+                _metrics.SessionsRefreshFailed.Add(1, KeyValuePair.Create<string, object?>("reason", "empty_payload"));
                 context.RejectPrincipal();
                 return;
             }
@@ -193,6 +201,7 @@ public sealed partial class BffTokenRefreshService(
 
             context.Properties.StoreTokens(updatedTokens);
             context.ShouldRenew = true;
+            _metrics.SessionsRefreshed.Add(1);
             LogRefreshSuccess(payload.ExpiresIn);
         }
     }

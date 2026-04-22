@@ -23,11 +23,14 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthStore } from './auth.store';
-import { API_BASE_URL } from '@core/http/api-config.token';
 import type { EffectivePermissions } from '@core/models';
 import { TenantService } from '@core/services/tenant.service';
 
-const BASE = 'https://example.test/api/v1';
+/**
+ * Phase-9 update: hydrate() now hits the BFF-owned endpoint directly (not the
+ * proxy + Api round-trip) so the URL is fixed, not built from API_BASE_URL.
+ */
+const PERMISSIONS_URL = '/api/auth/me/permissions';
 
 describe('AuthStore', () => {
   let store: ReturnType<typeof TestBed.inject<typeof AuthStore>> extends infer X ? X : never;
@@ -42,7 +45,6 @@ describe('AuthStore', () => {
       providers: [
         provideHttpClient(withInterceptors([])),
         provideHttpClientTesting(),
-        { provide: API_BASE_URL, useValue: BASE },
       ],
     });
     store = TestBed.inject(AuthStore);
@@ -57,7 +59,7 @@ describe('AuthStore', () => {
 
   function hydrateWith(payload: EffectivePermissions): void {
     store.hydrate();
-    const req = httpMock.expectOne(`${BASE}/me/permissions`);
+    const req = httpMock.expectOne(PERMISSIONS_URL);
     req.flush(payload);
   }
 
@@ -107,7 +109,7 @@ describe('AuthStore', () => {
     });
 
     store.hydrate();
-    httpMock.expectOne(`${BASE}/me/permissions`).flush('boom', {
+    httpMock.expectOne(PERMISSIONS_URL).flush('boom', {
       status: 500,
       statusText: 'Server Error',
     });

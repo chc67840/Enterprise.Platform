@@ -141,37 +141,47 @@ app.config.ts
 
 ### 3.1 Authentication
 
-**Primary mode: MSAL-direct** (the SPA obtains bearer tokens from Azure Entra
-and calls the API directly). Redirect-based PKCE flow:
+**Active mode (Phase 9 onward): BFF cookie-session.** The Angular SPA never
+sees a token. The BFF (`Enterprise.Platform.Web.UI` on `:5001`) runs the
+OIDC code+PKCE flow against Azure Entra server-side, stashes the access /
+refresh tokens in the cookie ticket via `SaveTokens = true`, and issues a
+`HttpOnly` + `Secure` + `SameSite=Strict` session cookie. The browser only
+ever ships that cookie. Downstream Api calls flow through `BffProxyController`
+(`/api/proxy/{**path}`), which attaches the stashed bearer to the outbound
+request server-side. Refresh-token rotation runs proactively in the cookie
+scheme's `OnValidatePrincipal` event (`BffTokenRefreshService`).
 
 ```
 User click → AuthService.login(returnUrl)
-  → msal.loginRedirect({ scopes, redirectStartPage })
+  → window.location.href = '/api/auth/login?returnUrl=…'    (top-level nav)
+  → BFF AuthController.Login → Challenge(OidcScheme)
   → Azure login (creds + MFA)
-  → redirectUri → handleRedirectPromise (inside provideAppInitializer)
-  → setActiveAccount
-  → Angular bootstraps; AuthService.syncAccount()
-  → All signals (currentUser/isAuthenticated/roles/permissions) updated
+  → /signin-oidc callback → OpenIdConnectHandler exchanges code → tokens
+  → Cookie scheme writes ep.bff.session ticket, redirects to returnUrl
+  → SPA reloads at returnUrl; provideAppInitializer awaits AuthService.refreshSession()
+  → All signals (currentUser/isAuthenticated/roles) populated from /api/auth/session
   → Router resolves; authGuard allows through
 ```
 
-**Secondary mode: BFF-mediated** (optional, Phase 9). If
-`Enterprise.Platform.Web.UI` fronts the SPA, MSAL is replaced by cookie-based
-session + anti-forgery cookies; `securityInterceptor` adopts `X-XSRF-TOKEN`
-propagation from the BFF. MSAL code lives behind a
-`AuthStrategy` abstraction so swapping between modes is configuration-only.
+**Retired mode: MSAL-direct (Phase 7.6, removed 2026-04-21).** The
+`@azure/msal-browser` + `@azure/msal-angular` packages were uninstalled and
+all MSAL code paths deleted. The SPA cannot speak directly to Entra anymore.
+Rationale: closes the XSS token-exposure window, eliminates CORS, shrinks
+the bundle, and unifies telemetry on the BFF.
 
-**AuthService public contract** (already exists; modernization targeted):
+**AuthService public contract** (Phase 9 implementation):
 
 | Signal / method | Type | Source |
 |---|---|---|
-| `currentUser()` | `Signal<AccountInfo \| null>` | MSAL `getActiveAccount()` |
-| `isLoading()` | `Signal<boolean>` | `false` once `InteractionStatus.None` emits |
-| `isAuthenticated()` | `Computed<boolean>` | `currentUser() !== null` |
-| `displayName() / email() / tenantId()` | `Computed<string>` | JWT claims |
-| `roles()` | `Computed<string[]>` | `idTokenClaims.roles` |
-| `permissions()` | `Computed<string[]>` | **Target:** hydrated from API (§3.2) |
-| `login(returnUrl?) / logout()` | methods | MSAL redirect flows |
+| `currentUser()` | `Signal<CurrentUser \| null>` | `/api/auth/session` projection |
+| `isLoading()` | `Signal<boolean>` | `false` once initial session probe resolves |
+| `isAuthenticated()` | `Computed<boolean>` | `_session()?.isAuthenticated === true` |
+| `displayName() / email()` | `Computed<string>` | `name` / `email` from session JSON |
+| `roles()` | `Computed<readonly string[]>` | session response `roles` array |
+| `expiresAt()` | `Computed<number \| null>` | session response `expiresAt` (ms epoch) |
+| `login(returnUrl?)` | top-level navigation | navigates to `/api/auth/login?returnUrl=…` |
+| `logout(returnUrl?)` | transient form POST | navigates browser to `/api/auth/logout` (cookie clear + Entra single sign-out) |
+| `refreshSession()` | async method | `GET /api/auth/session`; called by app initializer + on demand |
 | `getAccessToken(scopes)` | `Promise<string \| null>` | `acquireTokenSilent` + interactive fallback |
 | `hasRole / hasAnyRole` | bool | case-insensitive role check |
 | `hasPermission / hasAnyPermission / hasAllPermissions` | bool | case-insensitive permission check |
@@ -884,9 +894,9 @@ before first deployment (Phase 2).**
 
 | Option | When to choose |
 |---|---|
-| **Static host (Azure Static Web Apps, Cloudflare Pages, S3+CloudFront)** | MSAL-direct SPA without BFF. CSP headers from the CDN. |
-| **BFF host (Enterprise.Platform.Web.UI)** | Cookie-session auth, per-request CSP nonces, server-side rendered config injection, request proxy to API with server-side token acquisition. |
-| **Hybrid** | Initial bootstrap via BFF (for HTML + `/config.json`); subsequent calls direct to API. |
+| **BFF host (Enterprise.Platform.Web.UI)** | **Default since Phase 9.** Cookie-session auth, per-request CSP nonces, request proxy to API with server-side token acquisition. The browser sees only the BFF's origin. |
+| ~~Static host (Azure Static Web Apps, Cloudflare Pages, S3+CloudFront)~~ | ~~MSAL-direct SPA without BFF.~~ Retired with Phase 9 — the SPA no longer ships an OIDC client. |
+| ~~Hybrid~~ | ~~Initial bootstrap via BFF; subsequent calls direct to API.~~ Retired with Phase 9. |
 
 ### 11.4 CDN + caching
 
@@ -1011,7 +1021,7 @@ network → errorInterceptor
 |---|---|---|---|---|
 | 1 | Zoneless change detection | Smaller bundle, simpler mental model, mandatory for perf-critical apps | Keep Zone.js | ✅ locked |
 | 2 | NGRX Signals over classic NgRx | Less ceremony per feature; signals-native; `createEntityStore` is 40 lines instead of 500 | NgRx Store + effects + selectors; Akita | ✅ locked |
-| 3 | MSAL-direct primary, BFF secondary | Simplest prod path; BFF optional when cookie-auth + server-side concerns demand it | BFF-only; JWT in localStorage + custom auth | ✅ MSAL-direct; BFF = Phase 9 |
+| 3 | BFF cookie-session (Phase 9) | Closes XSS token-exposure window; eliminates CORS; SPA bundle drops `@azure/msal-*` (~150 kB). MSAL-direct path retired 2026-04-21 | BFF-only from start; MSAL-direct kept; hybrid (initial via BFF, subsequent direct) | ✅ BFF cookie-session — Phase 9 closed |
 | 4 | PrimeNG + Tailwind v4 | Comprehensive widget library + utility-first styling; CSS layers make cohabitation clean | Angular Material only; custom-built | ✅ locked |
 | 5 | `errorInterceptor` owns HTTP-error toasts | Single owner; no double-fire; stores focus on state, not UX | Store-owned; per-call toast | ✅ locked |
 | 6 | Runtime config via `/config.json` | Env changes without rebuild; needed for container deployments | Build-time `environment.ts` only | ⚠️ target (Phase 2) |

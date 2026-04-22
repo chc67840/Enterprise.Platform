@@ -43,10 +43,17 @@ import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 
-import { API_BASE_URL } from '@core/http/api-config.token';
 import type { EffectivePermissions } from '@core/models';
 import { LoggerService } from '@core/services/logger.service';
 import { TenantService } from '@core/services/tenant.service';
+
+/**
+ * BFF-owned permissions endpoint. Until D4 lifts the BFF returns a placeholder
+ * payload (roles from session claims, empty fine-grained permissions). Lives on
+ * the BFF — not behind the proxy — so the SPA never round-trips through the Api
+ * just to read its own session-derived data.
+ */
+const PERMISSIONS_ENDPOINT = '/api/auth/me/permissions';
 
 /**
  * Internal state shape. Fields mirror `EffectivePermissions` plus async-state
@@ -109,7 +116,6 @@ export const AuthStore = signalStore(
 
   withMethods((store) => {
     const http = inject(HttpClient);
-    const baseUrl = inject(API_BASE_URL);
     const log = inject(LoggerService);
     const tenant = inject(TenantService);
 
@@ -140,7 +146,7 @@ export const AuthStore = signalStore(
         pipe(
           tap(() => patchState(store, { loading: true, error: null })),
           switchMap(() =>
-            http.get<EffectivePermissions>(`${baseUrl}/me/permissions`).pipe(
+            http.get<EffectivePermissions>(PERMISSIONS_ENDPOINT, { withCredentials: true }).pipe(
               tapResponse({
                 next: (resp) => {
                   const ttl = (resp.ttlSeconds ?? DEFAULT_TTL_SECONDS) * 1000;

@@ -39,6 +39,8 @@ try
     // BFF composition
     builder.Services.AddBffAuthentication(builder.Configuration);
     builder.Services.AddBffCors(builder.Configuration);
+    builder.Services.AddBffHealthChecks();
+    builder.Services.AddBffRateLimiter();
 
     // SPA proxy (Development only — terminal endpoint via MapSpaProxyFallback).
     builder.Services.AddHttpClient(SpaProxyMiddleware.HttpClientName);
@@ -97,7 +99,18 @@ try
     }
     else
     {
-        app.UseExceptionHandler("/Home/Error");
+        // Phase-9 cutover: HomeController + Views/Home/Error.cshtml are gone
+        // (removed with the scaffold). Emit a structured JSON ProblemDetails
+        // payload — appropriate for an API-first host that fronts the SPA via
+        // the proxy fallback.
+        app.UseExceptionHandler(builder => builder.Run(async ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            ctx.Response.ContentType = "application/problem+json";
+            await ctx.Response.WriteAsync(
+                """{"title":"Internal server error","status":500,"detail":"An unexpected error occurred. Check correlation id in X-Correlation-ID."}""")
+                .ConfigureAwait(false);
+        }));
         app.UseHsts();
     }
 
@@ -115,8 +128,16 @@ try
 
     app.UseCors(BffCorsSetup.PolicyName);
 
+    // Edge rate limiter — runs before auth so unauthenticated abusers get
+    // 429'd before they ever touch the OIDC pipeline. OIDC callback paths
+    // (signin-oidc / signout-callback-oidc) are exempted in BffRateLimiterSetup.
+    app.UseRateLimiter();
+
     app.UseAuthentication();
     app.UseAuthorization();
+
+    // Health endpoints (anonymous — load balancers don't need credentials).
+    app.MapBffHealthEndpoints();
 
     app.MapControllers();
 

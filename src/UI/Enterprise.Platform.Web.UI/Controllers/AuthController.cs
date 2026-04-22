@@ -54,6 +54,10 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
         Message = "Auth.Logout.SignOut — clearing cookie + initiating Entra single sign-out.")]
     private partial void LogLogoutSignOut();
 
+    [LoggerMessage(EventId = 1005, Level = LogLevel.Debug,
+        Message = "Auth.Permissions.Placeholder — returning empty payload (D4 hydration deferred).")]
+    private partial void LogPermissionsPlaceholder();
+
     /// <summary>
     /// Begins the OIDC login flow. The SPA redirects the user's browser here as a
     /// top-level navigation; this action issues a 302 to Entra's authorize endpoint
@@ -181,6 +185,42 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
         return Ok(session);
     }
 
+    /// <summary>
+    /// Placeholder permission set. Returns an empty <see cref="EffectivePermissions"/>
+    /// payload so the SPA's <c>AuthStore.hydrate()</c> resolves cleanly instead
+    /// of seeing the recurring 404 the proxy was producing for the absent Api
+    /// endpoint. <b>Replace with real PlatformDb-backed hydration when D4 lifts</b>
+    /// — the call signature here matches what the eventual real implementation
+    /// will return, so the SPA needs no changes at that point.
+    /// </summary>
+    /// <remarks>
+    /// Lives on the BFF (not the Api) because the eventual hydration is per-user
+    /// and benefits from the BFF's session context — no extra Api round-trip
+    /// during the call. Roles surface from the session claims so the UI can
+    /// already render coarse role badges; fine-grained permissions stay empty
+    /// until the platform identity store ships.
+    /// </remarks>
+    [Authorize]
+    [HttpGet("me/permissions")]
+    [ProducesResponseType<EffectivePermissions>(StatusCodes.Status200OK)]
+    public ActionResult<EffectivePermissions> MePermissions()
+    {
+        LogPermissionsPlaceholder();
+
+        var roles = User.FindAll(ClaimTypes.Role)
+            .Concat(User.FindAll("roles"))
+            .Select(c => c.Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return Ok(new EffectivePermissions(
+            Roles: roles,
+            Permissions: Array.Empty<string>(),
+            TenantId: null,
+            Bypass: false,
+            TtlSeconds: 300));
+    }
+
     // ── helpers ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -224,3 +264,20 @@ public sealed record SessionInfo(
         Roles: Array.Empty<string>(),
         ExpiresAt: null);
 }
+
+/// <summary>
+/// JSON contract returned by <c>GET /api/auth/me/permissions</c>. Mirrors the
+/// SPA's <c>EffectivePermissions</c> TypeScript interface so the wire shape is
+/// stable across the D4-deferred hydration cutover.
+/// </summary>
+/// <param name="Roles">Coarse role labels — sourced from session claims today; from PlatformDb post-D4.</param>
+/// <param name="Permissions">Fine-grained <c>resource:action</c> strings. Empty until D4 lifts.</param>
+/// <param name="TenantId">Platform tenant id (NOT the AAD <c>tid</c>). <c>null</c> for super-admins.</param>
+/// <param name="Bypass">When <c>true</c>, all permission checks short-circuit to allow.</param>
+/// <param name="TtlSeconds">Hint for the SPA's client-side cache; defaults to 300 if omitted.</param>
+public sealed record EffectivePermissions(
+    IReadOnlyList<string> Roles,
+    IReadOnlyList<string> Permissions,
+    string? TenantId,
+    bool Bypass,
+    int? TtlSeconds);
