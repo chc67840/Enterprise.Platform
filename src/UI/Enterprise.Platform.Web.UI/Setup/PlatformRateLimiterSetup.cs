@@ -2,13 +2,13 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Setup;
 
 /// <summary>
-/// Edge rate limiting for the BFF. Two partitioned token-bucket policies:
+/// Edge rate limiting for the Web.UI host. Two partitioned token-bucket policies:
 /// <list type="bullet">
-///   <item><b>per-session</b> — keyed by the BFF session-cookie value (or
-///         remote IP for anonymous traffic). Throttles a single user's burst
+///   <item><b>per-session</b> — keyed by the session-cookie value (or remote
+///         IP for anonymous traffic). Throttles a single user's burst
 ///         independently of others. 120 requests / minute, replenishing 2/sec.</item>
 ///   <item><b>per-IP</b> — keyed by remote IP. Defense in depth against a
 ///         single host abusing many sessions. 600 / minute, replenishing 10/sec.</item>
@@ -18,10 +18,10 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 /// strictly the edge layer. OIDC callback paths are exempted so a slow
 /// browser network round-trip can't get throttled mid-handshake.
 /// </summary>
-public static class BffRateLimiterSetup
+public static class PlatformRateLimiterSetup
 {
     /// <summary>Policy name used by <c>UseRateLimiter</c> + endpoint conventions.</summary>
-    public const string PolicyName = "ep-bff-edge";
+    public const string PolicyName = "ep-edge";
 
     private static readonly HashSet<string> ExemptPathPrefixes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,8 +31,8 @@ public static class BffRateLimiterSetup
         "/health/ready",
     };
 
-    /// <summary>Registers the BFF edge rate limiter.</summary>
-    public static IServiceCollection AddBffRateLimiter(this IServiceCollection services)
+    /// <summary>Registers the host's edge rate limiter.</summary>
+    public static IServiceCollection AddPlatformRateLimiter(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -49,7 +49,7 @@ public static class BffRateLimiterSetup
                 }
                 ctx.HttpContext.Response.ContentType = "application/json";
                 await ctx.HttpContext.Response.WriteAsync(
-                    """{"title":"Too many requests","detail":"BFF edge rate limit exceeded; retry after the time in the Retry-After header."}""",
+                    """{"title":"Too many requests","detail":"Edge rate limit exceeded; retry after the time in the Retry-After header."}""",
                     cancellationToken).ConfigureAwait(false);
             };
 

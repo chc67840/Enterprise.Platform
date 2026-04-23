@@ -1,10 +1,10 @@
 using System.Diagnostics.Metrics;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Observability;
 
 /// <summary>
-/// `System.Diagnostics.Metrics`-backed counters + histograms for the BFF
-/// session lifecycle. Exposed under the meter name
+/// <c>System.Diagnostics.Metrics</c>-backed counters + histograms for the
+/// host's session lifecycle. Exposed under the meter name
 /// <see cref="MeterName"/>; pick them up via OpenTelemetry's metrics
 /// pipeline (already wired by <c>ObservabilitySettings</c>).
 /// </summary>
@@ -17,7 +17,7 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 /// strings only — never user ids or tenant ids). High-cardinality dimensions
 /// belong on traces, not metrics.</para>
 /// </remarks>
-public sealed class BffSessionMetrics : IDisposable
+public sealed class SessionMetrics : IDisposable
 {
     /// <summary>Meter name surfaced to OpenTelemetry / dotnet-counters.</summary>
     public const string MeterName = "Enterprise.Platform.Web.UI";
@@ -41,10 +41,10 @@ public sealed class BffSessionMetrics : IDisposable
 
     /// <summary>
     /// Constructed via DI as a singleton. The IMeterFactory pattern lets
-    /// tests resolve a scoped meter — preferable to `new Meter(...)`
+    /// tests resolve a scoped meter — preferable to <c>new Meter(...)</c>
     /// directly, which leaks across test cases.
     /// </summary>
-    public BffSessionMetrics(IMeterFactory meterFactory)
+    public SessionMetrics(IMeterFactory meterFactory)
     {
         ArgumentNullException.ThrowIfNull(meterFactory);
 
@@ -53,7 +53,7 @@ public sealed class BffSessionMetrics : IDisposable
         SessionsCreated = _meter.CreateCounter<long>(
             "ep.bff.session.created",
             unit: "{session}",
-            description: "BFF sessions issued (OIDC sign-in completed).");
+            description: "Sessions issued (OIDC sign-in completed).");
 
         SessionsRefreshed = _meter.CreateCounter<long>(
             "ep.bff.session.refreshed",
@@ -68,7 +68,7 @@ public sealed class BffSessionMetrics : IDisposable
         SessionLifetimeSeconds = _meter.CreateHistogram<double>(
             "ep.bff.session.lifetime",
             unit: "s",
-            description: "Wall-clock seconds a BFF session lived from sign-in to sign-out / expiry.");
+            description: "Wall-clock seconds a session lived from sign-in to sign-out / expiry.");
     }
 
     /// <inheritdoc />

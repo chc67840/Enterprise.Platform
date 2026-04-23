@@ -1,20 +1,20 @@
 using Enterprise.Platform.Contracts.Settings;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Setup;
 
 /// <summary>
-/// CORS for the BFF. The BFF serves the SPA from the same origin in typical
-/// deployments (no CORS needed), but dev hosts often split BFF + Angular
-/// <c>ng serve</c> across ports — this policy covers that case. Reuses the shared
-/// <see cref="CorsSettings"/> POCO so Api + BFF share the same origin list.
+/// CORS policy registration for the Web.UI host. Same-origin SPA hosting
+/// means CORS is mostly unused at runtime; the policy exists for the rare
+/// dev scenarios where another tool (Postman collection, Storybook, etc.)
+/// needs to reach the host from a different origin.
 /// </summary>
-public static class BffCorsSetup
+public static class PlatformCorsSetup
 {
-    /// <summary>Default policy name used by the BFF.</summary>
-    public const string PolicyName = "ep-bff";
+    /// <summary>Default CORS policy name used by the host.</summary>
+    public const string PolicyName = "ep-web-ui";
 
-    /// <summary>Registers the BFF CORS policy.</summary>
-    public static IServiceCollection AddBffCors(
+    /// <summary>Registers the host's CORS policy.</summary>
+    public static IServiceCollection AddPlatformCors(
         this IServiceCollection services,
         IConfiguration configuration)
     {

@@ -1,14 +1,16 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using Enterprise.Platform.Web.UI.Configuration;
+using Enterprise.Platform.Web.UI.Observability;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Services.Authentication;
 
 /// <summary>
-/// Proactively rotates the BFF session's stashed access token before Entra's
-/// copy expires. Hooked into the cookie scheme's
+/// Proactively rotates the host's stashed access token before Entra's copy
+/// expires. Hooked into the cookie scheme's
 /// <see cref="CookieAuthenticationEvents.OnValidatePrincipal"/> event, this
 /// service runs on every authenticated request and:
 /// <list type="number">
@@ -22,10 +24,10 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 /// <remarks>
 /// <para>
 /// Without this service, sessions look alive from the cookie's perspective
-/// (<c>ExpireTimeSpan = 8h</c>) but the stashed access token dies after
-/// ~60 min — causing the proxy to forward an expired bearer and the downstream
-/// Api to return 401. This service keeps the stashed token fresh so proxy
-/// calls Just Work for the full cookie lifetime.
+/// (8h sliding) but the stashed access token dies after ~60 min — causing
+/// the proxy to forward an expired bearer and the downstream Api to return
+/// 401. This service keeps the stashed token fresh so proxy calls Just Work
+/// for the full cookie lifetime.
 /// </para>
 /// <para>
 /// Uses <see cref="IHttpClientFactory"/> — one short-lived request per refresh,
@@ -33,14 +35,14 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 /// management, no socket exhaustion.
 /// </para>
 /// </remarks>
-public sealed partial class BffTokenRefreshService(
+public sealed partial class TokenRefreshService(
     IHttpClientFactory httpClientFactory,
-    IOptionsMonitor<AzureAdBffSettings> settings,
-    BffSessionMetrics metrics,
-    ILogger<BffTokenRefreshService> logger)
+    IOptionsMonitor<AzureAdSettings> settings,
+    SessionMetrics metrics,
+    ILogger<TokenRefreshService> logger)
 {
     /// <summary>Named HTTP client used for the Entra token exchange call.</summary>
-    public const string HttpClientName = "ep-bff-token-refresh";
+    public const string HttpClientName = "ep-token-refresh";
 
     /// <summary>
     /// Refresh when the current access token has less than this much life
@@ -50,9 +52,9 @@ public sealed partial class BffTokenRefreshService(
     public static readonly TimeSpan RefreshThreshold = TimeSpan.FromMinutes(5);
 
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-    private readonly IOptionsMonitor<AzureAdBffSettings> _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-    private readonly BffSessionMetrics _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
-    private readonly ILogger<BffTokenRefreshService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly IOptionsMonitor<AzureAdSettings> _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    private readonly SessionMetrics _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
+    private readonly ILogger<TokenRefreshService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     // ── source-generated log delegates (CA1848 compliance) ─────────────
 
@@ -82,7 +84,8 @@ public sealed partial class BffTokenRefreshService(
 
     /// <summary>
     /// Hook point for <see cref="CookieAuthenticationEvents.OnValidatePrincipal"/>.
-    /// Registered via extension method in <see cref="BffAuthenticationSetup"/>.
+    /// Registered via extension method in
+    /// <see cref="Setup.PlatformAuthenticationSetup"/>.
     /// </summary>
     public async Task ValidateAsync(CookieValidatePrincipalContext context)
     {
@@ -160,11 +163,11 @@ public sealed partial class BffTokenRefreshService(
                 return;
             }
 
-            TokenResponse? payload;
+            EntraTokenResponse? payload;
             try
             {
                 payload = await response.Content
-                    .ReadFromJsonAsync<TokenResponse>(context.HttpContext.RequestAborted)
+                    .ReadFromJsonAsync<EntraTokenResponse>(context.HttpContext.RequestAborted)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -222,28 +225,5 @@ public sealed partial class BffTokenRefreshService(
             scopes.Add(apiScope);
         }
         return string.Join(' ', scopes);
-    }
-
-    /// <summary>
-    /// JSON shape returned by Entra's <c>POST /oauth2/v2.0/token</c> endpoint
-    /// for a <c>refresh_token</c> grant. Only the fields we consume are
-    /// modeled — Entra includes several extras we ignore.
-    /// </summary>
-    private sealed record TokenResponse
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("access_token")]
-        public string AccessToken { get; init; } = string.Empty;
-
-        [System.Text.Json.Serialization.JsonPropertyName("refresh_token")]
-        public string? RefreshToken { get; init; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("id_token")]
-        public string? IdToken { get; init; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
-        public int ExpiresIn { get; init; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("token_type")]
-        public string TokenType { get; init; } = string.Empty;
     }
 }

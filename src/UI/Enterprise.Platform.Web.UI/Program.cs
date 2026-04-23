@@ -2,8 +2,13 @@ using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure.Observability;
 using Enterprise.Platform.Web.UI.Configuration;
 using Enterprise.Platform.Web.UI.Controllers;
+using Enterprise.Platform.Web.UI.Endpoints;
+using Enterprise.Platform.Web.UI.Middleware;
+using Enterprise.Platform.Web.UI.Services.Graph;
+using Enterprise.Platform.Web.UI.Setup;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Serilog;
-using HttpHeaderNames = Enterprise.Platform.Shared.Constants.HttpHeaderNames;
 
 // Bootstrap Serilog — same pattern as Api / Worker hosts.
 var observability = new ObservabilitySettings();
@@ -31,47 +36,31 @@ try
         loggerConfig.WriteTo.Logger(config.CreateLogger());
     });
 
-    // Settings binding
+    // ── Settings binding ──────────────────────────────────────────────
     builder.Services.AddOptions<CorsSettings>().Bind(builder.Configuration.GetSection(CorsSettings.SectionName));
-    builder.Services.AddOptions<BffProxySettings>().Bind(builder.Configuration.GetSection(BffProxySettings.SectionName));
-    builder.Services.AddOptions<BffSpaSettings>().Bind(builder.Configuration.GetSection(BffSpaSettings.SectionName));
+    builder.Services.AddOptions<ProxySettings>().Bind(builder.Configuration.GetSection(ProxySettings.SectionName));
+    builder.Services.AddOptions<SpaHostingSettings>().Bind(builder.Configuration.GetSection(SpaHostingSettings.SectionName));
 
-    // BFF composition
-    builder.Services.AddBffAuthentication(builder.Configuration);
-    builder.Services.AddBffCors(builder.Configuration);
-    builder.Services.AddBffHealthChecks();
-    builder.Services.AddBffRateLimiter();
+    // ── Platform composition ─────────────────────────────────────────
+    builder.Services.AddPlatformAuthentication(builder.Configuration);
+    builder.Services.AddPlatformCors(builder.Configuration);
+    builder.Services.AddPlatformHealthChecks();
+    builder.Services.AddPlatformRateLimiter();
+    builder.Services.AddPlatformAntiforgery(builder.Environment);
 
-    // Microsoft Graph integration — fetches /me profile via the BFF's
-    // refresh-token-acquired Graph token. IMemoryCache is the per-user
-    // profile cache (5-minute TTL).
+    // ── Microsoft Graph integration ──────────────────────────────────
+    // Fetches /me profile via the host's refresh-token-acquired Graph
+    // token. IMemoryCache backs the per-user profile cache (5-min TTL).
     builder.Services.AddMemoryCache();
     builder.Services.AddHttpClient(GraphUserProfileService.TokenHttpClientName);
     builder.Services.AddHttpClient(GraphUserProfileService.GraphHttpClientName);
     builder.Services.AddScoped<GraphUserProfileService>();
 
-    // Anti-forgery: SPA expects the token via a readable cookie + echoes it in X-XSRF-TOKEN.
-    // SecurePolicy: Always in prod (HTTPS required) / SameAsRequest in dev so plain-HTTP
-    // `dotnet run` still works without a dev-cert dance. Same policy applied to the BFF
-    // session cookie inside AddBffAuthentication when D4 lifts.
-    var cookieSecurePolicy = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    // ── Downstream Api HTTP client (used by ProxyController) ─────────
+    builder.Services.AddHttpClient(ProxyController.HttpClientName);
 
-    builder.Services.AddAntiforgery(options =>
-    {
-        options.HeaderName = "X-XSRF-TOKEN";
-        options.Cookie.Name = "__RequestVerificationToken";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = cookieSecurePolicy;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-    });
-
-    // Downstream Api client used by BffProxyController.
-    builder.Services.AddHttpClient(BffProxyController.HttpClientName);
-
-    // `AddControllersWithViews()` (not just `AddControllers`) is required here:
-    // `[AutoValidateAntiforgeryToken]` on BffProxyController lives in
+    // `AddControllersWithViews()` (not just `AddControllers`) is required:
+    // `[AutoValidateAntiforgeryToken]` on ProxyController lives in
     // `Mvc.ViewFeatures`, which isn't wired by the minimal `AddControllers`.
     // The razor-view overhead is negligible for an API-first host — we're
     // not rendering any views, but the filter infrastructure must be present.
@@ -80,22 +69,9 @@ try
 
     var app = builder.Build();
 
-    // Middleware pipeline — outer to inner.
-    app.UseBffSecurityHeaders();
-
-    // Correlation id — minted / echoed on every request (same convention as Api).
-    app.Use(async (ctx, next) =>
-    {
-        var correlationId = ctx.Request.Headers.TryGetValue(HttpHeaderNames.CorrelationId, out var header)
-                && !string.IsNullOrWhiteSpace(header)
-            ? header.ToString()
-            : Guid.NewGuid().ToString("D");
-        ctx.Response.Headers[HttpHeaderNames.CorrelationId] = correlationId;
-        using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
-        {
-            await next().ConfigureAwait(false);
-        }
-    });
+    // ── HTTP pipeline (outer → inner) ────────────────────────────────
+    app.UseSecurityHeaders();
+    app.UseCorrelationId();
 
     if (app.Environment.IsDevelopment())
     {
@@ -103,9 +79,8 @@ try
     }
     else
     {
-        // Phase-9 cutover: HomeController + Views/Home/Error.cshtml are gone
-        // (removed with the scaffold). Emit a structured JSON ProblemDetails
-        // payload — appropriate for an API-first host that fronts the SPA via
+        // No HomeController exists; emit a structured JSON ProblemDetails
+        // payload appropriate for an API-first host that fronts the SPA via
         // the proxy fallback.
         app.UseExceptionHandler(builder => builder.Run(async ctx =>
         {
@@ -118,40 +93,38 @@ try
         app.UseHsts();
     }
 
-    // In dev the BFF binds HTTP on :5001 to match the Entra-registered redirect
-    // URIs (localhost HTTP loopback is Entra-allowed; non-loopback hostnames
-    // still demand HTTPS). Skipping HttpsRedirection here prevents a 307 from
-    // http://localhost:5001/signin-oidc → https://localhost:7197/signin-oidc
-    // which Entra would reject as an unregistered redirect URI.
+    // HTTPS redirection is skipped in Development — the dev SPA flows
+    // browser → host (HTTP :5001) → Api (HTTP :5044) and avoiding the
+    // dev-cert dance keeps the loop fast. Prod terminates TLS at the
+    // L7 load balancer ahead of this host.
     if (!app.Environment.IsDevelopment())
     {
         app.UseHttpsRedirection();
     }
 
-    // Static-file serving — when BffSpaSettings.StaticRoot is configured,
-    // serve from that path (typically Angular's dist/<project>/browser/
-    // output produced by `npm run watch`). Otherwise serve from the standard
-    // WebRootPath (the prod layout where `ng build` output is copied into
-    // wwwroot/ at deploy time). A configured-but-missing directory logs a
-    // warning and falls back to WebRootPath; the SPA fallback then surfaces
-    // a diagnostic 404 if index.html is also absent.
-    var spaSettings = app.Services
-        .GetRequiredService<Microsoft.Extensions.Options.IOptions<BffSpaSettings>>()
-        .Value;
+    // ── Static-file serving for the SPA ──────────────────────────────
+    // When SpaHosting:StaticRoot is configured, serve from that path
+    // (typically Angular's dist/<project>/browser/ output produced by
+    // `npm run watch`). Otherwise serve from the standard WebRootPath
+    // (the prod layout where `ng build` output is copied into wwwroot/
+    // at deploy time). A configured-but-missing directory logs a warning
+    // and falls back to WebRootPath; the SPA fallback then surfaces a
+    // diagnostic 404 if index.html is also absent.
+    var spaSettings = app.Services.GetRequiredService<IOptions<SpaHostingSettings>>().Value;
     if (!string.IsNullOrWhiteSpace(spaSettings.StaticRoot))
     {
-        var resolvedRoot = SpaStaticHosting.ResolveStaticRoot(app.Environment, spaSettings.StaticRoot);
+        var resolvedRoot = SpaFallbackEndpoint.ResolveStaticRoot(app.Environment, spaSettings.StaticRoot);
         if (Directory.Exists(resolvedRoot))
         {
             app.UseStaticFiles(new StaticFileOptions
             {
-                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(resolvedRoot),
+                FileProvider = new PhysicalFileProvider(resolvedRoot),
             });
         }
         else
         {
             Log.Warning(
-                "BFF SPA StaticRoot '{Root}' does not exist on disk; falling back to WebRootPath. Run `npm run watch` in ClientApp/ to populate the directory.",
+                "Web.UI SPA StaticRoot '{Root}' does not exist on disk; falling back to WebRootPath. Run `npm run watch` in ClientApp/ to populate the directory.",
                 resolvedRoot);
             app.UseStaticFiles();
         }
@@ -160,20 +133,21 @@ try
     {
         app.UseStaticFiles();
     }
+
     app.UseRouting();
 
-    app.UseCors(BffCorsSetup.PolicyName);
+    app.UseCors(PlatformCorsSetup.PolicyName);
 
     // Edge rate limiter — runs before auth so unauthenticated abusers get
     // 429'd before they ever touch the OIDC pipeline. OIDC callback paths
-    // (signin-oidc / signout-callback-oidc) are exempted in BffRateLimiterSetup.
+    // (signin-oidc / signout-callback-oidc) are exempted in PlatformRateLimiterSetup.
     app.UseRateLimiter();
 
     app.UseAuthentication();
     app.UseAuthorization();
 
     // Health endpoints (anonymous — load balancers don't need credentials).
-    app.MapBffHealthEndpoints();
+    app.MapHealthEndpoints();
 
     app.MapControllers();
 
@@ -182,7 +156,7 @@ try
     // registration so it only catches what nothing else claimed.
     app.MapSpaFallback();
 
-    Log.Information("Enterprise.Platform.Web.UI (BFF) starting — environment={Environment}.", app.Environment.EnvironmentName);
+    Log.Information("Enterprise.Platform.Web.UI starting — environment={Environment}.", app.Environment.EnvironmentName);
     await app.RunAsync().ConfigureAwait(false);
 }
 catch (Exception ex) when (ex is not HostAbortedException)

@@ -10,11 +10,11 @@ using HttpHeaderNames = Enterprise.Platform.Shared.Constants.HttpHeaderNames;
 namespace Enterprise.Platform.Web.UI.Controllers;
 
 /// <summary>
-/// Forwards SPA XHRs to the downstream Api. The BFF authenticates the browser via
-/// cookie; this controller attaches a <c>Bearer</c> token to the downstream call
-/// when one is available on the session. Body, query, and most headers are passed
-/// through; hop-by-hop headers (<c>Connection</c>, <c>Transfer-Encoding</c>, etc.)
-/// are stripped per RFC 7230 §6.1.
+/// Forwards SPA XHRs to the downstream Api. The host authenticates the browser
+/// via cookie; this controller attaches a <c>Bearer</c> token to the downstream
+/// call when one is available on the session. Body, query, and most headers are
+/// passed through; hop-by-hop headers (<c>Connection</c>, <c>Transfer-Encoding</c>,
+/// etc.) are stripped per RFC 7230 §6.1.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -37,10 +37,10 @@ namespace Enterprise.Platform.Web.UI.Controllers;
 [ApiController]
 [AutoValidateAntiforgeryToken]
 [Route("api/proxy")]
-public sealed partial class BffProxyController(
+public sealed partial class ProxyController(
     IHttpClientFactory httpClientFactory,
-    IOptionsMonitor<BffProxySettings> settings,
-    ILogger<BffProxyController> logger) : ControllerBase
+    IOptionsMonitor<ProxySettings> settings,
+    ILogger<ProxyController> logger) : ControllerBase
 {
     // ── source-generated log delegates (CA1848 compliance) ─────────────
 
@@ -57,7 +57,7 @@ public sealed partial class BffProxyController(
     private partial void LogCopyFailed(Uri target, string reason, Exception ex);
 
     /// <summary>Named HTTP client registered in Program.cs.</summary>
-    public const string HttpClientName = "ep-bff-api";
+    public const string HttpClientName = "ep-proxy-api";
 
     private static readonly HashSet<string> HopByHopHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -67,8 +67,8 @@ public sealed partial class BffProxyController(
     };
 
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-    private readonly IOptionsMonitor<BffProxySettings> _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-    private readonly ILogger<BffProxyController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private readonly IOptionsMonitor<ProxySettings> _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    private readonly ILogger<ProxyController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>Catch-all proxy — captures the remaining path segment after <c>/api/proxy</c>.</summary>
     [HttpGet("{**downstreamPath}")]
@@ -110,7 +110,7 @@ public sealed partial class BffProxyController(
         }
 
         // Correlation ID — explicit set so the downstream Api log line ties
-        // back to the BFF + browser request via a single id, even though the
+        // back to the host + browser request via a single id, even though the
         // generic header-copy loop above also covers this. Belt + braces;
         // also ensures the header is set when the loop's Cookie/Auth filtering
         // changes in the future.
@@ -175,8 +175,8 @@ public sealed partial class BffProxyController(
             stopwatch.Stop();
 
             // Per-hop structured log — ties this proxy round-trip to the
-            // BFF/Api correlation id stream. The `sub` claim narrows queries
-            // to a single user across both BFF and Api logs.
+            // host/Api correlation id stream. The `sub` claim narrows queries
+            // to a single user across both host and Api logs.
             var sub = User.FindFirst("sub")?.Value
                 ?? User.FindFirst("preferred_username")?.Value
                 ?? "anonymous";

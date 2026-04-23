@@ -1,18 +1,20 @@
-namespace Enterprise.Platform.Web.UI.Configuration;
+using Enterprise.Platform.Web.UI.Configuration;
+
+namespace Enterprise.Platform.Web.UI.Endpoints;
 
 /// <summary>
 /// Endpoint + path-resolution helpers for serving the Angular SPA from a
-/// filesystem root. Companion to <see cref="BffSpaSettings"/>.
+/// filesystem root. Companion to <see cref="SpaHostingSettings"/>.
 /// </summary>
-public static class SpaStaticHosting
+public static class SpaFallbackEndpoint
 {
     /// <summary>
-    /// Resolves <see cref="BffSpaSettings.StaticRoot"/> to an absolute path.
+    /// Resolves <see cref="SpaHostingSettings.StaticRoot"/> to an absolute path.
     /// Empty / whitespace input falls back to <see cref="IWebHostEnvironment.WebRootPath"/>
     /// (the standard <c>wwwroot/</c> deployment layout). Relative paths
     /// resolve against <see cref="IWebHostEnvironment.ContentRootPath"/> —
-    /// keeping the canonical "BFF project root" as the anchor regardless of
-    /// the current working directory at launch.
+    /// keeping the canonical "Web.UI project root" as the anchor regardless
+    /// of the current working directory at launch.
     /// </summary>
     public static string ResolveStaticRoot(IWebHostEnvironment env, string configured)
     {
@@ -32,8 +34,8 @@ public static class SpaStaticHosting
     /// Registers the SPA fallback endpoint. Any request not matched by
     /// controllers, OIDC middleware, or static-file serving falls through
     /// here and gets <c>index.html</c> served from
-    /// <see cref="BffSpaSettings.StaticRoot"/> (or <c>WebRootPath</c> when
-    /// unset). Angular's client-side router then resolves the URL.
+    /// <see cref="SpaHostingSettings.StaticRoot"/> (or <c>WebRootPath</c>
+    /// when unset). Angular's client-side router then resolves the URL.
     /// </summary>
     /// <remarks>
     /// IMPORTANT: the single-arg <c>MapFallback</c> overload uses the
@@ -65,7 +67,7 @@ public static class SpaStaticHosting
             }
 
             var settings = context.RequestServices
-                .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<BffSpaSettings>>()
+                .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<SpaHostingSettings>>()
                 .CurrentValue;
             var env = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
 

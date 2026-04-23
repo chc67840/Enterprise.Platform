@@ -1,6 +1,7 @@
 using System.Security.Claims;
-using System.Threading;
-using Enterprise.Platform.Web.UI.Configuration;
+using Enterprise.Platform.Web.UI.Controllers.Models;
+using Enterprise.Platform.Web.UI.Services.Graph;
+using Enterprise.Platform.Web.UI.Setup;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,12 +9,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace Enterprise.Platform.Web.UI.Controllers;
 
 /// <summary>
-/// BFF authentication surface. Three endpoints bridge the SPA to the OIDC
-/// plumbing registered in <see cref="BffAuthenticationSetup"/>:
+/// Web.UI authentication surface. Endpoints bridge the SPA to the OIDC
+/// plumbing registered in <see cref="PlatformAuthenticationSetup"/>:
 /// <list type="bullet">
-///   <item><c>GET  /api/auth/login</c>  — triggers the Entra authorization-code + PKCE flow.</item>
-///   <item><c>POST /api/auth/logout</c> — clears the BFF session cookie AND signs the user out of Entra.</item>
-///   <item><c>GET  /api/auth/session</c> — projects the cookie-backed identity into a JSON session summary the SPA polls.</item>
+///   <item><c>GET  /api/auth/login</c>          — triggers the Entra authorization-code + PKCE flow.</item>
+///   <item><c>POST /api/auth/logout</c>         — clears the host session cookie AND signs the user out of Entra.</item>
+///   <item><c>GET  /api/auth/session</c>        — projects the cookie-backed identity into a JSON session summary the SPA polls.</item>
+///   <item><c>GET  /api/auth/me/profile</c>     — Microsoft Graph <c>/me</c> projection (cached, claim fallback).</item>
+///   <item><c>GET  /api/auth/me/permissions</c> — placeholder until D4 hydration lifts; returns empty fine-grained permissions.</item>
 /// </list>
 /// <para>
 /// The OIDC callback itself (<c>/signin-oidc</c>) is handled entirely by the
@@ -67,7 +70,7 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     /// Begins the OIDC login flow. The SPA redirects the user's browser here as a
     /// top-level navigation; this action issues a 302 to Entra's authorize endpoint
     /// which returns a code to <c>/signin-oidc</c>. The OIDC middleware then
-    /// completes the code-for-token exchange, writes the BFF session cookie, and
+    /// completes the code-for-token exchange, writes the host session cookie, and
     /// sends the browser to <paramref name="returnUrl"/>.
     /// </summary>
     /// <param name="returnUrl">Local path (must start with <c>/</c>) to land on after login.</param>
@@ -111,13 +114,13 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
         var properties = new AuthenticationProperties { RedirectUri = safeReturnUrl };
         if (safePrompt is not null)
         {
-            properties.Items[BffAuthenticationSetup.PromptPropertyKey] = safePrompt;
+            properties.Items[PlatformAuthenticationSetup.PromptPropertyKey] = safePrompt;
         }
-        return Challenge(properties, BffAuthenticationSetup.OidcScheme);
+        return Challenge(properties, PlatformAuthenticationSetup.OidcScheme);
     }
 
     /// <summary>
-    /// Logs the user out of both the BFF cookie scheme AND Entra (single
+    /// Logs the user out of both the host cookie scheme AND Entra (single
     /// sign-out). Issued as <c>POST</c> so preloaders / link previews can't
     /// accidentally sign people out.
     /// </summary>
@@ -142,22 +145,21 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
 
         var properties = new AuthenticationProperties { RedirectUri = safeReturnUrl };
 
-        // Passing BOTH schemes triggers: (1) clear the BFF cookie, and
+        // Passing BOTH schemes triggers: (1) clear the host cookie, and
         // (2) redirect to Entra's end-session endpoint which then returns
         // the user to our SignedOutCallbackPath, which finally redirects
         // to AuthenticationProperties.RedirectUri. SPA sees the full flow
         // as a single top-level navigation.
         return SignOut(
             properties,
-            BffAuthenticationSetup.CookieScheme,
-            BffAuthenticationSetup.OidcScheme);
+            PlatformAuthenticationSetup.CookieScheme,
+            PlatformAuthenticationSetup.OidcScheme);
     }
 
     /// <summary>
     /// Returns a JSON summary of the current session. Called by the SPA on app
-    /// bootstrap + periodically by <c>SessionMonitorService</c> (Phase 9.D.7) to
-    /// drive the expiry-warning dialog and to replace MSAL's <c>inProgress$</c>
-    /// stream.
+    /// bootstrap + periodically by <c>SessionMonitorService</c> to drive the
+    /// expiry-warning dialog and to track auth state.
     /// </summary>
     /// <remarks>
     /// NEVER returns tokens or sensitive claims — strictly identity + roles +
@@ -176,7 +178,7 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
 
         // ExpiresUtc lives on the cookie's AuthenticationProperties — not on
         // the ClaimsPrincipal. AuthenticateAsync re-materializes it for us.
-        var auth = await HttpContext.AuthenticateAsync(BffAuthenticationSetup.CookieScheme).ConfigureAwait(false);
+        var auth = await HttpContext.AuthenticateAsync(PlatformAuthenticationSetup.CookieScheme).ConfigureAwait(false);
         var expiresAt = auth?.Properties?.ExpiresUtc;
 
         var name = User.FindFirst("name")?.Value
@@ -204,7 +206,7 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
             Roles: roles,
             ExpiresAt: expiresAt);
 
-        _ = cancellationToken; // present for future-proofing; no async work uses it yet
+        _ = cancellationToken; // reserved for future async work
         return Ok(session);
     }
 
@@ -273,8 +275,8 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     /// will return, so the SPA needs no changes at that point.
     /// </summary>
     /// <remarks>
-    /// Lives on the BFF (not the Api) because the eventual hydration is per-user
-    /// and benefits from the BFF's session context — no extra Api round-trip
+    /// Lives on the host (not the Api) because the eventual hydration is per-user
+    /// and benefits from the host's session context — no extra Api round-trip
     /// during the call. Roles surface from the session claims so the UI can
     /// already render coarse role badges; fine-grained permissions stay empty
     /// until the platform identity store ships.
@@ -318,7 +320,7 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     }
 
     /// <summary>
-    /// Validates a caller-supplied <c>prompt</c> against the BFF's allowlist.
+    /// Validates a caller-supplied <c>prompt</c> against the host's allowlist.
     /// Returns the canonical lowercase form on match, <c>null</c> on miss —
     /// callers treat <c>null</c> as "no prompt requested". Defends against
     /// arbitrary OIDC parameter injection by NEVER forwarding values we
@@ -333,76 +335,3 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
             _ => null,
         };
 }
-
-/// <summary>
-/// JSON shape returned by <c>GET /api/auth/session</c>. Deliberately minimal —
-/// the SPA never needs more than this to render name/badge/roles + drive the
-/// expiry-warning clock.
-/// </summary>
-/// <param name="IsAuthenticated">Whether a valid BFF session cookie backs this request.</param>
-/// <param name="Name">Display name (<c>name</c> claim), or <c>null</c> anonymous.</param>
-/// <param name="Email">Contact email — tries <c>email</c>, <c>preferred_username</c>, then the schema URL claim.</param>
-/// <param name="Roles">Distinct app-role values. Empty when none assigned; never <c>null</c>.</param>
-/// <param name="ExpiresAt">Cookie expiration instant used by <c>SessionMonitorService</c>.</param>
-public sealed record SessionInfo(
-    bool IsAuthenticated,
-    string? Name,
-    string? Email,
-    IReadOnlyList<string> Roles,
-    DateTimeOffset? ExpiresAt)
-{
-    /// <summary>Singleton returned when <c>User.Identity.IsAuthenticated</c> is false.</summary>
-    public static SessionInfo Anonymous { get; } = new(
-        IsAuthenticated: false,
-        Name: null,
-        Email: null,
-        Roles: Array.Empty<string>(),
-        ExpiresAt: null);
-}
-
-/// <summary>
-/// JSON contract returned by <c>GET /api/auth/me/profile</c>. Surfaces the
-/// Graph <c>/me</c> shape augmented with a <see cref="Source"/> discriminator
-/// so the SPA can distinguish Graph-backed responses from session-claim
-/// fallbacks (network failure, Graph-not-consented, etc.).
-/// </summary>
-/// <param name="Id">Stable Entra object id.</param>
-/// <param name="DisplayName">Full display name (Graph-preferred, claim fallback).</param>
-/// <param name="GivenName">First name (Graph-only; null on claim fallback).</param>
-/// <param name="Surname">Last name (Graph-only; null on claim fallback).</param>
-/// <param name="JobTitle">Org-chart job title (Graph-only).</param>
-/// <param name="Mail">Primary email (Graph-preferred; falls back to <c>email</c> / <c>preferred_username</c> claim).</param>
-/// <param name="UserPrincipalName">UPN (Graph or <c>preferred_username</c> claim).</param>
-/// <param name="OfficeLocation">Office building / room (Graph-only).</param>
-/// <param name="Department">Department name (Graph-only).</param>
-/// <param name="PreferredLanguage">Locale tag (Graph-only).</param>
-/// <param name="Source"><c>"graph"</c> when Graph returned data; <c>"claims"</c> for fallback.</param>
-public sealed record MeProfileResponse(
-    string Id,
-    string? DisplayName,
-    string? GivenName,
-    string? Surname,
-    string? JobTitle,
-    string? Mail,
-    string? UserPrincipalName,
-    string? OfficeLocation,
-    string? Department,
-    string? PreferredLanguage,
-    string Source);
-
-/// <summary>
-/// JSON contract returned by <c>GET /api/auth/me/permissions</c>. Mirrors the
-/// SPA's <c>EffectivePermissions</c> TypeScript interface so the wire shape is
-/// stable across the D4-deferred hydration cutover.
-/// </summary>
-/// <param name="Roles">Coarse role labels — sourced from session claims today; from PlatformDb post-D4.</param>
-/// <param name="Permissions">Fine-grained <c>resource:action</c> strings. Empty until D4 lifts.</param>
-/// <param name="TenantId">Platform tenant id (NOT the AAD <c>tid</c>). <c>null</c> for super-admins.</param>
-/// <param name="Bypass">When <c>true</c>, all permission checks short-circuit to allow.</param>
-/// <param name="TtlSeconds">Hint for the SPA's client-side cache; defaults to 300 if omitted.</param>
-public sealed record EffectivePermissions(
-    IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions,
-    string? TenantId,
-    bool Bypass,
-    int? TtlSeconds);

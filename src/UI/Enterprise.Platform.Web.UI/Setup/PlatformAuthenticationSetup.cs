@@ -1,17 +1,20 @@
+using Enterprise.Platform.Web.UI.Configuration;
+using Enterprise.Platform.Web.UI.Observability;
+using Enterprise.Platform.Web.UI.Services.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Setup;
 
 /// <summary>
-/// Cookie + OIDC authentication for the SPA-facing BFF.
+/// Cookie + OIDC authentication for the SPA-facing host.
 /// <para>
-/// <b>Shape.</b> The BFF runs the confidential-client
+/// <b>Shape.</b> The host runs the confidential-client
 /// Authorization-Code + PKCE flow against Entra: the user is redirected to
 /// <c>login.microsoftonline.com</c>, a code is returned to
-/// <c>/signin-oidc</c>, the BFF exchanges it for id + access + refresh
+/// <c>/signin-oidc</c>, the host exchanges it for id + access + refresh
 /// tokens, and stashes them in the cookie ticket (<c>SaveTokens = true</c>).
 /// The browser never sees a bearer token — only a
 /// <c>HttpOnly</c>+<c>Secure</c>+<c>SameSite=Strict</c> session cookie
@@ -19,17 +22,15 @@ namespace Enterprise.Platform.Web.UI.Configuration;
 /// </para>
 /// <para>
 /// <b>Enable switch.</b> <c>AzureAd.Enabled</c> gates the OIDC registration.
-/// When <c>false</c> the BFF registers only the cookie scheme, behaves as
-/// "always 401 on XHR", and the scaffold stays inert — convenient while
-/// Phase 9 A1 (App Registration provisioning) is in flight. When
-/// <c>true</c> the config is validated loudly: missing ClientSecret,
-/// TenantId, or ClientId aborts startup rather than letting the BFF boot
-/// in a broken state.
+/// When <c>false</c> the host registers only the cookie scheme, behaves as
+/// "always 401 on XHR", and the scaffold stays inert. When <c>true</c> the
+/// config is validated loudly: missing ClientSecret, TenantId, or ClientId
+/// aborts startup rather than letting the host boot in a broken state.
 /// </para>
 /// </summary>
-public static class BffAuthenticationSetup
+public static class PlatformAuthenticationSetup
 {
-    /// <summary>Cookie scheme name used by the BFF session.</summary>
+    /// <summary>Cookie scheme name used by the host's session.</summary>
     public const string CookieScheme = "ep.bff";
 
     /// <summary>OIDC challenge scheme — activated when <c>AzureAd.Enabled</c> is true.</summary>
@@ -45,7 +46,7 @@ public static class BffAuthenticationSetup
     /// <summary>Registers cookie auth + (conditionally) OIDC.</summary>
     /// <param name="services">The DI container.</param>
     /// <param name="configuration">App configuration — read synchronously during registration.</param>
-    public static IServiceCollection AddBffAuthentication(
+    public static IServiceCollection AddPlatformAuthentication(
         this IServiceCollection services,
         IConfiguration configuration)
     {
@@ -53,23 +54,22 @@ public static class BffAuthenticationSetup
         ArgumentNullException.ThrowIfNull(configuration);
 
         var azureAd = configuration
-            .GetSection(AzureAdBffSettings.SectionName)
-            .Get<AzureAdBffSettings>() ?? new AzureAdBffSettings();
+            .GetSection(AzureAdSettings.SectionName)
+            .Get<AzureAdSettings>() ?? new AzureAdSettings();
 
-        // Expose the BFF's Azure AD settings via IOptions so controllers
-        // (AuthController in B3) can read the configured ApiScope without
-        // re-parsing configuration.
-        services.AddOptions<AzureAdBffSettings>()
-            .Bind(configuration.GetSection(AzureAdBffSettings.SectionName));
+        // Expose the Azure AD settings via IOptions so controllers / services
+        // can read the configured ApiScope without re-parsing configuration.
+        services.AddOptions<AzureAdSettings>()
+            .Bind(configuration.GetSection(AzureAdSettings.SectionName));
 
-        // Refresh-token rotation service (B7). Scoped because it reads
-        // request-tied services (ILogger scope, etc.) via the hook.
-        services.AddHttpClient(BffTokenRefreshService.HttpClientName);
-        services.AddScoped<BffTokenRefreshService>();
+        // Refresh-token rotation service. Scoped because it reads request-tied
+        // services (ILogger scope, etc.) via the OnValidatePrincipal hook.
+        services.AddHttpClient(TokenRefreshService.HttpClientName);
+        services.AddScoped<TokenRefreshService>();
 
-        // Session metrics (Phase 9.F.2). Singleton — the underlying Meter is
-        // process-wide; instruments are thread-safe.
-        services.AddSingleton<BffSessionMetrics>();
+        // Session metrics — singleton; underlying Meter is process-wide and
+        // instruments are thread-safe.
+        services.AddSingleton<SessionMetrics>();
 
         var authBuilder = services.AddAuthentication(options =>
         {
@@ -106,7 +106,7 @@ public static class BffAuthenticationSetup
     /// </summary>
     private const string SessionStartedAtPropertyKey = ".ep.bff.session_started_at";
 
-    private static void AddCookieScheme(AuthenticationBuilder authBuilder, AzureAdBffSettings azureAd)
+    private static void AddCookieScheme(AuthenticationBuilder authBuilder, AzureAdSettings azureAd)
     {
         authBuilder.AddCookie(CookieScheme, options =>
         {
@@ -130,18 +130,18 @@ public static class BffAuthenticationSetup
                 return Task.CompletedTask;
             };
 
-            // Refresh-token rotation (B7). Resolved per-request from DI to
-            // avoid capturing a singleton HttpClient in the closure.
+            // Refresh-token rotation. Resolved per-request from DI to avoid
+            // capturing a singleton HttpClient in the closure.
             options.Events.OnValidatePrincipal = async ctx =>
             {
                 var refresher = ctx.HttpContext.RequestServices
-                    .GetRequiredService<BffTokenRefreshService>();
+                    .GetRequiredService<TokenRefreshService>();
                 await refresher.ValidateAsync(ctx).ConfigureAwait(false);
             };
 
-            // Session-created metric (9.F.2) — fires on each new sign-in
-            // (cookie issued). Stash a UTC start-time on the ticket so
-            // OnSigningOut can compute lifetime.
+            // Session-created metric — fires on each new sign-in (cookie
+            // issued). Stash a UTC start-time on the ticket so OnSigningOut
+            // can compute lifetime.
             options.Events.OnSigningIn = ctx =>
             {
                 ctx.Properties.SetString(
@@ -149,7 +149,7 @@ public static class BffAuthenticationSetup
                     DateTimeOffset.UtcNow.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
                 var metrics = ctx.HttpContext.RequestServices
-                    .GetRequiredService<BffSessionMetrics>();
+                    .GetRequiredService<SessionMetrics>();
                 metrics.SessionsCreated.Add(1);
                 return Task.CompletedTask;
             };
@@ -160,7 +160,7 @@ public static class BffAuthenticationSetup
             options.Events.OnSigningOut = ctx =>
             {
                 var metrics = ctx.HttpContext.RequestServices
-                    .GetRequiredService<BffSessionMetrics>();
+                    .GetRequiredService<SessionMetrics>();
 
                 var startedAtRaw = ctx.Properties.GetString(SessionStartedAtPropertyKey);
                 if (long.TryParse(startedAtRaw, System.Globalization.NumberStyles.Integer,
@@ -179,7 +179,7 @@ public static class BffAuthenticationSetup
 
     // ── OIDC code + PKCE flow ──────────────────────────────────────────
 
-    private static void AddOidcScheme(AuthenticationBuilder authBuilder, AzureAdBffSettings azureAd)
+    private static void AddOidcScheme(AuthenticationBuilder authBuilder, AzureAdSettings azureAd)
     {
         authBuilder.AddOpenIdConnect(OidcScheme, options =>
         {
@@ -196,9 +196,9 @@ public static class BffAuthenticationSetup
             options.ResponseMode = OpenIdConnectResponseMode.FormPost;
 
             // Persist the id/access/refresh tokens inside the cookie ticket
-            // so BffProxyController can read them at proxy time via
+            // so ProxyController can read them at proxy time via
             // HttpContext.GetTokenAsync("access_token"). The OnValidatePrincipal
-            // refresh hook (wired in B7) rotates the access token before expiry.
+            // refresh hook rotates the access token before expiry.
             options.SaveTokens = true;
 
             // v2 endpoint carries everything we need — skip the extra round-trip.
@@ -218,10 +218,10 @@ public static class BffAuthenticationSetup
             // unusable against whichever resource Entra didn't pick.
             // GraphUserProfileService acquires its own Graph-scoped token on
             // demand via the refresh_token — admin-consented `User.Read` on
-            // the BFF App Registration makes that acquisition silent.
+            // the App Registration makes that acquisition silent.
 
             // Claim shape — Entra v2 emits `name` and `roles` directly.
-            // Using them avoids the schema-URL claim pile we saw in Phase 7.6.
+            // Using them avoids the schema-URL claim pile.
             options.TokenValidationParameters.NameClaimType = "name";
             options.TokenValidationParameters.RoleClaimType = "roles";
 
@@ -233,7 +233,7 @@ public static class BffAuthenticationSetup
             options.Events = new OpenIdConnectEvents
             {
                 // Localhost redirect URIs register as http://localhost:<port>/signin-oidc
-                // on the App Registration. When the BFF runs under http://
+                // on the App Registration. When the host runs under http://
                 // (dev default), the handler must not force https on the
                 // outbound authorize URL — Entra validates the redirect_uri
                 // against what's registered.
@@ -305,22 +305,22 @@ public static class BffAuthenticationSetup
     /// with a half-wired AddOpenIdConnect that would throw cryptic
     /// <c>IDX20803</c> / <c>AADSTS</c> errors on the first login attempt.
     /// </summary>
-    private static void ValidateOidcConfig(AzureAdBffSettings azureAd)
+    private static void ValidateOidcConfig(AzureAdSettings azureAd)
     {
         List<string>? missing = null;
 
         if (string.IsNullOrWhiteSpace(azureAd.TenantId))
         {
-            (missing ??= []).Add($"{AzureAdBffSettings.SectionName}:TenantId");
+            (missing ??= []).Add($"{AzureAdSettings.SectionName}:TenantId");
         }
         if (string.IsNullOrWhiteSpace(azureAd.ClientId))
         {
-            (missing ??= []).Add($"{AzureAdBffSettings.SectionName}:ClientId");
+            (missing ??= []).Add($"{AzureAdSettings.SectionName}:ClientId");
         }
         if (string.IsNullOrWhiteSpace(azureAd.ClientSecret))
         {
             (missing ??= []).Add(
-                $"{AzureAdBffSettings.SectionName}:ClientSecret " +
+                $"{AzureAdSettings.SectionName}:ClientSecret " +
                 "(use `dotnet user-secrets set \"AzureAd:ClientSecret\" <value>` in dev; " +
                 "never commit to appsettings.json)");
         }
@@ -328,7 +328,7 @@ public static class BffAuthenticationSetup
         if (missing is { Count: > 0 })
         {
             throw new InvalidOperationException(
-                $"BFF OIDC is enabled but required AzureAd configuration is missing:{Environment.NewLine}" +
+                $"OIDC is enabled but required AzureAd configuration is missing:{Environment.NewLine}" +
                 string.Join(Environment.NewLine, missing.Select(m => $"  - {m}")));
         }
     }

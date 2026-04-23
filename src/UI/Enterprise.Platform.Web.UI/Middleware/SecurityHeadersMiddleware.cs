@@ -1,19 +1,23 @@
 using System.Buffers;
 using System.Security.Cryptography;
 
-namespace Enterprise.Platform.Web.UI.Configuration;
+namespace Enterprise.Platform.Web.UI.Middleware;
 
 /// <summary>
-/// Security header middleware for the BFF. Replaces the SPA's old <c>&lt;meta
-/// http-equiv=&quot;Content-Security-Policy&quot;&gt;</c> with a header-delivered
-/// CSP that carries a per-request nonce, so future inline-script use can opt in
-/// with <c>&lt;script nonce=&quot;@(Context.Items[&quot;ep.csp.nonce&quot;])&quot;&gt;</c>
-/// without relaxing the policy globally. Today's Angular bundle has no inline
-/// scripts, so the nonce stays unused — its presence is the difference between
-/// a strict policy that's safe for inline injection later and one that requires
-/// re-architecture when that need arises.
+/// Emits the host's HTTP security headers and mints a per-request CSP nonce.
+/// Replaces the SPA's static <c>&lt;meta http-equiv="Content-Security-Policy"&gt;</c>
+/// with a header-delivered CSP that carries a per-request nonce, so future
+/// inline-script use can opt in via
+/// <c>&lt;script nonce="@(Context.Items["ep.csp.nonce"])"&gt;</c> without
+/// relaxing the policy globally.
 /// </summary>
-public static class BffSecurityHeaders
+/// <remarks>
+/// Today's Angular bundle has no inline scripts, so the nonce stays unused —
+/// its presence is the difference between a strict policy that's safe for
+/// inline injection later and one that requires re-architecture when that
+/// need arises.
+/// </remarks>
+public static class SecurityHeadersMiddleware
 {
     /// <summary>
     /// HttpContext.Items key for the per-request nonce. Page-rendering paths
@@ -28,8 +32,8 @@ public static class BffSecurityHeaders
     /// </summary>
     private const int NonceByteLength = 16;
 
-    /// <summary>Registers the header-writing middleware.</summary>
-    public static IApplicationBuilder UseBffSecurityHeaders(this IApplicationBuilder app)
+    /// <summary>Registers the security-header-writing middleware.</summary>
+    public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -57,8 +61,7 @@ public static class BffSecurityHeaders
                     headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
                 }
 
-                // Header-delivered CSP (Phase 9.B.10). Tighter than the old
-                // <meta>-tag policy because:
+                // Header-delivered CSP. Tighter than meta-tag delivery because:
                 //   • `script-src 'self' 'nonce-{N}'` — only same-origin
                 //     scripts + any inline script carrying our nonce. Angular's
                 //     emitted bundles already use `<script src=...>` so they
@@ -70,13 +73,19 @@ public static class BffSecurityHeaders
                 //   • `frame-ancestors 'self'` — works correctly when emitted
                 //     as a header (was ignored when emitted via <meta>).
                 //   • `connect-src 'self'` (prod) — entire surface is
-                //     same-origin since the SPA proxies through the BFF.
+                //     same-origin since the SPA proxies through the host.
                 //   • `connect-src` (dev) — adds `ws://localhost:*`,
                 //     `wss://localhost:*`, and `http://localhost:*` so VS's
                 //     dev tooling (aspnetcore-browser-refresh hot-reload
                 //     WebSocket + BrowserLink SignalR) can connect on its
                 //     dynamic ports. Dev-only relaxation; never reaches
                 //     staging/prod.
+                //   • `form-action 'self' https://login.microsoftonline.com` —
+                //     covers the entire redirect chain, not just the initial
+                //     URL. The logout flow posts to /api/auth/logout
+                //     (same-origin ✓), but the host responds 302 to Entra's
+                //     end-session endpoint — without `login.microsoftonline.com`
+                //     here the browser would block that redirect.
                 var connectSrc = isDevelopment
                     ? "connect-src 'self' ws://localhost:* wss://localhost:* http://localhost:*; "
                     : "connect-src 'self'; ";
@@ -90,11 +99,6 @@ public static class BffSecurityHeaders
                     connectSrc +
                     "frame-ancestors 'self'; " +
                     "base-uri 'self'; " +
-                    // form-action covers the ENTIRE redirect chain, not just the
-                    // initial action URL. The logout flow posts to /api/auth/logout
-                    // (same-origin ✓), but the BFF responds 302 to Entra's
-                    // end-session endpoint — without `login.microsoftonline.com`
-                    // here the browser blocks that redirect with a CSP violation.
                     "form-action 'self' https://login.microsoftonline.com; " +
                     "object-src 'none'";
 
