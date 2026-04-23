@@ -4,22 +4,31 @@
  * WHY
  *   The primary chrome wrapping every authenticated page. Hosts:
  *
- *     1. **Single global toast outlet** — `<p-toast>` mounted once here means
+ *     1. **Top navigation** — `TopNavWithSidebarComponent` (Variant B) is the
+ *        default for healthcare/finance/HR domains: app bar + collapsible
+ *        side drawer for deep menus. Swap to `TopNavHorizontalComponent` or
+ *        `TopNavCompactComponent` for a different domain feel without
+ *        touching anything else in the shell.
+ *     2. **Single global toast outlet** — `<p-toast>` mounted once here means
  *        every `MessageService.add(...)` call renders in the same place, no
  *        matter which feature emits it.
- *     2. **Single global confirm outlet** — `<p-confirmdialog>` for
+ *     3. **Single global confirm outlet** — `<p-confirmdialog>` for
  *        programmatic confirmation modals via `ConfirmationService`.
- *     3. **Router outlet** — where the feature route tree mounts.
+ *     4. **Router outlet** — where the feature route tree mounts.
  *
- * PHASE 1 SCOPE
- *   Minimal: just a top header strip with logout + the toast/confirm hosts +
- *   the router outlet. The full sidebar / navigation / theme toggle lands in
- *   Phase 5 when the design system + full nav story arrive.
+ * NAVIGATION DATA SOURCE
+ *   Items come from `MenuConfigService` (signal-backed). Today the service
+ *   ships a hard-coded constant; tomorrow it'll be backed by the BFF's
+ *   `/api/v1/me/navigation` response. The shell stays unchanged through the
+ *   swap — variants only see the resulting `Signal<readonly NavMenuItem[]>`.
  *
- *   Keeping Phase-1 AppShell minimal has two benefits:
- *     - smaller initial bundle — `SidebarNavComponent` and all its PrimeNG
- *       dependencies don't load until they exist;
- *     - exercising the auth flow doesn't depend on any future Phase-5 work.
+ * RIGHT-SIDE ACTIONS
+ *   - User menu — fully wired inside `UserMenuComponent` (auth + theme).
+ *   - Notifications — bell + popover, wired to mock data; click events
+ *     bubble up here for routing decisions.
+ *   - Apps + Search — emit events; not yet wired to anything since the
+ *     command palette / app switcher haven't been built. Hooks are in
+ *     place so Phase 8+ work doesn't touch the shell again.
  *
  * TOAST CONFIGURATION
  *   `<p-toast position="top-right">` — top-right is industry standard for
@@ -33,14 +42,21 @@
  *   deferred cost is paid exactly once per authenticated session and never
  *   in prod builds where the user acts on the dialog before expiry.
  */
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { Router, RouterOutlet } from '@angular/router';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
-import { AuthService, SessionMonitorService } from '@core/auth';
+import { SessionMonitorService } from '@core/auth';
+import { LoggerService } from '@core/services';
 import { GlobalProgressBarComponent } from '@shared/components/global-progress-bar/global-progress-bar.component';
 import { SessionExpiringDialogComponent } from '@shared/components/session-expiring-dialog/session-expiring-dialog.component';
+import {
+  MenuConfigService,
+  type NavBranding,
+  type NavNotification,
+  TopNavWithSidebarComponent,
+} from '@shared/components/navigation';
 
 @Component({
   selector: 'app-app-shell',
@@ -56,33 +72,26 @@ import { SessionExpiringDialogComponent } from '@shared/components/session-expir
     ConfirmDialogModule,
     GlobalProgressBarComponent,
     SessionExpiringDialogComponent,
+    TopNavWithSidebarComponent,
   ],
   template: `
-    <div class="flex min-h-screen flex-col bg-neutral-50">
+    <div class="flex min-h-screen flex-col bg-[color:var(--ep-surface-50)]">
       <!-- Phase 5.4 — thin top progress bar driven by LoadingService. -->
       <app-global-progress-bar />
 
-      <header
-        class="border-b border-neutral-200 bg-white px-6 py-3 shadow-ep-xs"
-        role="banner"
-      >
-        <div class="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 class="text-lg font-semibold tracking-tight text-neutral-900">Enterprise Platform</h1>
-          <div class="flex items-center gap-3 text-sm">
-            <span class="text-neutral-600">{{ auth.displayName() || auth.email() }}</span>
-            <button
-              type="button"
-              class="rounded-ep-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-              (click)="auth.logout()"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
+      <app-top-nav-with-sidebar
+        [branding]="branding()"
+        [items]="navItems()"
+        [showNotifications]="true"
+        (notificationClick)="onNotificationClick($event)"
+        (profileClick)="onProfileClick()"
+        (settingsClick)="onSettingsClick()"
+        (searchClick)="onSearchClick()"
+        (appsClick)="onAppsClick()"
+      />
 
       <main
-        class="mx-auto w-full max-w-7xl flex-1 px-6 py-6"
+        class="mx-auto w-full max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
         role="main"
         id="main-content"
       >
@@ -107,7 +116,55 @@ import { SessionExpiringDialogComponent } from '@shared/components/session-expir
   `,
 })
 export class AppShellComponent {
-  readonly auth = inject(AuthService);
+  private readonly menuConfig = inject(MenuConfigService);
+  private readonly router = inject(Router);
+  private readonly log = inject(LoggerService);
+
   /** Exposed so the @defer trigger expression can read it. */
   readonly session = inject(SessionMonitorService);
+
+  /**
+   * Branding payload. Currently a constant — when per-tenant theming lands
+   * (Phase 9 of UI roadmap) this becomes a signal driven by `TenantService`.
+   */
+  readonly branding = computed<NavBranding>(() => ({
+    productName: 'Enterprise Platform',
+    productSubLabel: 'Workspace',
+    logoIcon: 'pi pi-bolt',
+    homeRouterLink: '/dashboard',
+  }));
+
+  /** Live menu items — re-renders when permissions hydrate or tenant changes. */
+  readonly navItems = this.menuConfig.items;
+
+  // ── EVENT HANDLERS ────────────────────────────────────────────────────────
+
+  /**
+   * Handles a notification click. The placeholder behaviour just logs; once
+   * notification payloads carry a deep-link URL we'll route here.
+   */
+  onNotificationClick(n: NavNotification): void {
+    this.log.info('shell.notification.clicked', { id: n.id, title: n.title });
+  }
+
+  onProfileClick(): void {
+    void this.router.navigateByUrl('/profile');
+  }
+
+  onSettingsClick(): void {
+    void this.router.navigateByUrl('/settings');
+  }
+
+  /**
+   * Search and apps are placeholders for the command palette and app switcher
+   * (both arrive in later phases). Wired now so the chrome doesn't have to
+   * change when the real implementations land.
+   */
+  onSearchClick(): void {
+    this.log.info('shell.search.requested');
+  }
+
+  onAppsClick(): void {
+    this.log.info('shell.apps.requested');
+  }
 }

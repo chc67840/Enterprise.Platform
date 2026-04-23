@@ -6,3 +6,5 @@ export { NotificationService } from './notification.service';
 export { TenantService } from './tenant.service';
 export { CspViolationReporterService } from './csp-violation-reporter.service';
 export { CorrelationContextService } from './correlation-context.service';
+export { ThemeService } from './theme.service';
+export type { ThemeMode } from './theme.service';

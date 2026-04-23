@@ -140,7 +140,9 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('authorization_endpoint:', d['authorization_endpoint']\\); print\\('token_endpoint:', d['token_endpoint']\\); print\\('issuer:', d['issuer']\\)\")",
       "Bash([ ! -s \"$GITIGNORE\" ])",
       "Bash(rm -f AzureAdBffSettings.cs BffAuthenticationSetup.cs BffCorsSetup.cs BffHealthChecks.cs BffProxySettings.cs BffRateLimiterSetup.cs BffSecurityHeaders.cs BffSessionMetrics.cs BffSpaSettings.cs BffTokenRefreshService.cs GraphUserProfileService.cs SpaStaticHosting.cs)",
-      "Bash(rm -f \"K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/Controllers/BffProxyController.cs\")"
+      "Bash(rm -f \"K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/Controllers/BffProxyController.cs\")",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)"
     ]
   }
 }
