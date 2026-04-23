@@ -13,6 +13,7 @@ using Enterprise.Platform.Infrastructure.Identity.Services;
 using Enterprise.Platform.Infrastructure.Messaging.DomainEvents;
 using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
 using Enterprise.Platform.Infrastructure.MultiTenancy;
+using Enterprise.Platform.Infrastructure.PdfGeneration;
 using Enterprise.Platform.Infrastructure.Persistence;
 using Enterprise.Platform.Infrastructure.Resilience;
 using Enterprise.Platform.Infrastructure.Security.DataEncryption;
@@ -167,6 +168,12 @@ public static class DependencyInjection
         });
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddSingleton<IFeatureFlagService, ConfigurationFeatureFlagService>();
+
+        // PDF generation — placeholder; swap NotImplementedPdfGenerator for the
+        // chosen real engine (QuestPDF / PuppeteerSharp / IronPDF) when the first
+        // real PDF requirement lands. The abstraction is in Application/Common/
+        // Interfaces/IPdfGenerator.cs so handlers can take the dependency today.
+        services.AddSingleton<IPdfGenerator, NotImplementedPdfGenerator>();
 
         return services;
     }
