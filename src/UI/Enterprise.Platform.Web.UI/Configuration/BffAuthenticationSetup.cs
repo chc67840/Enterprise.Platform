@@ -35,6 +35,13 @@ public static class BffAuthenticationSetup
     /// <summary>OIDC challenge scheme — activated when <c>AzureAd.Enabled</c> is true.</summary>
     public const string OidcScheme = "ep.oidc";
 
+    /// <summary>
+    /// <see cref="AuthenticationProperties.Items"/> key the AuthController writes
+    /// the validated <c>prompt</c> value to. Consumed by <c>OnRedirectToIdentityProvider</c>
+    /// and forwarded as the OIDC <c>prompt</c> request parameter.
+    /// </summary>
+    public const string PromptPropertyKey = ".ep.bff.prompt";
+
     /// <summary>Registers cookie auth + (conditionally) OIDC.</summary>
     /// <param name="services">The DI container.</param>
     /// <param name="configuration">App configuration — read synchronously during registration.</param>
@@ -205,6 +212,13 @@ public static class BffAuthenticationSetup
             {
                 options.Scope.Add(azureAd.ApiScope);
             }
+            // NOTE: do NOT add `User.Read` (Microsoft Graph) here. Entra
+            // returns ONE access_token per request, scoped to ONE resource;
+            // mixing the API scope and a Graph scope makes the issued token
+            // unusable against whichever resource Entra didn't pick.
+            // GraphUserProfileService acquires its own Graph-scoped token on
+            // demand via the refresh_token — admin-consented `User.Read` on
+            // the BFF App Registration makes that acquisition silent.
 
             // Claim shape — Entra v2 emits `name` and `roles` directly.
             // Using them avoids the schema-URL claim pile we saw in Phase 7.6.
@@ -223,6 +237,11 @@ public static class BffAuthenticationSetup
                 // (dev default), the handler must not force https on the
                 // outbound authorize URL — Entra validates the redirect_uri
                 // against what's registered.
+                //
+                // Also forwards the AuthController-supplied `prompt` parameter
+                // (validated against an allowlist there) so account-switcher
+                // / forced re-auth UX works without repeating the validation
+                // logic in the event handler.
                 OnRedirectToIdentityProvider = ctx =>
                 {
                     if (ctx.Request.Host.Host is "localhost" or "127.0.0.1")
@@ -232,7 +251,31 @@ public static class BffAuthenticationSetup
                             ctx.Request.PathBase,
                             azureAd.CallbackPath);
                     }
+
+                    if (ctx.Properties.Items.TryGetValue(PromptPropertyKey, out var prompt)
+                        && !string.IsNullOrWhiteSpace(prompt))
+                    {
+                        ctx.ProtocolMessage.Prompt = prompt;
+                    }
+
                     return Task.CompletedTask;
+                },
+
+                // Logout strengthening: include `id_token_hint` on the
+                // end-session redirect so Entra knows which session to
+                // terminate without showing an account-picker. Falls back
+                // to an empty hint if the id_token isn't stashed (e.g.
+                // session is corrupt) — Entra still terminates whichever
+                // session matches the cookie, just less precisely.
+                OnRedirectToIdentityProviderForSignOut = async ctx =>
+                {
+                    var idToken = await ctx.HttpContext
+                        .GetTokenAsync(CookieScheme, "id_token")
+                        .ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(idToken))
+                    {
+                        ctx.ProtocolMessage.IdTokenHint = idToken;
+                    }
                 },
 
                 // Surface auth failures as structured 401s — the SPA will

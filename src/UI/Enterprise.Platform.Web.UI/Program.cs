@@ -42,6 +42,14 @@ try
     builder.Services.AddBffHealthChecks();
     builder.Services.AddBffRateLimiter();
 
+    // Microsoft Graph integration — fetches /me profile via the BFF's
+    // refresh-token-acquired Graph token. IMemoryCache is the per-user
+    // profile cache (5-minute TTL).
+    builder.Services.AddMemoryCache();
+    builder.Services.AddHttpClient(GraphUserProfileService.TokenHttpClientName);
+    builder.Services.AddHttpClient(GraphUserProfileService.GraphHttpClientName);
+    builder.Services.AddScoped<GraphUserProfileService>();
+
     // Anti-forgery: SPA expects the token via a readable cookie + echoes it in X-XSRF-TOKEN.
     // SecurePolicy: Always in prod (HTTPS required) / SameAsRequest in dev so plain-HTTP
     // `dotnet run` still works without a dev-cert dance. Same policy applied to the BFF

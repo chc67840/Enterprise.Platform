@@ -90,7 +90,12 @@ public static class BffSecurityHeaders
                     connectSrc +
                     "frame-ancestors 'self'; " +
                     "base-uri 'self'; " +
-                    "form-action 'self'; " +
+                    // form-action covers the ENTIRE redirect chain, not just the
+                    // initial action URL. The logout flow posts to /api/auth/logout
+                    // (same-origin ✓), but the BFF responds 302 to Entra's
+                    // end-session endpoint — without `login.microsoftonline.com`
+                    // here the browser blocks that redirect with a CSP violation.
+                    "form-action 'self' https://login.microsoftonline.com; " +
                     "object-src 'none'";
 
                 return Task.CompletedTask;

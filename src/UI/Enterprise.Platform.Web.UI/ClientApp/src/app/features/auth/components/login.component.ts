@@ -73,6 +73,12 @@ export class LoginComponent {
   }
 
   signIn(): void {
-    this.auth.login(this.returnUrl);
+    // `prompt: 'select_account'` shows Entra's account-picker even when an
+    // SSO session exists at login.microsoftonline.com. Without it, clicking
+    // Sign-in immediately after Sign-out silently re-authenticates the same
+    // account (Entra's session survived our cookie-clear) — surprising users
+    // who expect the click to ASK them. select_account makes the click
+    // explicit at the cost of one extra picker tap.
+    this.auth.login(this.returnUrl, 'select_account');
   }
 }

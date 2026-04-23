@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Threading;
 using Enterprise.Platform.Web.UI.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -58,6 +59,10 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
         Message = "Auth.Permissions.Placeholder — returning empty payload (D4 hydration deferred).")]
     private partial void LogPermissionsPlaceholder();
 
+    [LoggerMessage(EventId = 1006, Level = LogLevel.Debug,
+        Message = "Auth.MeProfile.Empty — Graph returned no payload; falling back to session-claim shape.")]
+    private partial void LogMeProfileEmpty();
+
     /// <summary>
     /// Begins the OIDC login flow. The SPA redirects the user's browser here as a
     /// top-level navigation; this action issues a 302 to Entra's authorize endpoint
@@ -66,18 +71,31 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     /// sends the browser to <paramref name="returnUrl"/>.
     /// </summary>
     /// <param name="returnUrl">Local path (must start with <c>/</c>) to land on after login.</param>
+    /// <param name="prompt">
+    /// Optional Entra <c>prompt</c> parameter — controls Entra's authorize-page UX.
+    /// Validated against an allowlist:
+    /// <list type="bullet">
+    ///   <item><c>select_account</c> — show the account picker even if a session exists. UX: "switch user".</item>
+    ///   <item><c>login</c> — force re-authentication. UX: step-up before sensitive operations.</item>
+    /// </list>
+    /// Anything else is dropped (defence against open-prompt injection).
+    /// When set on an already-authenticated session, the short-circuit is
+    /// skipped — the user actually wants the prompt.
+    /// </param>
     /// <returns>
-    /// <c>302</c> to Entra when the user is unauthenticated, or <c>302</c> to
-    /// <paramref name="returnUrl"/> directly when a valid session already exists
-    /// (idempotent — repeated login clicks don't retrigger the full flow).
+    /// <c>302</c> to Entra when the user is unauthenticated OR a prompt is requested,
+    /// or <c>302</c> to <paramref name="returnUrl"/> directly when a valid session
+    /// already exists and no prompt was requested (idempotent — repeated login
+    /// clicks don't retrigger the full flow).
     /// </returns>
     [AllowAnonymous]
     [HttpGet("login")]
-    public IActionResult Login([FromQuery] string? returnUrl)
+    public IActionResult Login([FromQuery] string? returnUrl, [FromQuery] string? prompt)
     {
         var safeReturnUrl = SanitizeReturnUrl(returnUrl);
+        var safePrompt = SanitizePrompt(prompt);
 
-        if (User.Identity?.IsAuthenticated == true)
+        if (User.Identity?.IsAuthenticated == true && safePrompt is null)
         {
             LogLoginAlreadyAuthenticated(safeReturnUrl);
             return LocalRedirect(safeReturnUrl);
@@ -88,8 +106,13 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
         // AuthenticationProperties.RedirectUri is what the OIDC middleware
         // redirects to after a successful code-for-token exchange. Entra
         // preserves our `state` parameter across the round-trip, which is
-        // how this value survives the cross-origin hop.
+        // how this value survives the cross-origin hop. Prompt threads
+        // through Items[] → consumed by OnRedirectToIdentityProvider.
         var properties = new AuthenticationProperties { RedirectUri = safeReturnUrl };
+        if (safePrompt is not null)
+        {
+            properties.Items[BffAuthenticationSetup.PromptPropertyKey] = safePrompt;
+        }
         return Challenge(properties, BffAuthenticationSetup.OidcScheme);
     }
 
@@ -186,6 +209,62 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     }
 
     /// <summary>
+    /// Returns the signed-in user's Microsoft Graph profile (display name,
+    /// job title, mail, office, etc.). Falls back to session-claim data
+    /// when Graph is unreachable so the SPA can always render some chrome.
+    /// </summary>
+    /// <remarks>
+    /// Cached server-side per-user for 5 minutes (see
+    /// <see cref="GraphUserProfileService"/>). The SPA can poll this lazily
+    /// without hammering Graph.
+    /// </remarks>
+    [Authorize]
+    [HttpGet("me/profile")]
+    [ProducesResponseType<MeProfileResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MeProfileResponse>> MeProfile(
+        [FromServices] GraphUserProfileService graphService,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(graphService);
+
+        var profile = await graphService.GetCurrentUserAsync(HttpContext, cancellationToken).ConfigureAwait(false);
+
+        if (profile is null)
+        {
+            // Graph unreachable / disabled / refresh-token missing — degrade
+            // to the session-claim shape so the SPA always has SOMETHING to
+            // render.
+            LogMeProfileEmpty();
+            return Ok(new MeProfileResponse(
+                Id: User.FindFirst("oid")?.Value ?? User.FindFirst("sub")?.Value ?? string.Empty,
+                DisplayName: User.FindFirst("name")?.Value,
+                GivenName: null,
+                Surname: null,
+                JobTitle: null,
+                Mail: User.FindFirst("email")?.Value
+                    ?? User.FindFirst("preferred_username")?.Value,
+                UserPrincipalName: User.FindFirst("preferred_username")?.Value,
+                OfficeLocation: null,
+                Department: null,
+                PreferredLanguage: null,
+                Source: "claims"));
+        }
+
+        return Ok(new MeProfileResponse(
+            Id: profile.Id,
+            DisplayName: profile.DisplayName,
+            GivenName: profile.GivenName,
+            Surname: profile.Surname,
+            JobTitle: profile.JobTitle,
+            Mail: profile.Mail,
+            UserPrincipalName: profile.UserPrincipalName,
+            OfficeLocation: profile.OfficeLocation,
+            Department: profile.Department,
+            PreferredLanguage: profile.PreferredLanguage,
+            Source: "graph"));
+    }
+
+    /// <summary>
     /// Placeholder permission set. Returns an empty <see cref="EffectivePermissions"/>
     /// payload so the SPA's <c>AuthStore.hydrate()</c> resolves cleanly instead
     /// of seeing the recurring 404 the proxy was producing for the absent Api
@@ -237,6 +316,22 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
 
         return Url.IsLocalUrl(candidate) ? candidate : DefaultReturnUrl;
     }
+
+    /// <summary>
+    /// Validates a caller-supplied <c>prompt</c> against the BFF's allowlist.
+    /// Returns the canonical lowercase form on match, <c>null</c> on miss —
+    /// callers treat <c>null</c> as "no prompt requested". Defends against
+    /// arbitrary OIDC parameter injection by NEVER forwarding values we
+    /// don't explicitly support (e.g. <c>consent</c> is admin-tier and not
+    /// exposed via the SPA).
+    /// </summary>
+    private static string? SanitizePrompt(string? candidate) =>
+        candidate?.Trim().ToLowerInvariant() switch
+        {
+            "select_account" => "select_account",
+            "login" => "login",
+            _ => null,
+        };
 }
 
 /// <summary>
@@ -264,6 +359,36 @@ public sealed record SessionInfo(
         Roles: Array.Empty<string>(),
         ExpiresAt: null);
 }
+
+/// <summary>
+/// JSON contract returned by <c>GET /api/auth/me/profile</c>. Surfaces the
+/// Graph <c>/me</c> shape augmented with a <see cref="Source"/> discriminator
+/// so the SPA can distinguish Graph-backed responses from session-claim
+/// fallbacks (network failure, Graph-not-consented, etc.).
+/// </summary>
+/// <param name="Id">Stable Entra object id.</param>
+/// <param name="DisplayName">Full display name (Graph-preferred, claim fallback).</param>
+/// <param name="GivenName">First name (Graph-only; null on claim fallback).</param>
+/// <param name="Surname">Last name (Graph-only; null on claim fallback).</param>
+/// <param name="JobTitle">Org-chart job title (Graph-only).</param>
+/// <param name="Mail">Primary email (Graph-preferred; falls back to <c>email</c> / <c>preferred_username</c> claim).</param>
+/// <param name="UserPrincipalName">UPN (Graph or <c>preferred_username</c> claim).</param>
+/// <param name="OfficeLocation">Office building / room (Graph-only).</param>
+/// <param name="Department">Department name (Graph-only).</param>
+/// <param name="PreferredLanguage">Locale tag (Graph-only).</param>
+/// <param name="Source"><c>"graph"</c> when Graph returned data; <c>"claims"</c> for fallback.</param>
+public sealed record MeProfileResponse(
+    string Id,
+    string? DisplayName,
+    string? GivenName,
+    string? Surname,
+    string? JobTitle,
+    string? Mail,
+    string? UserPrincipalName,
+    string? OfficeLocation,
+    string? Department,
+    string? PreferredLanguage,
+    string Source);
 
 /// <summary>
 /// JSON contract returned by <c>GET /api/auth/me/permissions</c>. Mirrors the

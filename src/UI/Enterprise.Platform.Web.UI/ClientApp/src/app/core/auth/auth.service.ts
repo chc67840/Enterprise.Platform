@@ -169,10 +169,21 @@ export class AuthService {
    * drop `Set-Cookie` when initiated from XHR even with `credentials: 'include'`.
    *
    * @param returnUrl Optional local path to land on after login (default `/`).
+   * @param prompt Optional Entra `prompt` value the BFF validates against an
+   *   allowlist:
+   *   - `'select_account'` — show the account picker even when an Entra SSO
+   *     session exists. Recommended for the user-facing Sign-in button so an
+   *     explicit click after sign-out doesn't silently re-auth on the same
+   *     account (the SSO surprise users hit when there's no prompt).
+   *   - `'login'` — force credential re-entry. Use for step-up before
+   *     destructive operations.
+   *   - omitted — passive SSO; transparent re-auth when an Entra session
+   *     exists. Right for auth-guard / silent redirect paths where any
+   *     UI prompt would be jarring.
    */
-  login(returnUrl?: string): void {
-    const target = this.buildAuthUrl('/api/auth/login', returnUrl);
-    this.log.info('auth.login.start', { returnUrl });
+  login(returnUrl?: string, prompt?: 'select_account' | 'login'): void {
+    const target = this.buildAuthUrl('/api/auth/login', returnUrl, prompt);
+    this.log.info('auth.login.start', { returnUrl, prompt });
     // Top-level navigation leaves the SPA — the browser handles the redirect chain.
     window.location.href = target;
   }
@@ -218,21 +229,34 @@ export class AuthService {
   // ── INTERNALS ────────────────────────────────────────────────────────────
 
   /**
-   * Builds a BFF auth URL with a validated `returnUrl` query string. The BFF
-   * validates it again server-side via `Url.IsLocalUrl`, but validating
-   * client-side prevents a round-trip for obvious-nonsense inputs.
+   * Builds a BFF auth URL with a validated `returnUrl` + optional `prompt`
+   * query string. The BFF validates both server-side too — this client-side
+   * pre-validation just avoids round-trips for obvious-nonsense inputs.
    */
-  private buildAuthUrl(path: string, returnUrl?: string): string {
-    if (!returnUrl) return path;
-    // Open-redirect defense mirrors the BFF: only allow paths starting with
-    // `/` (not `//` — protocol-relative), not containing backslashes.
-    const safe =
-      returnUrl.startsWith('/') &&
-      !returnUrl.startsWith('//') &&
-      !returnUrl.includes('\\')
-        ? returnUrl
-        : '/';
-    return `${path}?returnUrl=${encodeURIComponent(safe)}`;
+  private buildAuthUrl(
+    path: string,
+    returnUrl?: string,
+    prompt?: 'select_account' | 'login',
+  ): string {
+    const params: string[] = [];
+
+    if (returnUrl) {
+      // Open-redirect defense mirrors the BFF: only allow paths starting with
+      // `/` (not `//` — protocol-relative), not containing backslashes.
+      const safe =
+        returnUrl.startsWith('/') &&
+        !returnUrl.startsWith('//') &&
+        !returnUrl.includes('\\')
+          ? returnUrl
+          : '/';
+      params.push(`returnUrl=${encodeURIComponent(safe)}`);
+    }
+
+    if (prompt) {
+      params.push(`prompt=${encodeURIComponent(prompt)}`);
+    }
+
+    return params.length === 0 ? path : `${path}?${params.join('&')}`;
   }
 
   /**
