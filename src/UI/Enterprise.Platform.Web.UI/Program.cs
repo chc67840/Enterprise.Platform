@@ -42,10 +42,6 @@ try
     builder.Services.AddBffHealthChecks();
     builder.Services.AddBffRateLimiter();
 
-    // SPA proxy (Development only — terminal endpoint via MapSpaProxyFallback).
-    builder.Services.AddHttpClient(SpaProxyMiddleware.HttpClientName);
-    builder.Services.AddScoped<SpaProxyMiddleware>();
-
     // Anti-forgery: SPA expects the token via a readable cookie + echoes it in X-XSRF-TOKEN.
     // SecurePolicy: Always in prod (HTTPS required) / SameAsRequest in dev so plain-HTTP
     // `dotnet run` still works without a dev-cert dance. Same policy applied to the BFF
@@ -123,7 +119,39 @@ try
     {
         app.UseHttpsRedirection();
     }
-    app.UseStaticFiles();
+
+    // Static-file serving — when BffSpaSettings.StaticRoot is configured,
+    // serve from that path (typically Angular's dist/<project>/browser/
+    // output produced by `npm run watch`). Otherwise serve from the standard
+    // WebRootPath (the prod layout where `ng build` output is copied into
+    // wwwroot/ at deploy time). A configured-but-missing directory logs a
+    // warning and falls back to WebRootPath; the SPA fallback then surfaces
+    // a diagnostic 404 if index.html is also absent.
+    var spaSettings = app.Services
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<BffSpaSettings>>()
+        .Value;
+    if (!string.IsNullOrWhiteSpace(spaSettings.StaticRoot))
+    {
+        var resolvedRoot = SpaStaticHosting.ResolveStaticRoot(app.Environment, spaSettings.StaticRoot);
+        if (Directory.Exists(resolvedRoot))
+        {
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(resolvedRoot),
+            });
+        }
+        else
+        {
+            Log.Warning(
+                "BFF SPA StaticRoot '{Root}' does not exist on disk; falling back to WebRootPath. Run `npm run watch` in ClientApp/ to populate the directory.",
+                resolvedRoot);
+            app.UseStaticFiles();
+        }
+    }
+    else
+    {
+        app.UseStaticFiles();
+    }
     app.UseRouting();
 
     app.UseCors(BffCorsSetup.PolicyName);
@@ -141,11 +169,10 @@ try
 
     app.MapControllers();
 
-    // SPA fallback — forwards unmatched requests to the Angular dev server
-    // (Development) or serves wwwroot/index.html for client-side routing
-    // (non-Development). Must be the LAST endpoint registration so it only
-    // catches what nothing else claimed.
-    app.MapSpaProxyFallback();
+    // SPA fallback — serves index.html for any unmatched route so Angular's
+    // client-side router can resolve it. Must be the LAST endpoint
+    // registration so it only catches what nothing else claimed.
+    app.MapSpaFallback();
 
     Log.Information("Enterprise.Platform.Web.UI (BFF) starting — environment={Environment}.", app.Environment.EnvironmentName);
     await app.RunAsync().ConfigureAwait(false);

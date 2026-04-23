@@ -33,6 +33,9 @@ public static class BffSecurityHeaders
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        var env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
+        var isDevelopment = env.IsDevelopment();
+
         return app.Use(async (context, next) =>
         {
             var nonce = MintNonce();
@@ -66,16 +69,25 @@ public static class BffSecurityHeaders
                 //     migration; tracked as a follow-up).
                 //   • `frame-ancestors 'self'` — works correctly when emitted
                 //     as a header (was ignored when emitted via <meta>).
-                //   • `connect-src 'self'` — entire surface is now same-origin
-                //     because the SPA goes through the BFF proxy. No more
-                //     external login/graph endpoints whitelisted.
+                //   • `connect-src 'self'` (prod) — entire surface is
+                //     same-origin since the SPA proxies through the BFF.
+                //   • `connect-src` (dev) — adds `ws://localhost:*`,
+                //     `wss://localhost:*`, and `http://localhost:*` so VS's
+                //     dev tooling (aspnetcore-browser-refresh hot-reload
+                //     WebSocket + BrowserLink SignalR) can connect on its
+                //     dynamic ports. Dev-only relaxation; never reaches
+                //     staging/prod.
+                var connectSrc = isDevelopment
+                    ? "connect-src 'self' ws://localhost:* wss://localhost:* http://localhost:*; "
+                    : "connect-src 'self'; ";
+
                 headers["Content-Security-Policy"] =
                     "default-src 'self'; " +
                     $"script-src 'self' 'nonce-{nonce}'; " +
                     "style-src 'self' 'unsafe-inline'; " +
                     "img-src 'self' data: https:; " +
                     "font-src 'self' data:; " +
-                    "connect-src 'self'; " +
+                    connectSrc +
                     "frame-ancestors 'self'; " +
                     "base-uri 'self'; " +
                     "form-action 'self'; " +
