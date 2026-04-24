@@ -31,47 +31,130 @@
  */
 
 :root {
-  /* ── Colour: primary palette (extended blue) ─────────────────────── */
-  --ep-color-primary-50:  #eff6ff;
-  --ep-color-primary-100: #dbeafe;
-  --ep-color-primary-200: #bfdbfe;
-  --ep-color-primary-300: #93c5fd;
-  --ep-color-primary-400: #60a5fa;
-  --ep-color-primary-500: #3b82f6;
-  --ep-color-primary-600: #2563eb;
-  --ep-color-primary-700: #1d4ed8;
-  --ep-color-primary-800: #1e40af;
-  --ep-color-primary-900: #1e3a8a;
-  --ep-color-primary-950: #172554;
+  /* ─── BRAND PALETTE — four core colours ──────────────────────────────
+   *
+   *   The application brand is built on four colours:
+   *     1. Indigo Blue       (primary)    — interactive, links, focus
+   *     2. Palmetto Green    (secondary)  — confirmation, success, growth
+   *     3. Yellow Jessamine  (accent)     — highlight, warning, attention
+   *     4. Opaque White      (surface)    — background, cards, modals
+   *
+   *   Each brand colour is exposed as an 11-step scale (50 → 950) so
+   *   components can pick the right tonal weight (50 = subtle wash,
+   *   500 = pure brand chip, 700 = primary interactive, 900 = on-light
+   *   text). Tones are tuned for WCAG AA contrast against the surface
+   *   palette — see Docs/Architecture/UI-Color-Palette-Strategy.md
+   *   §5 for the contrast matrix.
+   *
+   *   Tenant rebrand: re-declare these tokens inside a tenant-class
+   *   scope (.tenant-acme :root { --ep-color-primary-700: …; }).
+   *   Tailwind utilities + PrimeNG components flip on the next paint.
+   */
 
-  /* ── Colour: neutral palette (surfaces + text) ───────────────────── */
-  --ep-color-neutral-50:  #f8fafc;
-  --ep-color-neutral-100: #f1f5f9;
-  --ep-color-neutral-200: #e2e8f0;
-  --ep-color-neutral-300: #cbd5e1;
-  --ep-color-neutral-400: #94a3b8;
-  --ep-color-neutral-500: #64748b;
-  --ep-color-neutral-600: #475569;
-  --ep-color-neutral-700: #334155;
-  --ep-color-neutral-800: #1e293b;
-  --ep-color-neutral-900: #0f172a;
-  --ep-color-neutral-950: #020617;
+  /* ── 1. Indigo Blue (primary) — anchored at 700 = #1B3F73 ─────────── */
+  --ep-color-primary-50:  #eff3fa;
+  --ep-color-primary-100: #d9e2f0;
+  --ep-color-primary-200: #b5c4e0;
+  --ep-color-primary-300: #8ba3cc;
+  --ep-color-primary-400: #5f7fb4;
+  --ep-color-primary-500: #3c609e;
+  --ep-color-primary-600: #2c4d86;
+  --ep-color-primary-700: #1b3f73;   /* ← BRAND ANCHOR */
+  --ep-color-primary-800: #142d54;
+  --ep-color-primary-900: #0e1f3b;
+  --ep-color-primary-950: #060f1f;
 
-  /* ── Colour: semantic (alias to concrete palette steps) ──────────── */
-  --ep-color-success: #16a34a;
-  --ep-color-success-bg: #dcfce7;
-  --ep-color-warning: #d97706;
-  --ep-color-warning-bg: #fef3c7;
-  --ep-color-danger: #dc2626;
-  --ep-color-danger-bg: #fee2e2;
-  --ep-color-info: var(--ep-color-primary-600);
-  --ep-color-info-bg: var(--ep-color-primary-50);
+  /* ── 2. Palmetto Green (secondary) — anchored at 700 = #1F5328 ────── */
+  --ep-color-palmetto-50:  #ecf7ee;
+  --ep-color-palmetto-100: #c9ead0;
+  --ep-color-palmetto-200: #98d6a6;
+  --ep-color-palmetto-300: #66bc79;
+  --ep-color-palmetto-400: #3fa055;
+  --ep-color-palmetto-500: #2e7d3e;
+  --ep-color-palmetto-600: #246631;
+  --ep-color-palmetto-700: #1f5328;   /* ← BRAND ANCHOR */
+  --ep-color-palmetto-800: #173e1f;
+  --ep-color-palmetto-900: #0f2914;
+  --ep-color-palmetto-950: #07150a;
 
-  /* ── Surfaces + text (theme-swappable in .dark below) ────────────── */
-  --ep-surface-0:  #ffffff;                         /* page background */
-  --ep-surface-50: var(--ep-color-neutral-50);      /* cards / panels */
-  --ep-surface-100: var(--ep-color-neutral-100);    /* hover / stripe */
-  --ep-surface-200: var(--ep-color-neutral-200);    /* dividers */
+  /* ── 3. Yellow Jessamine (accent) — anchored at 500 = #F4B82E ─────── */
+  --ep-color-jessamine-50:  #fef7e5;
+  --ep-color-jessamine-100: #fce9b5;
+  --ep-color-jessamine-200: #f9d981;
+  --ep-color-jessamine-300: #f7c94d;
+  --ep-color-jessamine-400: #f5bd30;
+  --ep-color-jessamine-500: #f4b82e;   /* ← BRAND ANCHOR */
+  --ep-color-jessamine-600: #d49b1a;
+  --ep-color-jessamine-700: #a87711;
+  --ep-color-jessamine-800: #7d580e;
+  --ep-color-jessamine-900: #543b09;
+  --ep-color-jessamine-950: #2a1d04;
+
+  /* ── 4. Opaque White (surface/neutral) — warm parchment scale ─────── */
+  --ep-color-neutral-0:    #ffffff;   /* pure white — modals, floating panels */
+  --ep-color-neutral-50:   #fafaf7;   /* page background — "opaque white" */
+  --ep-color-neutral-100:  #f4f4ed;   /* hover, table stripe */
+  --ep-color-neutral-200:  #e8e7db;   /* dividers, light borders */
+  --ep-color-neutral-300:  #d6d5c5;   /* disabled, muted borders */
+  --ep-color-neutral-400:  #a9a797;   /* placeholder text */
+  --ep-color-neutral-500:  #7c7a6a;   /* secondary text */
+  --ep-color-neutral-600:  #5c5a4d;   /* body text on subtle backgrounds */
+  --ep-color-neutral-700:  #3f3d34;   /* strong body text */
+  --ep-color-neutral-800:  #25241e;   /* heading text */
+  --ep-color-neutral-900:  #15140f;   /* highest-contrast text */
+  --ep-color-neutral-950:  #0a0907;   /* near-black */
+
+  /* ── Off-brand colour — danger only ──────────────────────────────────
+   *
+   *   Red is intentionally off-brand. Universally read as "stop / error"
+   *   across cultures; substituting it with a brand colour weakens the
+   *   signal. Kept narrow (5 steps, key surfaces only).
+   */
+  --ep-color-danger-50:  #fef2f2;
+  --ep-color-danger-100: #fee2e2;
+  --ep-color-danger-500: #dc2626;
+  --ep-color-danger-600: #b91c1c;
+  --ep-color-danger-700: #991b1b;
+
+  /* ── Semantic aliases — what components SHOULD reference ─────────────
+   *
+   *   Components prefer semantic names (`--ep-color-success`) over scale
+   *   indices (`--ep-color-palmetto-600`) so a future rebrand of the
+   *   "success" feel (e.g. swap palmetto → emerald) is one alias edit.
+   */
+  --ep-color-success:    var(--ep-color-palmetto-600);
+  --ep-color-success-bg: var(--ep-color-palmetto-50);
+  --ep-color-warning:    var(--ep-color-jessamine-600);
+  --ep-color-warning-bg: var(--ep-color-jessamine-100);
+  --ep-color-danger:     var(--ep-color-danger-600);
+  --ep-color-danger-bg:  var(--ep-color-danger-100);
+  --ep-color-info:       var(--ep-color-primary-700);
+  --ep-color-info-bg:    var(--ep-color-primary-50);
+
+  /* ── Brand gradient presets — for hero / marketing surfaces ─────────
+   *
+   *   Use as `background: var(--ep-gradient-brand-warm)`. Direction is
+   *   135° (top-left → bottom-right) so the colour weight reads
+   *   correctly under typical reading orientation.
+   */
+  --ep-gradient-brand-cool:    linear-gradient(135deg, var(--ep-color-primary-700) 0%, var(--ep-color-primary-500) 100%);
+  --ep-gradient-brand-warm:    linear-gradient(135deg, var(--ep-color-jessamine-500) 0%, var(--ep-color-palmetto-600) 100%);
+  --ep-gradient-brand-sunrise: linear-gradient(135deg, var(--ep-color-jessamine-400) 0%, var(--ep-color-primary-700) 100%);
+  --ep-gradient-brand-forest:  linear-gradient(135deg, var(--ep-color-palmetto-700) 0%, var(--ep-color-primary-700) 100%);
+  --ep-gradient-brand-subtle:  linear-gradient(180deg, var(--ep-color-neutral-50) 0%, var(--ep-color-neutral-100) 100%);
+
+  /* ── Surfaces + text (theme-swappable in .dark below) ──────────────
+   *
+   *   Surface ladder progresses pure-white → opaque-white → tints. Text
+   *   ladder picks high-contrast steps for AA/AAA legibility on those
+   *   surfaces. Both are aliases — components reference `--ep-surface-0`
+   *   not `--ep-color-neutral-0` so the dark-mode flip in `.dark` below
+   *   re-binds the alias without component changes.
+   */
+  --ep-surface-0:   var(--ep-color-neutral-0);       /* modals, floating */
+  --ep-surface-50:  var(--ep-color-neutral-50);      /* page background  */
+  --ep-surface-100: var(--ep-color-neutral-100);     /* hover / stripe   */
+  --ep-surface-200: var(--ep-color-neutral-200);     /* dividers         */
   --ep-text-primary:   var(--ep-color-neutral-900);
   --ep-text-secondary: var(--ep-color-neutral-600);
   --ep-text-muted:     var(--ep-color-neutral-400);
@@ -106,7 +189,9 @@
   --ep-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
   --ep-shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.10), 0 4px 6px rgba(15, 23, 42, 0.05);
   --ep-shadow-xl: 0 20px 25px rgba(15, 23, 42, 0.10), 0 10px 10px rgba(15, 23, 42, 0.04);
-  --ep-shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.35);
+  /* Focus ring uses the indigo-blue brand at 35% alpha so every focus
+   * outline (button, input, menu item) reads as the same brand colour. */
+  --ep-shadow-focus: 0 0 0 3px rgba(27, 63, 115, 0.35);
 
   /* ── Z-index scale ───────────────────────────────────────────────── */
   --ep-z-base:     0;
@@ -131,9 +216,58 @@
   --ep-sidebar-collapsed: 3.5rem;   /* 56px */
   --ep-content-max:       80rem;    /* 1280px — matches Tailwind's max-w-7xl */
 
-  /* ── Typography scale ────────────────────────────────────────────── */
-  --ep-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --ep-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  /* ── Typography: families ────────────────────────────────────────────
+   *
+   *  Three-role typography system (see Docs/Architecture/UI-Typography-Strategy.md
+   *  for the full spec, including how to swap families per tenant).
+   *
+   *    PRIMARY   — every UI affordance: navigation, controls, body text,
+   *                tables, forms. Optimised for screen reading, multi-script
+   *                (Latin / Cyrillic / Greek). Default: Noto Sans.
+   *    SECONDARY — editorial: long-form headlines, subheads, article body.
+   *                Adds variety without competing with the primary face.
+   *                Default: Arno Pro (serif).
+   *    ACCENT    — display-only: titles, hero headlines, CTAs, callouts,
+   *                pull-quotes. Used sparingly; never for body text.
+   *                Default: Bicycletter (custom display).
+   *    MONO      — code, IDs, technical labels. Default: JetBrains Mono.
+   *
+   *  The fallback chains are deliberately deep so the SPA renders correctly
+   *  EVEN IF the licensed font files are not yet hosted (Arno Pro and
+   *  Bicycletter both require commercial licences — see fonts.css).
+   *
+   *  To swap a family per tenant: re-declare the relevant `--ep-font-*` token
+   *  inside a tenant-class scope (e.g. `.tenant-acme :root { --ep-font-primary: 'Acme Sans', …; }`).
+   *  Tailwind utilities + PrimeNG components both pick up the change instantly
+   *  because they ultimately reference these CSS vars via @theme inline.
+   */
+  --ep-font-primary:
+    'Noto Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ep-font-secondary:
+    'Arno Pro', Georgia, Cambria, 'Times New Roman', Times, serif;
+  --ep-font-accent:
+    'Bicycletter', 'Arial Black', 'Helvetica Black', 'Impact', system-ui, sans-serif;
+  --ep-font-mono:
+    'JetBrains Mono', 'Fira Code', Menlo, Consolas, 'Courier New', monospace;
+
+  /* Backward-compat alias — `--ep-font-sans` continues to map to the
+   * primary face so any code that referenced it pre-typography-refresh
+   * keeps working. New code should prefer `--ep-font-primary`. */
+  --ep-font-sans: var(--ep-font-primary);
+
+  /* ── Typography: weight scale ────────────────────────────────────────
+   *
+   *  Use these tokens in components instead of raw numeric weights so a
+   *  weight remap (e.g. tenant brand wants "bold" to render as 800 not 700)
+   *  is a single token edit.
+   */
+  --ep-font-weight-regular:   400;
+  --ep-font-weight-medium:    500;
+  --ep-font-weight-semibold:  600;
+  --ep-font-weight-bold:      700;
+  --ep-font-weight-black:     900;
+
+  /* ── Typography: size scale ──────────────────────────────────────── */
   --ep-text-xs:   0.75rem;   /* 12px */
   --ep-text-sm:   0.875rem;  /* 14px */
   --ep-text-base: 1rem;      /* 16px */
@@ -151,24 +285,52 @@
   --ep-blur-lg: 16px;
 }
 
-/* Dark-theme overrides — touch only tokens that must flip. */
+/* ─── Dark-theme overrides ──────────────────────────────────────────────
+ *
+ *   Surfaces flip to deep indigo-tinted neutrals (cooler than the warm
+ *   white scale) to maintain enterprise feel without harsh pure-black.
+ *   Text uses warm-white scale for warmth; brand colours shift one step
+ *   lighter (jessamine 400 instead of 500, palmetto 400, primary 400)
+ *   so they stay legible against the dark surfaces.
+ *
+ *   Semantic *-bg aliases use translucent colour-mix so success / warning
+ *   / danger backdrops blend naturally with whatever surface they land on
+ *   instead of carrying their own opaque colour.
+ */
 :root.dark {
-  --ep-surface-0:  var(--ep-color-neutral-950);
-  --ep-surface-50: var(--ep-color-neutral-900);
-  --ep-surface-100: var(--ep-color-neutral-800);
-  --ep-surface-200: var(--ep-color-neutral-700);
+  /* Deep indigo-grey surfaces. Slightly tinted toward primary-950 so the
+   * dark theme still reads as "the same brand". */
+  --ep-surface-0:   #0c1426;   /* modal panel — slightly above page */
+  --ep-surface-50:  #0a1020;   /* page background */
+  --ep-surface-100: #131a2e;   /* hover/stripe */
+  --ep-surface-200: #1d2540;   /* dividers */
+
+  /* Text uses warm-white scale flipped — keeps the brand warmth. */
   --ep-text-primary:   var(--ep-color-neutral-50);
   --ep-text-secondary: var(--ep-color-neutral-300);
-  --ep-text-muted:     var(--ep-color-neutral-500);
-  --ep-border:         var(--ep-color-neutral-700);
-  --ep-border-strong:  var(--ep-color-neutral-600);
-  --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --ep-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --ep-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --ep-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
-  --ep-color-info-bg: rgba(59, 130, 246, 0.15);
-  --ep-color-success-bg: rgba(22, 163, 74, 0.15);
-  --ep-color-warning-bg: rgba(217, 119, 6, 0.15);
-  --ep-color-danger-bg: rgba(220, 38, 38, 0.15);
+  --ep-text-muted:     var(--ep-color-neutral-400);
+  --ep-border:         #2a3454;
+  --ep-border-strong:  #38446a;
+
+  /* Heavier shadows for visual depth on dark surfaces. */
+  --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ep-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.55);
+  --ep-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.6);
+  --ep-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.65);
+
+  /* Focus ring uses a brighter indigo at higher alpha for dark contrast. */
+  --ep-shadow-focus: 0 0 0 3px rgba(95, 127, 180, 0.55);
+
+  /* Brand-coloured backdrops — translucent, pre-mixed for dark surfaces. */
+  --ep-color-info-bg:    color-mix(in srgb, var(--ep-color-primary-400), transparent 80%);
+  --ep-color-success-bg: color-mix(in srgb, var(--ep-color-palmetto-400), transparent 80%);
+  --ep-color-warning-bg: color-mix(in srgb, var(--ep-color-jessamine-400), transparent 80%);
+  --ep-color-danger-bg:  color-mix(in srgb, var(--ep-color-danger-500), transparent 80%);
+
+  /* Bump semantic foregrounds to lighter steps so they pop on dark. */
+  --ep-color-info:    var(--ep-color-primary-300);
+  --ep-color-success: var(--ep-color-palmetto-300);
+  --ep-color-warning: var(--ep-color-jessamine-300);
+  --ep-color-danger:  var(--ep-color-danger-500);
 }

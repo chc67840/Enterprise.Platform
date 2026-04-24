@@ -90,12 +90,22 @@ public static class SecurityHeadersMiddleware
                     ? "connect-src 'self' ws://localhost:* wss://localhost:* http://localhost:*; "
                     : "connect-src 'self'; ";
 
+                //   • `style-src` adds `https://fonts.googleapis.com` —
+                //     the Google Fonts CSS file (linked from index.html)
+                //     for the Noto Sans primary face is hosted there.
+                //     Remove this entry if/when the SPA self-hosts every
+                //     font (drop WOFF2 files into ClientApp/public/fonts/
+                //     and uncomment the Noto Sans @font-face block in
+                //     ClientApp/src/styles/fonts.css).
+                //   • `font-src` adds `https://fonts.gstatic.com` — the
+                //     WOFF2 binaries that the Google Fonts CSS references.
+                //     Same migration toggle as above.
                 headers["Content-Security-Policy"] =
                     "default-src 'self'; " +
                     $"script-src 'self' 'nonce-{nonce}'; " +
-                    "style-src 'self' 'unsafe-inline'; " +
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "img-src 'self' data: https:; " +
-                    "font-src 'self' data:; " +
+                    "font-src 'self' data: https://fonts.gstatic.com; " +
                     connectSrc +
                     "frame-ancestors 'self'; " +
                     "base-uri 'self'; " +

@@ -1,0 +1,159 @@
+/*
+ * ─── @FONT-FACE DECLARATIONS ────────────────────────────────────────────────
+ *
+ * WHY THIS FILE EXISTS
+ *   Self-hosted (and licensed-commercial) faces are declared here so the
+ *   `font-family` tokens in `tokens.css` can refer to them by name. Loaded
+ *   BEFORE `@theme` in `styles.css` so Tailwind's font utilities resolve to
+ *   the right family names.
+ *
+ * LOADING STRATEGY
+ *   - `font-display: swap` — text paints in the fallback face IMMEDIATELY,
+ *     then re-renders when the custom font lands. No FOIT (flash of
+ *     invisible text), small FOUT (flash of unstyled text). Right tradeoff
+ *     for an enterprise SPA where data is more important than typography
+ *     polish during the first 200 ms.
+ *   - `local()` first in `src` — if the user's OS already has the face
+ *     installed (common with Adobe / system fonts), the browser uses it
+ *     and skips the network entirely.
+ *   - WOFF2 only — the modern, smallest format (~30 % smaller than WOFF).
+ *     Every supported browser (Chrome, Edge, Firefox, Safari ≥ 12) has
+ *     native WOFF2 support; legacy fallback formats are no longer worth
+ *     the bytes.
+ *
+ * HOW TO ADD A LICENSED FONT
+ *   1. Drop WOFF2 files under `public/fonts/<family>/`.
+ *      Naming: `<family>-<weight><-italic>.woff2`.
+ *      Example: `public/fonts/arno-pro/arno-pro-700-italic.woff2`
+ *   2. Add a `@font-face` block below pointing at the file.
+ *   3. Make sure the licence allows web embedding — `local()` lookup is
+ *      not a workaround for an unlicensed face.
+ *
+ * NOTO SANS
+ *   Free under the SIL Open Font Licence; safe to commit. Loaded via the
+ *   Google Fonts `<link>` in `index.html` (preferred) — that URL serves
+ *   variable-axis WOFF2 with `unicode-range` per subset, so a user reading
+ *   only Latin pages never downloads the Cyrillic or Greek subsets.
+ *   No `@font-face` for Noto Sans here; the Google Fonts CSS file provides
+ *   the declarations. If you want to fully self-host instead, drop the
+ *   files into `public/fonts/noto-sans/` and uncomment the block below.
+ *
+ * ARNO PRO
+ *   Adobe commercial typeface. Must be licensed (Adobe Fonts / Creative
+ *   Cloud kit, or perpetual desktop licence + web embedding addendum).
+ *   Drop WOFF2 files into `public/fonts/arno-pro/` and uncomment the
+ *   blocks below. Until then, the fallback chain in `tokens.css` (Georgia
+ *   → Cambria → Times) covers the secondary text role.
+ *
+ * BICYCLETTER
+ *   Custom display typeface. Drop WOFF2 files into
+ *   `public/fonts/bicycletter/` and uncomment the blocks below. Until
+ *   then, Arial Black covers the accent role per the brief.
+ */
+
+/* ─── Noto Sans — primary (self-hosted alternative) ───────────────────
+   Uncomment this block ONLY if you opt out of the Google Fonts <link>
+   in index.html. Drop the matching WOFF2 files first. Variable-axis
+   files cover all weights with one HTTP roundtrip per subset.
+*/
+/*
+@font-face {
+  font-family: 'Noto Sans';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local('Noto Sans'),
+       url('/fonts/noto-sans/noto-sans-latin-variable.woff2') format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Sans';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local('Noto Sans Italic'),
+       url('/fonts/noto-sans/noto-sans-latin-italic-variable.woff2') format('woff2-variations');
+}
+*/
+
+/* ─── Arno Pro — secondary (commercial; awaiting licence) ─────────────
+   Six static cuts. Variable-axis Arno Pro is not published — keep the
+   per-weight blocks. Once files land under public/fonts/arno-pro/,
+   uncomment.
+*/
+/*
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('ArnoPro-Regular'),
+       url('/fonts/arno-pro/arno-pro-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('ArnoPro-Italic'),
+       url('/fonts/arno-pro/arno-pro-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('ArnoPro-Semibold'),
+       url('/fonts/arno-pro/arno-pro-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: local('ArnoPro-SemiboldItalic'),
+       url('/fonts/arno-pro/arno-pro-600-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('ArnoPro-Bold'),
+       url('/fonts/arno-pro/arno-pro-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Arno Pro';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: local('ArnoPro-BoldItalic'),
+       url('/fonts/arno-pro/arno-pro-700-italic.woff2') format('woff2');
+}
+*/
+
+/* ─── Bicycletter — accent (custom display; awaiting files) ───────────
+   Two cuts: Bold (700) and Black (900). Drop files into
+   public/fonts/bicycletter/ and uncomment.
+*/
+/*
+@font-face {
+  font-family: 'Bicycletter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Bicycletter-Bold'),
+       url('/fonts/bicycletter/bicycletter-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Bicycletter';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: local('Bicycletter-Black'),
+       url('/fonts/bicycletter/bicycletter-900.woff2') format('woff2');
+}
+*/

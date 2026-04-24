@@ -22,12 +22,15 @@
  */
 
 @import './styles/tokens.css';
+@import './styles/fonts.css';
 
 @import 'tailwindcss';
 
 @theme inline {
-  /* Colour palette aliases — map Tailwind's scale keys to our EP tokens. */
-  --color-primary-50: var(--ep-color-primary-50);
+  /* ── Brand palette — Indigo Blue (primary) ─────────────────────────
+   *  Usage: class="bg-primary-700"  / class="text-primary-100"
+   */
+  --color-primary-50:  var(--ep-color-primary-50);
   --color-primary-100: var(--ep-color-primary-100);
   --color-primary-200: var(--ep-color-primary-200);
   --color-primary-300: var(--ep-color-primary-300);
@@ -39,15 +42,77 @@
   --color-primary-900: var(--ep-color-primary-900);
   --color-primary-950: var(--ep-color-primary-950);
 
-  /* Semantic colours. Usage: `class="bg-success text-success-bg"`. */
-  --color-success: var(--ep-color-success);
+  /* ── Brand palette — Palmetto Green (secondary) ────────────────────
+   *  Usage: class="bg-palmetto-600"  / class="text-palmetto-700"
+   */
+  --color-palmetto-50:  var(--ep-color-palmetto-50);
+  --color-palmetto-100: var(--ep-color-palmetto-100);
+  --color-palmetto-200: var(--ep-color-palmetto-200);
+  --color-palmetto-300: var(--ep-color-palmetto-300);
+  --color-palmetto-400: var(--ep-color-palmetto-400);
+  --color-palmetto-500: var(--ep-color-palmetto-500);
+  --color-palmetto-600: var(--ep-color-palmetto-600);
+  --color-palmetto-700: var(--ep-color-palmetto-700);
+  --color-palmetto-800: var(--ep-color-palmetto-800);
+  --color-palmetto-900: var(--ep-color-palmetto-900);
+  --color-palmetto-950: var(--ep-color-palmetto-950);
+
+  /* ── Brand palette — Yellow Jessamine (accent) ─────────────────────
+   *  Usage: class="bg-jessamine-500"  / class="text-jessamine-900"
+   */
+  --color-jessamine-50:  var(--ep-color-jessamine-50);
+  --color-jessamine-100: var(--ep-color-jessamine-100);
+  --color-jessamine-200: var(--ep-color-jessamine-200);
+  --color-jessamine-300: var(--ep-color-jessamine-300);
+  --color-jessamine-400: var(--ep-color-jessamine-400);
+  --color-jessamine-500: var(--ep-color-jessamine-500);
+  --color-jessamine-600: var(--ep-color-jessamine-600);
+  --color-jessamine-700: var(--ep-color-jessamine-700);
+  --color-jessamine-800: var(--ep-color-jessamine-800);
+  --color-jessamine-900: var(--ep-color-jessamine-900);
+  --color-jessamine-950: var(--ep-color-jessamine-950);
+
+  /* ── Neutral palette — Opaque White (warm) ─────────────────────────
+   *  Usage: class="bg-neutral-50"  / class="text-neutral-700"
+   *  Dark theme overrides surface aliases via :root.dark in tokens.css.
+   */
+  --color-neutral-0:   var(--ep-color-neutral-0);
+  --color-neutral-50:  var(--ep-color-neutral-50);
+  --color-neutral-100: var(--ep-color-neutral-100);
+  --color-neutral-200: var(--ep-color-neutral-200);
+  --color-neutral-300: var(--ep-color-neutral-300);
+  --color-neutral-400: var(--ep-color-neutral-400);
+  --color-neutral-500: var(--ep-color-neutral-500);
+  --color-neutral-600: var(--ep-color-neutral-600);
+  --color-neutral-700: var(--ep-color-neutral-700);
+  --color-neutral-800: var(--ep-color-neutral-800);
+  --color-neutral-900: var(--ep-color-neutral-900);
+  --color-neutral-950: var(--ep-color-neutral-950);
+
+  /* ── Off-brand red — danger only ───────────────────────────────────
+   *  Universal "stop" signal; intentionally NOT one of the four brand
+   *  hues. Five steps cover the surfaces we actually use.
+   */
+  --color-danger-50:  var(--ep-color-danger-50);
+  --color-danger-100: var(--ep-color-danger-100);
+  --color-danger-500: var(--ep-color-danger-500);
+  --color-danger-600: var(--ep-color-danger-600);
+  --color-danger-700: var(--ep-color-danger-700);
+
+  /* ── Semantic aliases ──────────────────────────────────────────────
+   *  Components prefer these over scale indices so a future remap
+   *  ("success" → use a different palette) is a single token edit.
+   *
+   *  Usage: class="bg-success text-success-bg"
+   */
+  --color-success:    var(--ep-color-success);
   --color-success-bg: var(--ep-color-success-bg);
-  --color-warning: var(--ep-color-warning);
+  --color-warning:    var(--ep-color-warning);
   --color-warning-bg: var(--ep-color-warning-bg);
-  --color-danger: var(--ep-color-danger);
-  --color-danger-bg: var(--ep-color-danger-bg);
-  --color-info: var(--ep-color-info);
-  --color-info-bg: var(--ep-color-info-bg);
+  --color-danger:     var(--ep-color-danger);
+  --color-danger-bg:  var(--ep-color-danger-bg);
+  --color-info:       var(--ep-color-info);
+  --color-info-bg:    var(--ep-color-info-bg);
 
   /* Radii. `class="rounded-ep-xl"` → 1rem. */
   --radius-ep-sm: var(--ep-radius-sm);
@@ -63,9 +128,21 @@
   --shadow-ep-lg: var(--ep-shadow-lg);
   --shadow-ep-xl: var(--ep-shadow-xl);
 
-  /* Font stacks. */
-  --font-sans: var(--ep-font-sans);
-  --font-mono: var(--ep-font-mono);
+  /* Font stacks — bridge into Tailwind's font-* utility namespace.
+   *
+   *   class="font-primary"   → Noto Sans (UI default)
+   *   class="font-secondary" → Arno Pro (editorial / headlines)
+   *   class="font-accent"    → Bicycletter (display-only)
+   *   class="font-sans"      → alias of font-primary (back-compat)
+   *   class="font-serif"     → alias of font-secondary
+   *   class="font-mono"      → JetBrains Mono (code, IDs)
+   */
+  --font-primary:   var(--ep-font-primary);
+  --font-secondary: var(--ep-font-secondary);
+  --font-accent:    var(--ep-font-accent);
+  --font-sans:      var(--ep-font-primary);
+  --font-serif:     var(--ep-font-secondary);
+  --font-mono:      var(--ep-font-mono);
 }
 
 @import './styles/animations.css';
@@ -80,7 +157,9 @@ body {
 
 body {
   margin: 0;
-  font-family: var(--ep-font-sans);
+  /* Primary face — Noto Sans w/ deep system fallback. Every page paints
+   * with the right typeface even before web-font swap completes. */
+  font-family: var(--ep-font-primary);
   font-size: var(--ep-text-base);
   line-height: var(--ep-leading-normal);
   -webkit-font-smoothing: antialiased;
