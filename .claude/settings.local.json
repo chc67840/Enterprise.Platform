@@ -142,7 +142,9 @@
       "Bash(rm -f AzureAdBffSettings.cs BffAuthenticationSetup.cs BffCorsSetup.cs BffHealthChecks.cs BffProxySettings.cs BffRateLimiterSetup.cs BffSecurityHeaders.cs BffSessionMetrics.cs BffSpaSettings.cs BffTokenRefreshService.cs GraphUserProfileService.cs SpaStaticHosting.cs)",
       "Bash(rm -f \"K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/Controllers/BffProxyController.cs\")",
       "Bash(npx tsc *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(ls node_modules/@primeng/)",
+      "Bash(ls node_modules/@primeuix/)"
     ]
   }
 }

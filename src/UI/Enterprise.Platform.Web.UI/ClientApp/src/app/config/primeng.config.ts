@@ -28,10 +28,18 @@
  *   `app.config.ts` registers this via `providePrimeNG(primeNgConfig)`.
  *   Nothing else should touch `primeng/config` — call sites that need a
  *   different theme at runtime call `updatePrimaryPalette(...)` from
- *   `@primeng/themes` instead.
+ *   `@primeuix/themes` instead.
+ *
+ * WHY @primeuix/themes (not @primeng/themes)
+ *   `@primeng/themes` was the legacy Angular-flavoured wrapper around the
+ *   underlying theme engine. As of v21 it is officially DEPRECATED on npm
+ *   ("Please migrate to @primeuix/themes"). The two packages export an
+ *   identical API surface — `@primeng/themes` was a thin re-export — so
+ *   the migration is a pure import swap with no runtime change.
+ *   See Docs/Architecture/UI-PrimeUix-Migration.md for the full rationale.
  */
-import { definePreset } from '@primeng/themes';
-import Aura from '@primeng/themes/aura';
+import { definePreset } from '@primeuix/themes';
+import Aura from '@primeuix/themes/aura';
 import type { PrimeNGConfigType } from 'primeng/config';
 
 /**

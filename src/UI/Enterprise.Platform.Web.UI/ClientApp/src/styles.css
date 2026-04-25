@@ -1,28 +1,38 @@
 /*
  * ─── GLOBAL STYLES ENTRY POINT ──────────────────────────────────────────────
  *
- * Composition order matters:
+ * COMPOSITION ORDER
  *
- *   1. Token custom properties (`styles/tokens.css`) come FIRST so they're
- *      defined before any consumer.
- *   2. `@theme inline` below aliases a subset of those tokens into Tailwind's
+ *   1. ALL @import rules together at the top. CSS spec requires every
+ *      @import to precede any other at-rule (other than @charset / @layer);
+ *      mixing them — e.g. an @import after @theme — silently no-ops in
+ *      browsers and produces a "@import rules must come first" warning
+ *      from PostCSS / Stylelint / VS Code's CSS LSP.
+ *
+ *        a. tokens.css — `--ep-*` custom properties
+ *        b. fonts.css  — @font-face declarations
+ *        c. animations.css — keyframes + reduced-motion safeguard
+ *        d. tailwindcss — generates theme + utility layers (last so the
+ *           subsequent @theme inline block can reference --ep-* tokens it
+ *           defined; @theme is NOT an @import so it doesn't break the rule)
+ *
+ *   2. `@theme inline` aliases a subset of our tokens into Tailwind's
  *      theme scale. `inline` means Tailwind emits `color: var(--ep-color-…)`
- *      directly (no computed-value baking), so dark-mode swaps continue to
- *      work at runtime.
- *   3. Tailwind core (`@tailwindcss`) generates utilities using the theme.
- *   4. Animation keyframes + reduced-motion safeguard.
- *   5. Baseline resets (html/body dimensions, font stack, focus ring).
+ *      directly (no computed-value baking) so dark-mode swaps repaint
+ *      instantly without rebuilding CSS.
+ *
+ *   3. Baseline resets (html/body dimensions, font stack, focus ring).
  *
  * WHY INLINE TOKENS AT THE TAILWIND LAYER
  *   Without `@theme inline { --color-primary-500: var(--ep-color-primary-500) }`,
  *   Tailwind would bake the current value at build time. With `inline`, the
  *   class `bg-primary-500` expands to `background-color: var(--ep-color-primary-500)`
- *   — so flipping `.dark` on `<html>` (Phase 5.x ThemeService) repaints
- *   instantly without rebuilding CSS.
+ *   — so flipping `.dark` on `<html>` (ThemeService) repaints instantly.
  */
 
 @import './styles/tokens.css';
 @import './styles/fonts.css';
+@import './styles/animations.css';
 
 @import 'tailwindcss';
 
@@ -144,8 +154,6 @@
   --font-serif:     var(--ep-font-secondary);
   --font-mono:      var(--ep-font-mono);
 }
-
-@import './styles/animations.css';
 
 /* Baseline — intentionally minimal. */
 html,
