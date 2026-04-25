@@ -55,10 +55,25 @@
         "nullishCoalescingNotNullable": "warning"
       }
     }
-  },
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.spec.json" }
-  ]
+  }
+  /*
+   * NOTE — no `references` block.
+   *
+   * Angular CLI compiles each tsconfig directly (`@angular/build` invokes
+   * tsconfig.app.json for `ng build` / `ng serve`; `@angular/build:unit-test`
+   * + Vitest invoke tsconfig.spec.json for tests). Project-references mode
+   * (`tsc --build`) is NOT part of the Angular toolchain.
+   *
+   * If we add a `references` block here, TypeScript's language service
+   * (used by VS Code / WebStorm) puts the workspace into project-references
+   * mode and emits TS6306 ("Referenced project must have setting
+   * 'composite: true'") on each child config. Adding `composite: true` then
+   * forces declaration emission into out-tsc/ that no Angular tool actually
+   * consumes — pure noise for zero benefit.
+   *
+   * Removing the block keeps the IDE quiet without changing what
+   * `ng build` / `vitest` do. See Docs/Architecture/UI-Tsconfig-Reference.md
+   * for the full rationale + revival recipe if a future tool needs project
+   * references.
+   */
 }
