@@ -144,7 +144,11 @@
       "Bash(npx tsc *)",
       "Bash(npx eslint *)",
       "Bash(ls node_modules/@primeng/)",
-      "Bash(ls node_modules/@primeuix/)"
+      "Bash(ls node_modules/@primeuix/)",
+      "Bash(ls -la .storybook/)",
+      "Bash(ls -d storybook-static/)",
+      "Bash(du -sh storybook-static/)",
+      "Bash(npx depcruise *)"
     ]
   }
 }

@@ -112,26 +112,6 @@
             "buildTarget": "enterprise-platform-client:build:development",
             "include": ["src/**/*.spec.ts"]
           }
-        },
-        "storybook": {
-          "builder": "@storybook/angular:start-storybook",
-          "options": {
-            "configDir": ".storybook",
-            "browserTarget": "enterprise-platform-client:build",
-            "tsConfig": ".storybook/tsconfig.json",
-            "compodoc": false,
-            "port": 6006
-          }
-        },
-        "build-storybook": {
-          "builder": "@storybook/angular:build-storybook",
-          "options": {
-            "configDir": ".storybook",
-            "browserTarget": "enterprise-platform-client:build",
-            "tsConfig": ".storybook/tsconfig.json",
-            "compodoc": false,
-            "outputDir": "storybook-static"
-          }
         }
       }
     }

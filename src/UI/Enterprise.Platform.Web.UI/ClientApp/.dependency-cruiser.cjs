@@ -106,7 +106,6 @@ module.exports = {
         orphan: true,
         pathNot: [
           '\\.spec\\.ts$',
-          '\\.stories\\.ts$',
           '\\.d\\.ts$',
           '^src/main\\.ts$',
           '^src/test-setup\\.ts$',
@@ -117,6 +116,9 @@ module.exports = {
           // import resolver doesn't always traverse index re-exports so
           // they appear orphaned. Exempt them.
           '^src/app/core/models/',
+          // Same reason for `.types.ts` files — they re-export through a
+          // sibling `index.ts` (e.g. shared/components/navigation/nav-menu.types.ts).
+          '\\.types\\.ts$',
         ],
       },
       to: {},
