@@ -19,7 +19,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NotificationService } from '@core/services/notification.service';
 
@@ -30,10 +30,15 @@ describe('errorInterceptor', () => {
   let httpMock: HttpTestingController;
   let notify: NotificationService;
   let router: Router;
-  let errorSpy: ReturnType<typeof vi.fn>;
-  let warnSpy: ReturnType<typeof vi.fn>;
-  let stickySpy: ReturnType<typeof vi.fn>;
-  let navigateSpy: ReturnType<typeof vi.fn>;
+
+  // Type the spies as `Mock<MethodSignature>` so `mockImplementation` accepts
+  // them without a `as never` cast. Without the generic, vi.fn() defaults to
+  // `Mock<Procedure | Constructable>` which is too loose for PrimeNG's
+  // strongly-typed message-service signatures.
+  let errorSpy: Mock<NotificationService['error']>;
+  let warnSpy: Mock<NotificationService['warn']>;
+  let stickySpy: Mock<NotificationService['sticky']>;
+  let navigateSpy: Mock<Router['navigate']>;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -50,22 +55,22 @@ describe('errorInterceptor', () => {
     notify = TestBed.inject(NotificationService);
     router = TestBed.inject(Router);
 
-    errorSpy = vi.fn();
-    warnSpy = vi.fn();
-    stickySpy = vi.fn();
-    navigateSpy = vi.fn();
+    errorSpy = vi.fn<NotificationService['error']>();
+    warnSpy = vi.fn<NotificationService['warn']>();
+    stickySpy = vi.fn<NotificationService['sticky']>();
+    navigateSpy = vi.fn<Router['navigate']>();
 
     vi.spyOn(notify, 'error').mockImplementation(errorSpy);
     vi.spyOn(notify, 'warn').mockImplementation(warnSpy);
     vi.spyOn(notify, 'sticky').mockImplementation(stickySpy);
-    vi.spyOn(router, 'navigate').mockImplementation(navigateSpy as never);
+    vi.spyOn(router, 'navigate').mockImplementation(navigateSpy);
     Object.defineProperty(router, 'url', {
       get: () => '/current-page',
       configurable: true,
     });
   });
 
-  function trigger(status: number, body: unknown = 'boom'): void {
+  function trigger(status: number, body: string | object = 'boom'): void {
     http.get('/api/probe').subscribe({ error: () => {} });
     const req = httpMock.expectOne('/api/probe');
     req.flush(body, { status, statusText: statusTextFor(status) });

@@ -33,7 +33,12 @@ import { TenantService } from '@core/services/tenant.service';
 const PERMISSIONS_URL = '/api/auth/me/permissions';
 
 describe('AuthStore', () => {
-  let store: ReturnType<typeof TestBed.inject<typeof AuthStore>> extends infer X ? X : never;
+  // `AuthStore` is exported BOTH as the value (signalStore class) AND as a
+  // type alias `type AuthStore = InstanceType<typeof AuthStore>` from
+  // `./auth.store.ts`. The type alias is what `TestBed.inject(AuthStore)`
+  // returns; using it directly avoids the `Type<…>`-vs-instance confusion
+  // that the older `ReturnType<typeof TestBed.inject<…>>` expression hit.
+  let store: AuthStore;
   let httpMock: HttpTestingController;
   let tenant: TenantService;
 

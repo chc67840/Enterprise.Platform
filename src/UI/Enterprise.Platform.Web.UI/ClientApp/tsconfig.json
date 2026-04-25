@@ -55,9 +55,25 @@
         "nullishCoalescingNotNullable": "warning"
       }
     }
-  }
+  },
   /*
-   * NOTE — no `references` block.
+   * NO `files` / `include` / `references` keys.
+   *
+   * This config is a BASE for `tsconfig.app.json` + `tsconfig.spec.json`
+   * to extend. It is not meant to be invoked directly — Angular CLI
+   * compiles each child tsconfig (ng build → tsconfig.app.json; vitest
+   * → tsconfig.spec.json) and the IDE language service reads all three
+   * for IntelliSense. The toolchain never runs `tsc -p tsconfig.json`.
+   *
+   * If you DO run `tsc -p tsconfig.json` directly, TypeScript falls back
+   * to compiling every .ts file under cwd with the base types only — that
+   * surfaces spurious "Cannot find name 'afterEach'" errors on spec files
+   * because Vitest globals aren't loaded. We can't suppress that without
+   * tripping TS18002 (`files: []`) or TS18003 (`include: []`) — the type
+   * system requires SOMETHING to compile when invoked. So just don't
+   * invoke this config directly. Use the children.
+   *
+   * NOTE — no `references` block either.
    *
    * Angular CLI compiles each tsconfig directly (`@angular/build` invokes
    * tsconfig.app.json for `ng build` / `ng serve`; `@angular/build:unit-test`

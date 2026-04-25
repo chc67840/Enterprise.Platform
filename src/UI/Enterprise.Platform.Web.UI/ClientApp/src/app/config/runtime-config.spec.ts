@@ -139,7 +139,10 @@ describe('loadRuntimeConfig', () => {
   });
 
   it('sends the request with cache: no-cache and credentials: same-origin', async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse(validPayload()));
+    // Type the mock as `typeof fetch` so `mock.calls[0]` is typed as the
+    // fetch arg tuple `[input, init?]` instead of the `[]` Vitest infers
+    // from the no-arg arrow body.
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse(validPayload()));
 
     await loadRuntimeConfig({ fetchImpl });
 
