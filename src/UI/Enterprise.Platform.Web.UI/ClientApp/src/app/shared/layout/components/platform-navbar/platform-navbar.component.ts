@@ -35,8 +35,11 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   HostListener,
+  ViewChild,
   computed,
+  effect,
   input,
   output,
   signal,
@@ -156,12 +159,12 @@ import type {
         <!-- ═══════════ RIGHT ZONE ═══════════ -->
         <div class="ep-navbar__right">
           @if (config().rightZone.clock?.enabled) {
-            <app-nav-clock [config]="config().rightZone.clock!" />
+            <app-nav-clock class="ep-navbar__show-xl" [config]="config().rightZone.clock!" />
           }
 
           @if (config().rightZone.marketStatus?.enabled) {
             <span
-              class="ep-status-pill"
+              class="ep-status-pill ep-navbar__show-xl"
               [class.ep-status-pill--positive]="marketOpen()"
               [class.ep-status-pill--negative]="!marketOpen()"
             >
@@ -172,7 +175,7 @@ import type {
 
           @if (config().rightZone.shiftStatus?.enabled) {
             <span
-              class="ep-status-pill"
+              class="ep-status-pill ep-navbar__show-xl"
               [class.ep-status-pill--positive]="onDuty()"
               [class.ep-status-pill--negative]="!onDuty()"
             >
@@ -252,7 +255,7 @@ import type {
 
           @if (config().rightZone.themeToggle?.enabled) {
             <app-theme-toggle-button
-              class="ep-navbar__hide-md"
+              class="ep-navbar__show-xl"
               [config]="config().rightZone.themeToggle!"
               tone="dark"
             />
@@ -289,12 +292,13 @@ import type {
 
           <!-- Mobile hamburger — visible below the collapse breakpoint via CSS. -->
           <button
+            #hamburgerBtn
             type="button"
             class="ep-icon-btn ep-hamburger"
             [attr.aria-expanded]="isMobileMenuOpen()"
             aria-controls="ep-mobile-menu"
             [attr.aria-label]="isMobileMenuOpen() ? 'Close navigation menu' : 'Open navigation menu'"
-            (click)="toggleMobileMenu()"
+            (click)="toggleMobileMenu($event)"
           >
             <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
           </button>
@@ -320,11 +324,15 @@ import type {
         aria-hidden="true"
       ></div>
       <div
+        #mobileDrawer
         id="ep-mobile-menu"
         class="ep-mobile-menu"
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
+        tabindex="-1"
+        (keydown.tab)="onDrawerTab($event)"
+        (keydown.shift.tab)="onDrawerShiftTab($event)"
       >
         <app-nav-menu
           [config]="config().centerZone.menu"
@@ -345,7 +353,17 @@ import type {
      * prefers-reduced-motion disables the pulse + transitions per WCAG 2.3.3.
      */
     `
-      :host { display: contents; }
+      /*
+       * --nav-height is declared on :host (not on .ep-navbar) so it
+       * cascades to BOTH siblings: the navbar AND the mobile drawer.
+       * The drawer's padding-top references this variable to keep the
+       * first nav item below the navbar's bottom edge. Declaring it
+       * only on .ep-navbar (a sibling of .ep-mobile-menu) breaks the
+       * cascade and the drawer's first item ends up hidden behind the
+       * navbar. The dynamic heightPx() inline style on .ep-navbar still
+       * overrides locally for the navbar itself.
+       */
+      :host { display: contents; --nav-height: 64px; }
 
       /* ── skip link ── */
       .ep-skip-link {
@@ -550,6 +568,18 @@ import type {
       @media (max-width: 639px) {
         .ep-navbar__hide-sm { display: none !important; }
       }
+      /*
+       * Wide-screen only — clock, market/shift status pills, theme toggle.
+       * Empirical sizing: at 1280–1439px the centre menu (5 items, last
+       * one with a chevron) and the full right zone fight for ~120px and
+       * the menu loses, producing the "Anal..." truncation. Above 1440px
+       * everything fits cleanly. Ambient widgets are nice-to-have, not
+       * load-bearing — they yield first.
+       */
+      .ep-navbar__show-xl { display: none; }
+      @media (min-width: 1440px) {
+        .ep-navbar__show-xl { display: inline-flex; }
+      }
 
       /* clock + status pills */
       .ep-clock {
@@ -665,11 +695,18 @@ import type {
       @media (min-width: 1024px) { .ep-hamburger { display: none; } }
 
       /*
-       * Mobile drawer — side panel with backdrop. Only mounted via @if when
-       * isMobileMenuOpen() is true, so the closed state has no DOM cost and
-       * no accessibility footprint (no duplicate landmarks, no stray tab
-       * stops). Slides in from the left so the right-edge backdrop region
-       * is always tappable for dismissal.
+       * Mobile drawer — LEFT-anchored, FULL-HEIGHT side panel.
+       *
+       * Drawer spans top:0 → bottom:0 so it reads as a full-viewport
+       * navigation surface. Sits BEHIND the navbar (drawer z-index 26 <
+       * navbar z-index 30) so the navbar's X (close) button stays tappable
+       * and the rounded top corners of the navbar stay visible above the
+       * drawer's top edge — the drawer appears to slide in beneath a
+       * fixed header.
+       *
+       * @if-mounted — closed state has zero DOM footprint.
+       * Width min(280px, 80vw) guarantees ≥20% of viewport stays as a
+       * tappable backdrop region at every breakpoint.
        */
       .ep-mobile-backdrop {
         position: fixed;
@@ -682,25 +719,26 @@ import type {
         backdrop-filter: blur(2px);
         -webkit-backdrop-filter: blur(2px);
         cursor: pointer;
-        animation: ep-backdrop-in 180ms ease forwards;
+        animation: ep-backdrop-in 200ms ease forwards;
       }
       .ep-mobile-menu {
         position: fixed;
-        top: var(--nav-height);
+        top: 0;
         left: 0;
         bottom: 0;
         z-index: 26;
-        /* min(320px, 85vw) keeps a tappable backdrop region at every
-         * viewport width — even down to 320px the drawer is 272px wide,
-         * leaving 48px of backdrop. */
-        width: min(320px, 85vw);
+        width: min(280px, 80vw);
         background-color: var(--ep-color-neutral-50);
+        /* Border + shadow on the RIGHT edge — the side that faces the
+         * dimmed page content. */
         border-right: 1px solid var(--ep-color-neutral-200);
         box-shadow: 6px 0 24px rgba(15, 31, 59, 0.18);
-        padding: 1rem 0.75rem 2rem;
+        /* Top padding equals navbar height so the first nav item lands
+         * just below the navbar's bottom edge, not hidden behind it. */
+        padding: calc(var(--nav-height) + 0.5rem) 0.75rem 2rem;
         overflow-y: auto;
         overscroll-behavior: contain;
-        animation: ep-drawer-in 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        animation: ep-drawer-in 280ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
       }
       @keyframes ep-backdrop-in {
         from { opacity: 0; }
@@ -743,6 +781,35 @@ export class PlatformNavbarComponent {
 
   protected readonly isMobileMenuOpen = signal(false);
   protected readonly isScrolled = signal(false);
+
+  @ViewChild('hamburgerBtn') private readonly hamburgerBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('mobileDrawer') private readonly mobileDrawer?: ElementRef<HTMLDivElement>;
+
+  /**
+   * Focus management for the mobile drawer (WCAG 2.4.3 + 2.4.7):
+   *   - On open: capture the trigger so we can return focus on close, then
+   *     move focus to the first focusable element inside the drawer.
+   *   - On close: restore focus to the trigger (the hamburger).
+   *
+   * Wrapped in queueMicrotask so the @if-mounted drawer's host element is
+   * actually in the DOM before we try to query it.
+   */
+  private restoreFocusTo: HTMLElement | null = null;
+  private readonly _focusManager = effect(() => {
+    const open = this.isMobileMenuOpen();
+    queueMicrotask(() => {
+      if (open) {
+        this.restoreFocusTo = (document.activeElement as HTMLElement) ?? null;
+        const first = this.mobileDrawer?.nativeElement.querySelector<HTMLElement>(
+          'a, button, [tabindex]:not([tabindex="-1"])',
+        );
+        (first ?? this.mobileDrawer?.nativeElement)?.focus();
+      } else if (this.restoreFocusTo) {
+        this.restoreFocusTo.focus();
+        this.restoreFocusTo = null;
+      }
+    });
+  });
 
   // ── derived ────────────────────────────────────────────────────────────
 
@@ -800,6 +867,43 @@ export class PlatformNavbarComponent {
     if (this.isMobileMenuOpen()) {
       this.closeMobileMenu();
     }
+  }
+
+  /**
+   * Focus trap — when Tab reaches the last focusable in the drawer, loop
+   * to the first; symmetric handler below for Shift-Tab. Keeps keyboard
+   * focus inside the modal-like dialog while it's open.
+   */
+  protected onDrawerTab(event: Event): void {
+    const focusables = this.drawerFocusables();
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!first || !last) return;
+    if (document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  protected onDrawerShiftTab(event: Event): void {
+    const focusables = this.drawerFocusables();
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!first || !last) return;
+    if (document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  }
+
+  private drawerFocusables(): HTMLElement[] {
+    const root = this.mobileDrawer?.nativeElement;
+    if (!root) return [];
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
   }
 
   protected onSearchClick(event?: Event): void {

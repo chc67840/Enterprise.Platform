@@ -315,18 +315,30 @@ import type {
         outline-offset: 2px;
       }
 
-      /* tone: light (mobile drawer) */
+      /*
+       * tone: light (mobile drawer)
+       * - Persistent 4px LEFT border (transparent when inactive, jessamine
+       *   when active) so the active state never changes element width →
+       *   no layout shift on routerLink swap.
+       * - 56px min-height = WCAG 2.5.5 generous touch target.
+       * - color stays neutral-800 even when active (no font-weight change,
+       *   no width change) — the accent border + tinted background carry
+       *   the "this is the current page" signal.
+       */
       .ep-nav-menu--light .ep-nav-menu__link {
         color: var(--ep-color-neutral-800);
         width: 100%;
-        padding: 0.75rem 1rem;
+        min-height: 3.5rem;
+        padding: 0.75rem 1rem 0.75rem 1.25rem;
+        border-left: 4px solid transparent;
+        border-radius: 0;
         justify-content: flex-start;
       }
       .ep-nav-menu--light .ep-nav-menu__link:hover { background-color: var(--ep-color-primary-50); }
       .ep-nav-menu--light .ep-nav-menu__item--active {
-        background-color: var(--ep-color-primary-50);
+        background-color: color-mix(in srgb, var(--ep-color-jessamine-500) 12%, transparent);
         color: var(--ep-color-primary-800);
-        box-shadow: inset 3px 0 0 0 var(--ep-color-jessamine-500);
+        border-left-color: var(--ep-color-jessamine-500);
       }
 
       /* variant: tabs */
