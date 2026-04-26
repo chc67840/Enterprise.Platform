@@ -11,3 +11,4 @@ export { StatusBannerService } from './status-banner.service';
 export type { StatusBanner, StatusBannerSeverity, StatusBannerAction } from './status-banner.service';
 export { DomainStore } from './domain.store';
 export { NavbarConfigService } from './navbar-config.service';
+export { FocusManagementService } from './focus-management.service';

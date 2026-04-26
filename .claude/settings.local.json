@@ -170,7 +170,8 @@
       "Bash(dotnet new *)",
       "Bash(rmdir src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Configurations src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Repositories src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Projections)",
       "Bash(rmdir src/API/Enterprise.Platform.Api/Endpoints/v1/Users)",
-      "Bash(python -c \"import json; json.load\\(open\\('src/API/Enterprise.Platform.Api/appsettings.Development.json'\\)\\)\")"
+      "Bash(python -c \"import json; json.load\\(open\\('src/API/Enterprise.Platform.Api/appsettings.Development.json'\\)\\)\")",
+      "Bash(awk '/^[[:space:]]*styles:/,/^[[:space:]]*\\\\]/' \"K:/Angular/Practice/Enterprise.Platform/src/UI/Enterprise.Platform.Web.UI/ClientApp/src/app/shared/layout/components/nav-menu/nav-menu.component.ts\")"
     ]
   }
 }

@@ -81,4 +81,16 @@ export interface RouteMetadata {
    * once the initial navigation is idle.
    */
   readonly preload?: boolean;
+
+  /**
+   * Default PageHeaderConfig for this route. Picked up by the
+   * `SubNavOrchestratorComponent`. Pages that need a dynamic title (entity
+   * name from API) inject `PageHeaderService` and call `set(config)` —
+   * the service signal wins over this static default.
+   *
+   * Typed as `unknown` here to avoid creating a UI-layer dependency from
+   * the core models. The orchestrator narrows it via the PageHeaderConfig
+   * type from `@shared/layout/sub-nav`.
+   */
+  readonly pageHeader?: unknown;
 }

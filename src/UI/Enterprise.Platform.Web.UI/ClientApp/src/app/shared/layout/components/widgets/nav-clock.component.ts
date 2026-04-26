@@ -26,14 +26,24 @@ import type { NavClockConfig } from '@shared/layout';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!--
+      Pure display widget — never interactive. aria-label gives screen
+      readers a single coherent announcement of the time + zone; descendant
+      spans are aria-hidden so they don't fragment that announcement. CSS
+      forces every child to opt out of pointer events + selection so taps
+      never land on the live-updating time text (which would also break
+      mid-selection every 15 s when the value re-renders).
+    -->
     <span
       class="ep-clock"
+      role="status"
+      aria-live="off"
       [attr.aria-label]="'Current time: ' + time() + (showTz() ? ' ' + tz() : '')"
     >
       <i class="pi pi-clock text-[10px] opacity-70" aria-hidden="true"></i>
-      <span>{{ time() }}</span>
+      <span aria-hidden="true">{{ time() }}</span>
       @if (showTz()) {
-        <span class="ep-clock__tz">{{ tz() }}</span>
+        <span class="ep-clock__tz" aria-hidden="true">{{ tz() }}</span>
       }
     </span>
   `,
@@ -49,7 +59,10 @@ import type { NavClockConfig } from '@shared/layout';
         color: rgba(255, 255, 255, 0.95);
         font-size: 0.75rem;
         font-variant-numeric: tabular-nums;
+        pointer-events: none;
+        user-select: none;
       }
+      .ep-clock * { pointer-events: none; user-select: none; }
       @media (min-width: 768px) { .ep-clock { display: inline-flex; } }
       .ep-clock__tz {
         font-size: 0.625rem;

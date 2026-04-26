@@ -24,6 +24,7 @@ import {
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
 import { Router } from '@angular/router';
@@ -47,7 +48,9 @@ import type {
       class="ep-bell-btn"
       [attr.data-tone]="tone()"
       [attr.aria-label]="ariaLabel()"
-      (click)="popover.toggle($event)"
+      aria-haspopup="dialog"
+      [attr.aria-expanded]="isOpen()"
+      (click)="onTriggerClick($event)"
     >
       <i class="pi pi-bell ep-bell-icon" aria-hidden="true"></i>
       @if (unreadCount() > 0) {
@@ -59,7 +62,13 @@ import type {
       }
     </button>
 
-    <p-popover #popover styleClass="ep-bell-popover w-[340px] max-w-[90vw]">
+    <p-popover
+      #popover
+      appendTo="body"
+      styleClass="ep-bell-popover w-[340px] max-w-[90vw]"
+      (onShow)="isOpen.set(true)"
+      (onHide)="isOpen.set(false)"
+    >
       <header class="flex items-center justify-between border-b border-[color:var(--ep-color-neutral-200)] px-4 py-3">
         <h3 class="text-sm font-semibold text-[color:var(--ep-color-neutral-900)]">{{ heading() }}</h3>
         @if (unreadCount() > 0) {
@@ -142,8 +151,8 @@ import type {
       .ep-bell-btn {
         position: relative;
         display: inline-flex;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 2.75rem;
+        width: 2.75rem;
         align-items: center;
         justify-content: center;
         border-radius: 0.375rem;
@@ -199,6 +208,23 @@ export class NotificationBellComponent {
   readonly viewAllClick = output<void>();
 
   @ViewChild('popover') popover!: Popover;
+
+  /** Mirrors PrimeNG's onShow/onHide so the trigger can expose aria-expanded. */
+  protected readonly isOpen = signal<boolean>(false);
+
+  /**
+   * stopPropagation here defends against a documented PrimeNG hazard: the
+   * Popover registers a global click listener while open so an outside click
+   * dismisses it. If a previous Popover (for any other widget) left a stale
+   * listener attached, the SAME click that opens this popover can be caught
+   * by that listener and treated as "outside" — net effect: open + close on
+   * one tap, requiring a second tap to actually open. Stopping propagation
+   * scopes the trigger click to this button.
+   */
+  protected onTriggerClick(event: Event): void {
+    event.stopPropagation();
+    this.popover.toggle(event);
+  }
 
   // ── computed view-model ────────────────────────────────────────────────
 

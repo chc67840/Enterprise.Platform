@@ -368,7 +368,10 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
         }
       }
 
-      .ep-footer__brand { display: flex; gap: 0.875rem; align-items: flex-start; }
+      .ep-footer__brand { display: flex; gap: 0.875rem; align-items: flex-start; min-width: 0; }
+      .ep-footer__brand > div { min-width: 0; }
+      .ep-footer__brand-name,
+      .ep-footer__brand-tag { word-break: break-word; }
       .ep-footer__brand-logo { display: block; border-radius: 0.5rem; }
       .ep-footer__brand-glyph {
         display: grid;

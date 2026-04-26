@@ -41,7 +41,15 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, RouterLinkActive, PopoverModule, TooltipModule],
   template: `
-    <nav
+    <!--
+      Outer is <div role="presentation"> not <nav>. The parent
+      <app-platform-navbar> already exposes the single navigation landmark
+      (<nav role="navigation" aria-label="Primary">). A nested <nav> would
+      announce a duplicate landmark to screen readers (WCAG 1.3.1) and is
+      the source of "two navbar trees" structural bugs.
+    -->
+    <div
+      role="presentation"
       class="ep-nav-menu"
       [class.ep-nav-menu--flat]="config().variant === 'flat'"
       [class.ep-nav-menu--tabs]="config().variant === 'tabs'"
@@ -52,7 +60,7 @@ import type {
       [class.ep-nav-menu--dark]="tone() === 'dark'"
       [class.ep-nav-menu--light]="tone() === 'light'"
     >
-      <ul class="ep-nav-menu__list" role="list">
+      <ul class="ep-nav-menu__list" role="menubar">
         @for (item of visibleItems(); track item.id) {
           <li class="ep-nav-menu__li">
             @if (item.children && item.children.length > 0) {
@@ -62,7 +70,9 @@ import type {
                 [disabled]="item.disabled"
                 [pTooltip]="config().variant === 'icon' ? item.label : (item.tooltip ?? undefined)"
                 tooltipPosition="bottom"
-                aria-haspopup="true"
+                aria-haspopup="menu"
+                role="menuitem"
+                [attr.aria-label]="ariaLabelFor(item)"
                 (click)="toggleOverlay(item.id, $event)"
               >
                 @if (item.icon) { <i [class]="item.icon" aria-hidden="true"></i> }
@@ -79,6 +89,7 @@ import type {
 
               <p-popover
                 #overlay
+                appendTo="body"
                 [styleClass]="config().variant === 'mega' ? 'ep-nav-menu__mega' : 'ep-nav-menu__dropdown'"
               >
                 @if (config().variant === 'mega') {
@@ -183,13 +194,15 @@ import type {
                   [class.ep-nav-menu__link--disabled]="item.disabled"
                   [pTooltip]="config().variant === 'icon' ? item.label : (item.tooltip ?? undefined)"
                   tooltipPosition="bottom"
+                  role="menuitem"
+                  [attr.aria-label]="ariaLabelFor(item) + ' (opens in a new tab)'"
                   (click)="trackLinkClick(item)"
                 >
                   @if (item.icon) { <i [class]="item.icon" aria-hidden="true"></i> }
                   @if (config().variant !== 'icon') {
                     <span class="ep-nav-menu__label">{{ item.label }}</span>
                     @if (item.badge) {
-                      <span class="ep-nav-menu__badge" [attr.data-variant]="item.badge.variant">
+                      <span class="ep-nav-menu__badge" [attr.data-variant]="item.badge.variant" aria-hidden="true">
                         {{ item.badge.value }}
                       </span>
                     }
@@ -200,17 +213,21 @@ import type {
                   [routerLink]="item.routePath"
                   [routerLinkActiveOptions]="activeOptions()"
                   routerLinkActive="ep-nav-menu__item--active"
+                  #rla="routerLinkActive"
                   class="ep-nav-menu__link"
                   [class.ep-nav-menu__link--disabled]="item.disabled"
                   [pTooltip]="config().variant === 'icon' ? item.label : (item.tooltip ?? undefined)"
                   tooltipPosition="bottom"
+                  role="menuitem"
+                  [attr.aria-label]="ariaLabelFor(item)"
+                  [attr.aria-current]="rla.isActive ? 'page' : null"
                   (click)="onLinkSelected(item)"
                 >
                   @if (item.icon) { <i [class]="item.icon" aria-hidden="true"></i> }
                   @if (config().variant !== 'icon') {
                     <span class="ep-nav-menu__label">{{ item.label }}</span>
                     @if (item.badge) {
-                      <span class="ep-nav-menu__badge" [attr.data-variant]="item.badge.variant">
+                      <span class="ep-nav-menu__badge" [attr.data-variant]="item.badge.variant" aria-hidden="true">
                         {{ item.badge.value }}
                       </span>
                     }
@@ -221,7 +238,7 @@ import type {
           </li>
         }
       </ul>
-    </nav>
+    </div>
   `,
   styles: [
     `
@@ -298,18 +315,30 @@ import type {
         outline-offset: 2px;
       }
 
-      /* tone: light (mobile drawer) */
+      /*
+       * tone: light (mobile drawer)
+       * - Persistent 4px LEFT border (transparent when inactive, jessamine
+       *   when active) so the active state never changes element width →
+       *   no layout shift on routerLink swap.
+       * - 56px min-height = WCAG 2.5.5 generous touch target.
+       * - color stays neutral-800 even when active (no font-weight change,
+       *   no width change) — the accent border + tinted background carry
+       *   the "this is the current page" signal.
+       */
       .ep-nav-menu--light .ep-nav-menu__link {
         color: var(--ep-color-neutral-800);
         width: 100%;
-        padding: 0.75rem 1rem;
+        min-height: 3.5rem;
+        padding: 0.75rem 1rem 0.75rem 1.25rem;
+        border-left: 4px solid transparent;
+        border-radius: 0;
         justify-content: flex-start;
       }
       .ep-nav-menu--light .ep-nav-menu__link:hover { background-color: var(--ep-color-primary-50); }
       .ep-nav-menu--light .ep-nav-menu__item--active {
-        background-color: var(--ep-color-primary-50);
+        background-color: color-mix(in srgb, var(--ep-color-jessamine-500) 12%, transparent);
         color: var(--ep-color-primary-800);
-        box-shadow: inset 3px 0 0 0 var(--ep-color-jessamine-500);
+        border-left-color: var(--ep-color-jessamine-500);
       }
 
       /* variant: tabs */
@@ -463,6 +492,18 @@ export class NavMenuComponent {
     this.config().items.filter((it) => this.itemAllowed(it)),
   );
 
+  /**
+   * Builds the explicit `aria-label` for a nav item. Robust against template
+   * restructuring (icons, badges, nested spans don't fragment the computed
+   * accessible name) and gives automation a stable handle by which to find
+   * the item: `getByRole('menuitem', { name: 'Signals, LIVE' })` works
+   * regardless of how the visual chrome is assembled.
+   */
+  protected ariaLabelFor(item: NavMenuItem): string {
+    const badge = item.badge?.value;
+    return badge ? `${item.label}, ${badge}` : item.label;
+  }
+
   protected readonly activeOptions = computed(() => {
     switch (this.config().activeMatchStrategy) {
       case 'exact': return { exact: true };
@@ -494,6 +535,15 @@ export class NavMenuComponent {
   // ── overlay + click handling ───────────────────────────────────────────
 
   protected toggleOverlay(itemId: string, event: MouseEvent): void {
+    /*
+     * stopPropagation is critical: PrimeNG's Popover registers a global
+     * outside-click listener while open. If a previous popover left a stale
+     * listener attached, the SAME click that opens this panel can be
+     * intercepted as "outside" and immediately close it — net result is the
+     * mega-menu-needs-two-clicks bug. Stopping propagation scopes the
+     * trigger click to this button.
+     */
+    event.stopPropagation();
     const idx = this.visibleItems().findIndex((it) => it.id === itemId);
     if (idx < 0) return;
     const panel = this.overlays.toArray()[idx];

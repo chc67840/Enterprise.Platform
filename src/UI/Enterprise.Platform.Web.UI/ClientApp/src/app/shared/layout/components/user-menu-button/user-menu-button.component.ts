@@ -21,6 +21,7 @@ import {
   computed,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { type Menu, MenuModule } from 'primeng/menu';
 import { AvatarModule } from 'primeng/avatar';
@@ -46,9 +47,10 @@ import type {
       type="button"
       class="ep-user-btn"
       [attr.data-tone]="tone()"
-      aria-haspopup="true"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="isOpen()"
       [attr.aria-label]="'Account menu for ' + (profile()?.displayName || profile()?.email || 'user')"
-      (click)="menu.toggle($event)"
+      (click)="onTriggerClick($event)"
     >
       @if (profile()?.avatarUrl) {
         <img
@@ -81,7 +83,15 @@ import type {
       <i class="pi pi-chevron-down text-xs opacity-80" aria-hidden="true"></i>
     </button>
 
-    <p-menu #menu [model]="primeMenuItems()" [popup]="true" appendTo="body" styleClass="ep-user-menu" />
+    <p-menu
+      #menu
+      [model]="primeMenuItems()"
+      [popup]="true"
+      appendTo="body"
+      styleClass="ep-user-menu"
+      (onShow)="isOpen.set(true)"
+      (onHide)="isOpen.set(false)"
+    />
   `,
   styles: [
     `
@@ -89,7 +99,8 @@ import type {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.25rem 0.5rem;
+        min-height: 2.75rem;
+        padding: 0.25rem 0.625rem;
         border-radius: 0.375rem;
         background-color: transparent;
         font-weight: 500;
@@ -154,6 +165,15 @@ export class UserMenuButtonComponent {
   readonly logout = output<NavLogoutEvent>();
 
   @ViewChild('menu') menu!: Menu;
+
+  /** Mirrors PrimeNG's onShow/onHide for the trigger's aria-expanded. */
+  protected readonly isOpen = signal<boolean>(false);
+
+  /** stopPropagation defends against stale popup document listeners eating the open click. */
+  protected onTriggerClick(event: Event): void {
+    event.stopPropagation();
+    this.menu.toggle(event);
+  }
 
   /** First-letter-of-first-and-last-name initials for the avatar fallback. */
   protected readonly initials = computed<string>(() => {

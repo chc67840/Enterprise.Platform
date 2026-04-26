@@ -40,8 +40,8 @@ import type { NavThemeToggleConfig } from '@shared/layout';
     `
       .ep-theme-btn {
         display: inline-flex;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 2.75rem;
+        width: 2.75rem;
         align-items: center;
         justify-content: center;
         border-radius: 0.375rem;

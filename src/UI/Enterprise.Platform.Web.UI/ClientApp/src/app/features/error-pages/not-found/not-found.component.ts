@@ -13,19 +13,21 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink],
+  /*
+   * Title + primary CTA live in the SubNavOrchestrator's <app-page-header>
+   * (declared via route data.pageHeader). Page body shows the 404 glyph
+   * and a verbose recovery hint — no duplicate <h1> per WCAG 2.4.6.
+   */
   template: `
     <div class="rounded-xl bg-white p-8 text-center shadow-lg ring-1 ring-gray-200">
-      <div class="mx-auto mb-4 text-6xl font-bold tracking-tight text-gray-300">404</div>
-      <h1 class="text-xl font-semibold tracking-tight text-gray-900">Page not found</h1>
-      <p class="mt-2 text-sm text-gray-600">
-        The URL you followed doesn't match any route in this app.
+      <div class="mx-auto mb-4 text-6xl font-bold tracking-tight text-gray-300" aria-hidden="true">
+        404
+      </div>
+      <p class="text-sm text-gray-600">
+        Check the URL for typos, or
+        <a routerLink="/" class="font-medium text-blue-700 hover:underline">return home</a>
+        to start over.
       </p>
-      <a
-        routerLink="/"
-        class="mt-6 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-      >
-        Return home
-      </a>
     </div>
   `,
 })

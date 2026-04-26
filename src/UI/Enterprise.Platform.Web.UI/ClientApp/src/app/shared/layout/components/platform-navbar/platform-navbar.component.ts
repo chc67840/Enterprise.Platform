@@ -35,8 +35,11 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   HostListener,
+  ViewChild,
   computed,
+  effect,
   input,
   output,
   signal,
@@ -128,10 +131,17 @@ import type {
           </a>
 
           @if (showEnvBadge()) {
+            <!--
+              Decorative status indicator. The visible glyph already conveys
+              the environment to sighted users; assistive tech doesn't need
+              to navigate to a non-interactive label, so aria-hidden plus
+              pointer-events:none keeps it out of both the tab order and
+              the click event chain.
+            -->
             <span
               class="ep-env-badge"
               [attr.data-env]="config().leftZone.logo.envBadge"
-              [attr.aria-label]="'Environment: ' + config().leftZone.logo.envBadge"
+              aria-hidden="true"
             >{{ config().leftZone.logo.envBadge }}</span>
           }
 
@@ -149,12 +159,12 @@ import type {
         <!-- ═══════════ RIGHT ZONE ═══════════ -->
         <div class="ep-navbar__right">
           @if (config().rightZone.clock?.enabled) {
-            <app-nav-clock [config]="config().rightZone.clock!" />
+            <app-nav-clock class="ep-navbar__show-xl" [config]="config().rightZone.clock!" />
           }
 
           @if (config().rightZone.marketStatus?.enabled) {
             <span
-              class="ep-status-pill"
+              class="ep-status-pill ep-navbar__show-xl"
               [class.ep-status-pill--positive]="marketOpen()"
               [class.ep-status-pill--negative]="!marketOpen()"
             >
@@ -165,7 +175,7 @@ import type {
 
           @if (config().rightZone.shiftStatus?.enabled) {
             <span
-              class="ep-status-pill"
+              class="ep-status-pill ep-navbar__show-xl"
               [class.ep-status-pill--positive]="onDuty()"
               [class.ep-status-pill--negative]="!onDuty()"
             >
@@ -177,11 +187,11 @@ import type {
           @if (config().rightZone.globalSearch?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn"
+              class="ep-icon-btn ep-navbar__hide-md"
               [pTooltip]="searchTooltip()"
               tooltipPosition="bottom"
               [attr.aria-label]="config().rightZone.globalSearch!.placeholder ?? 'Open search'"
-              (click)="onSearchClick()"
+              (click)="onSearchClick($event)"
             >
               <i class="pi pi-search" aria-hidden="true"></i>
             </button>
@@ -190,11 +200,11 @@ import type {
           @if (config().rightZone.aiAssistant?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn ep-icon-btn--accent"
+              class="ep-icon-btn ep-icon-btn--accent ep-navbar__hide-md"
               [pTooltip]="config().rightZone.aiAssistant!.label ?? 'AI assistant'"
               tooltipPosition="bottom"
               [attr.aria-label]="config().rightZone.aiAssistant!.label ?? 'Open AI assistant'"
-              (click)="onAiClick()"
+              (click)="onAiClick($event)"
             >
               <i [class]="(config().rightZone.aiAssistant!.icon ?? 'pi pi-sparkles')" aria-hidden="true"></i>
             </button>
@@ -202,6 +212,7 @@ import type {
 
           @if (config().rightZone.quickActions?.enabled) {
             <app-quick-actions
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.quickActions!"
               (action)="navAction.emit($event)"
             />
@@ -209,6 +220,7 @@ import type {
 
           @if (config().rightZone.messages?.enabled) {
             <app-notification-bell
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.messages!"
               [notifications]="messageItems()"
               heading="Messages"
@@ -219,6 +231,7 @@ import type {
 
           @if (config().rightZone.notifications?.enabled) {
             <app-notification-bell
+              class="ep-navbar__hide-sm"
               [config]="config().rightZone.notifications!"
               [notifications]="notifications()"
               heading="Notifications"
@@ -230,11 +243,11 @@ import type {
           @if (config().rightZone.help?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn"
+              class="ep-icon-btn ep-navbar__hide-md"
               [pTooltip]="config().rightZone.help!.label ?? 'Help'"
               tooltipPosition="bottom"
               aria-label="Open help"
-              (click)="onHelpClick()"
+              (click)="onHelpClick($event)"
             >
               <i [class]="config().rightZone.help!.icon ?? 'pi pi-question-circle'" aria-hidden="true"></i>
             </button>
@@ -242,6 +255,7 @@ import type {
 
           @if (config().rightZone.themeToggle?.enabled) {
             <app-theme-toggle-button
+              class="ep-navbar__show-xl"
               [config]="config().rightZone.themeToggle!"
               tone="dark"
             />
@@ -249,6 +263,7 @@ import type {
 
           @if (config().rightZone.languageSwitcher?.enabled) {
             <app-language-switcher
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.languageSwitcher!"
               (languageChanged)="onLanguageChanged($event)"
             />
@@ -277,11 +292,13 @@ import type {
 
           <!-- Mobile hamburger — visible below the collapse breakpoint via CSS. -->
           <button
+            #hamburgerBtn
             type="button"
             class="ep-icon-btn ep-hamburger"
             [attr.aria-expanded]="isMobileMenuOpen()"
-            aria-label="Toggle navigation menu"
-            (click)="toggleMobileMenu()"
+            aria-controls="ep-mobile-menu"
+            [attr.aria-label]="isMobileMenuOpen() ? 'Close navigation menu' : 'Open navigation menu'"
+            (click)="toggleMobileMenu($event)"
           >
             <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
           </button>
@@ -289,21 +306,42 @@ import type {
       </div>
     </nav>
 
-    <!-- Mobile menu overlay — fixed below the navbar; CSS toggles via [data-open]. -->
-    <div
-      class="ep-mobile-menu"
-      [attr.data-open]="isMobileMenuOpen()"
-      role="dialog"
-      aria-label="Navigation menu"
-      [attr.aria-hidden]="!isMobileMenuOpen()"
-    >
-      <app-nav-menu
-        [config]="config().centerZone.menu"
-        tone="light"
-        layout="vertical"
-        (action)="onMobileNavAction($event)"
-      />
-    </div>
+    <!--
+      Mobile drawer — @if-mounted (NOT CSS-toggled).
+      Removing the drawer from the DOM when closed kills three classes of bug:
+        a) duplicate <nav> landmarks announced by screen readers
+        b) hidden tab stops the user can still reach via keyboard
+        c) click-outside listeners firing against an invisible-but-present element
+
+      Layout: full-height side panel (left edge → max 320px or 85vw). The
+      remaining 15%+ of the viewport stays uncovered so a backdrop tap can
+      dismiss the drawer — non-negotiable mobile UX pattern.
+    -->
+    @if (isMobileMenuOpen()) {
+      <div
+        class="ep-mobile-backdrop"
+        (click)="closeMobileMenu()"
+        aria-hidden="true"
+      ></div>
+      <div
+        #mobileDrawer
+        id="ep-mobile-menu"
+        class="ep-mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        tabindex="-1"
+        (keydown.tab)="onDrawerTab($event)"
+        (keydown.shift.tab)="onDrawerShiftTab($event)"
+      >
+        <app-nav-menu
+          [config]="config().centerZone.menu"
+          tone="light"
+          layout="vertical"
+          (action)="onMobileNavAction($event)"
+        />
+      </div>
+    }
   `,
   styles: [
     /*
@@ -315,7 +353,17 @@ import type {
      * prefers-reduced-motion disables the pulse + transitions per WCAG 2.3.3.
      */
     `
-      :host { display: contents; }
+      /*
+       * --nav-height is declared on :host (not on .ep-navbar) so it
+       * cascades to BOTH siblings: the navbar AND the mobile drawer.
+       * The drawer's padding-top references this variable to keep the
+       * first nav item below the navbar's bottom edge. Declaring it
+       * only on .ep-navbar (a sibling of .ep-mobile-menu) breaks the
+       * cascade and the drawer's first item ends up hidden behind the
+       * navbar. The dynamic heightPx() inline style on .ep-navbar still
+       * overrides locally for the navbar itself.
+       */
+      :host { display: contents; --nav-height: 64px; }
 
       /* ── skip link ── */
       .ep-skip-link {
@@ -338,20 +386,36 @@ import type {
         outline-offset: 2px;
       }
 
-      /* ── navbar surface ── */
+      /* ── navbar surface ──
+       * Top corners rounded (var --ep-nav-radius-top), bottom flush so the
+       * status banner / main content butt cleanly against the navbar.
+       * overflow:hidden clips brand image + right-zone widgets to the
+       * rounded shape; popovers/tooltips already teleport to body via
+       * appendTo so they're not affected by this clip.
+       */
       .ep-navbar {
         --nav-height: 64px;
         background-color: var(--ep-color-primary-700);
         color: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(15, 31, 59, 0.06);
+        box-shadow: var(--ep-nav-shadow);
+        border-radius: var(--ep-nav-radius-top) var(--ep-nav-radius-top) 0 0;
+        overflow: hidden;
         z-index: 30;
       }
-      .ep-navbar--sticky { position: sticky; top: 0; }
-      .ep-navbar--glass.ep-navbar--scrolled {
-        background-color: color-mix(in srgb, var(--ep-color-primary-700) 88%, transparent);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+      @media print {
+        .ep-navbar { border-radius: 0; box-shadow: none; }
       }
+      .ep-navbar--sticky { position: sticky; top: 0; }
+      /*
+       * Glass-morphism on scroll — intentionally a no-op. The earlier
+       * implementation dropped opacity to 88% + applied backdrop-blur,
+       * which let page text bleed through the indigo chrome and reads
+       * as "the navbar background broke" rather than premium glass. We
+       * keep the .ep-navbar--glass class hook in case a future surface
+       * (lighter brand variant, marketing site) wants to opt back in,
+       * but the production navbar stays fully opaque at every scroll
+       * position.
+       */
 
       .ep-navbar__row {
         display: flex;
@@ -359,6 +423,17 @@ import type {
         gap: 0.75rem;
         height: var(--nav-height);
         padding: 0 1rem;
+        /*
+         * Hard cap at 100% so an over-eager descendant (rare, but possible
+         * when a third-party widget mounts a wide popover root inline) can
+         * never make the row itself wider than the viewport. overflow-x:clip
+         * (not hidden) avoids creating a scrolling container — important
+         * because the parent <nav> uses position:sticky, and a scrolling
+         * ancestor would scope the sticky to that container instead of the
+         * document, breaking page-scroll stickiness.
+         */
+        max-width: 100%;
+        overflow-x: clip;
       }
       @media (min-width: 640px) { .ep-navbar__row { padding: 0 1.5rem; } }
       @media (min-width: 1024px) { .ep-navbar__row { padding: 0 2rem; } }
@@ -393,6 +468,20 @@ import type {
         background-color: var(--ep-color-jessamine-500);
         color: var(--ep-color-primary-900);
       }
+      /*
+       * Brand text + sub-text + logo are presentational children of the
+       * brand <a>. Explicitly opt out of pointer events / selection so the
+       * entire bounding box of the <a> is one uniform click target — no
+       * "dead zone on the text side" symptom.
+       */
+      .ep-navbar__brand-text,
+      .ep-navbar__brand-name,
+      .ep-navbar__brand-sub,
+      .ep-navbar__logo-img,
+      .ep-navbar__logo-glyph {
+        pointer-events: none;
+        user-select: none;
+      }
       .ep-navbar__brand-text {
         display: none;
         flex-direction: column;
@@ -408,7 +497,7 @@ import type {
         color: rgba(255, 255, 255, 0.7);
       }
 
-      /* ── env badge ── */
+      /* ── env badge — informational only, never interactive ── */
       .ep-env-badge {
         display: inline-flex;
         align-items: center;
@@ -420,6 +509,8 @@ import type {
         letter-spacing: 0.08em;
         background-color: var(--ep-color-jessamine-500);
         color: var(--ep-color-primary-900);
+        pointer-events: none;
+        user-select: none;
       }
       .ep-env-badge[data-env='dev'] { background-color: var(--ep-color-palmetto-500); color: #fff; }
       .ep-env-badge[data-env='staging'] { background-color: var(--ep-color-jessamine-500); color: var(--ep-color-primary-900); }
@@ -456,6 +547,44 @@ import type {
         flex-shrink: 0;
         margin-left: auto;
         background-color: var(--ep-color-primary-700);
+        min-width: 0;
+      }
+
+      /*
+       * Progressive disclosure for non-essential right-zone widgets.
+       *
+       *   < 1024px (where the centre menu is hidden + hamburger appears)
+       *     → hide search / AI / quick-actions / messages bell / help /
+       *       theme-toggle / language switcher. Their affordances live in
+       *       the mobile drawer or are simply non-essential at this width.
+       *
+       *   < 640px (true phone)
+       *     → also hide notifications. Only user menu + hamburger remain.
+       *
+       * Class is applied DIRECTLY to the button or sub-component host
+       * element (no positional <span> wrappers — those create brittle
+       * nth-of-type selectors). !important is required so the rule beats
+       * any sub-component :host display value (NotificationBellComponent,
+       * QuickActionsComponent etc. don't set one today, but defending
+       * against future drift is cheaper than another debugging round).
+       */
+      @media (max-width: 1023px) {
+        .ep-navbar__hide-md { display: none !important; }
+      }
+      @media (max-width: 639px) {
+        .ep-navbar__hide-sm { display: none !important; }
+      }
+      /*
+       * Wide-screen only — clock, market/shift status pills, theme toggle.
+       * Empirical sizing: at 1280–1439px the centre menu (5 items, last
+       * one with a chevron) and the full right zone fight for ~120px and
+       * the menu loses, producing the "Anal..." truncation. Above 1440px
+       * everything fits cleanly. Ambient widgets are nice-to-have, not
+       * load-bearing — they yield first.
+       */
+      .ep-navbar__show-xl { display: none; }
+      @media (min-width: 1440px) {
+        .ep-navbar__show-xl { display: inline-flex; }
       }
 
       /* clock + status pills */
@@ -480,6 +609,8 @@ import type {
         border-radius: 9999px;
         font-size: 0.75rem;
         font-weight: 500;
+        pointer-events: none;
+        user-select: none;
       }
       @media (min-width: 768px) { .ep-status-pill { display: inline-flex; } }
       .ep-status-pill--positive {
@@ -506,11 +637,11 @@ import type {
         .ep-status-pill__dot--pulse { animation: none; }
       }
 
-      /* icon buttons */
+      /* icon buttons — WCAG 2.5.5 minimum 44x44 touch target */
       .ep-icon-btn {
         display: inline-flex;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 2.75rem;
+        width: 2.75rem;
         align-items: center;
         justify-content: center;
         border-radius: 0.375rem;
@@ -569,25 +700,68 @@ import type {
       .ep-hamburger { display: inline-flex; }
       @media (min-width: 1024px) { .ep-hamburger { display: none; } }
 
-      /* mobile overlay menu */
-      .ep-mobile-menu {
+      /*
+       * Mobile drawer — LEFT-anchored, FULL-HEIGHT side panel.
+       *
+       * Drawer spans top:0 → bottom:0 so it reads as a full-viewport
+       * navigation surface. Sits BEHIND the navbar (drawer z-index 26 <
+       * navbar z-index 30) so the navbar's X (close) button stays tappable
+       * and the rounded top corners of the navbar stay visible above the
+       * drawer's top edge — the drawer appears to slide in beneath a
+       * fixed header.
+       *
+       * @if-mounted — closed state has zero DOM footprint.
+       * Width min(280px, 80vw) guarantees ≥20% of viewport stays as a
+       * tappable backdrop region at every breakpoint.
+       */
+      .ep-mobile-backdrop {
         position: fixed;
         top: var(--nav-height);
         left: 0;
         right: 0;
         bottom: 0;
         z-index: 25;
+        background-color: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        cursor: pointer;
+        animation: ep-backdrop-in 200ms ease forwards;
+      }
+      .ep-mobile-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 26;
+        width: min(280px, 80vw);
         background-color: var(--ep-color-neutral-50);
-        padding: 1rem;
+        /* Border + shadow on the RIGHT edge — the side that faces the
+         * dimmed page content. */
+        border-right: 1px solid var(--ep-color-neutral-200);
+        box-shadow: 6px 0 24px rgba(15, 31, 59, 0.18);
+        /* Top padding equals navbar height so the first nav item lands
+         * just below the navbar's bottom edge, not hidden behind it. */
+        padding: calc(var(--nav-height) + 0.5rem) 0.75rem 2rem;
         overflow-y: auto;
-        transform: translateY(-110%);
-        transition: transform 200ms ease;
+        overscroll-behavior: contain;
+        animation: ep-drawer-in 280ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      @keyframes ep-backdrop-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes ep-drawer-in {
+        from { transform: translateX(-100%); }
+        to   { transform: translateX(0); }
       }
       @media (prefers-reduced-motion: reduce) {
-        .ep-mobile-menu { transition: none; }
+        .ep-mobile-backdrop,
+        .ep-mobile-menu { animation: none; }
       }
-      .ep-mobile-menu[data-open='true'] { transform: translateY(0); }
-      @media (min-width: 1024px) { .ep-mobile-menu { display: none; } }
+      @media (min-width: 1024px) {
+        .ep-mobile-backdrop,
+        .ep-mobile-menu { display: none; }
+      }
     `,
   ],
 })
@@ -613,6 +787,35 @@ export class PlatformNavbarComponent {
 
   protected readonly isMobileMenuOpen = signal(false);
   protected readonly isScrolled = signal(false);
+
+  @ViewChild('hamburgerBtn') private readonly hamburgerBtn?: ElementRef<HTMLButtonElement>;
+  @ViewChild('mobileDrawer') private readonly mobileDrawer?: ElementRef<HTMLDivElement>;
+
+  /**
+   * Focus management for the mobile drawer (WCAG 2.4.3 + 2.4.7):
+   *   - On open: capture the trigger so we can return focus on close, then
+   *     move focus to the first focusable element inside the drawer.
+   *   - On close: restore focus to the trigger (the hamburger).
+   *
+   * Wrapped in queueMicrotask so the @if-mounted drawer's host element is
+   * actually in the DOM before we try to query it.
+   */
+  private restoreFocusTo: HTMLElement | null = null;
+  private readonly _focusManager = effect(() => {
+    const open = this.isMobileMenuOpen();
+    queueMicrotask(() => {
+      if (open) {
+        this.restoreFocusTo = (document.activeElement as HTMLElement) ?? null;
+        const first = this.mobileDrawer?.nativeElement.querySelector<HTMLElement>(
+          'a, button, [tabindex]:not([tabindex="-1"])',
+        );
+        (first ?? this.mobileDrawer?.nativeElement)?.focus();
+      } else if (this.restoreFocusTo) {
+        this.restoreFocusTo.focus();
+        this.restoreFocusTo = null;
+      }
+    });
+  });
 
   // ── derived ────────────────────────────────────────────────────────────
 
@@ -643,11 +846,74 @@ export class PlatformNavbarComponent {
 
   // ── event handlers ─────────────────────────────────────────────────────
 
-  protected toggleMobileMenu(): void {
+  protected toggleMobileMenu(event?: Event): void {
+    /*
+     * stopPropagation is the ONE-LINE FIX for the "hamburger needs 4 taps"
+     * bug class: without it the same click that opens the drawer continues
+     * propagating, can trigger any document-level listener (PrimeNG popovers,
+     * future tour-step overlays, etc.) and may immediately close what we
+     * just opened. Stopping the bubble here scopes the event to the toggle.
+     */
+    event?.stopPropagation();
     this.isMobileMenuOpen.update((open) => !open);
   }
 
-  protected onSearchClick(): void {
+  protected closeMobileMenu(): void {
+    this.isMobileMenuOpen.set(false);
+  }
+
+  /**
+   * Global Escape closes the mobile drawer. WCAG 2.1.2 — keyboard users
+   * must have an unconditional "back out" affordance from any modal-like
+   * surface. We listen on document so focus can be anywhere when Escape
+   * fires (including inside the drawer's nav items).
+   */
+  @HostListener('document:keydown.escape')
+  protected onDocumentEscape(): void {
+    if (this.isMobileMenuOpen()) {
+      this.closeMobileMenu();
+    }
+  }
+
+  /**
+   * Focus trap — when Tab reaches the last focusable in the drawer, loop
+   * to the first; symmetric handler below for Shift-Tab. Keeps keyboard
+   * focus inside the modal-like dialog while it's open.
+   */
+  protected onDrawerTab(event: Event): void {
+    const focusables = this.drawerFocusables();
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!first || !last) return;
+    if (document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  protected onDrawerShiftTab(event: Event): void {
+    const focusables = this.drawerFocusables();
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!first || !last) return;
+    if (document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  }
+
+  private drawerFocusables(): HTMLElement[] {
+    const root = this.mobileDrawer?.nativeElement;
+    if (!root) return [];
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+  }
+
+  protected onSearchClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.globalSearch;
     if (cfg?.commandPaletteMode) {
       this.navAction.emit({ source: 'menu', actionKey: 'search.commandPalette' });
@@ -656,7 +922,8 @@ export class PlatformNavbarComponent {
     }
   }
 
-  protected onAiClick(): void {
+  protected onAiClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.aiAssistant;
     if (cfg) this.navAction.emit({ source: 'aiAssistant', actionKey: cfg.actionKey });
   }
@@ -669,7 +936,8 @@ export class PlatformNavbarComponent {
     this.navAction.emit({ source: 'notification', actionKey: 'notifications.open', payload: { id: n.id } });
   }
 
-  protected onHelpClick(): void {
+  protected onHelpClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.help;
     if (cfg?.docsUrl) {
       window.open(cfg.docsUrl, '_blank', 'noopener,noreferrer');
