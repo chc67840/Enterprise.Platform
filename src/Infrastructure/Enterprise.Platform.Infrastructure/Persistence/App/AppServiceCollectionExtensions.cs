@@ -1,13 +1,12 @@
+using Enterprise.Platform.Application.Abstractions.Persistence;
 using Enterprise.Platform.Domain.Interfaces;
 using Enterprise.Platform.Infrastructure.Persistence.App.Contexts;
 using Enterprise.Platform.Infrastructure.Persistence.App.Mappings;
+using Enterprise.Platform.Infrastructure.Persistence.App.Repositories;
 using Enterprise.Platform.Infrastructure.Persistence.Interceptors;
-using Mapster;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Enterprise.Platform.Infrastructure.Persistence.App;
 
@@ -15,7 +14,8 @@ namespace Enterprise.Platform.Infrastructure.Persistence.App;
 /// Composition root for the <see cref="AppDbContext"/>. Wires the pooled context,
 /// registers it with <c>DbContextRegistry</c> as the default logical name
 /// <c>"App"</c>, binds <see cref="IUnitOfWork"/> to <see cref="UnitOfWork{TContext}"/>
-/// closed over <see cref="AppDbContext"/>, and seeds the Mapster registry.
+/// closed over <see cref="AppDbContext"/>, and adds the DtoGen-emitted IMapper
+/// covering every App entity ↔ DTO pair.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -54,7 +54,8 @@ public static class AppServiceCollectionExtensions
 
     /// <summary>
     /// Registers <see cref="AppDbContext"/> (pooled), the closed-over unit of
-    /// work, the Mapster registry, and per-aggregate repositories.
+    /// work, the DtoGen-emitted <see cref="Contracts.Abstractions.Mapping.IMapper"/>,
+    /// and per-aggregate repositories.
     /// </summary>
     public static IServiceCollection AddAppDb(
         this IServiceCollection services,
@@ -93,20 +94,15 @@ public static class AppServiceCollectionExtensions
         services.AddScoped<IReadDbContext>(sp =>
             new ReadDbContextAdapter<AppDbContext>(sp.GetRequiredService<AppDbContext>()));
 
-        // Mapster: dedicated config (not GlobalSettings) so tests stay hermetic.
-        // Empty registry today; populated as DTO mappings are added.
-        services.TryAddSingleton(_ =>
-        {
-            var config = new TypeAdapterConfig();
-            config.Scan(typeof(AppMappingRegistry).Assembly);
-            return config;
-        });
+        // Object mapping — DtoGen-emitted IMapper façade. AddAppMappers registers
+        // one entry per scaffolded entity. Idempotent; safe to call from
+        // multiple composition roots in a multi-DB host.
+        services.AddAppMappers();
 
-        services.TryAddScoped<IMapper, ServiceMapper>();
-
-        // Per-aggregate repositories registered here as features land.
-        // For greenfield aggregates inheriting BaseEntity, prefer the open-generic
-        // IGenericRepository<T> registered in Infrastructure.DependencyInjection.
+        // Per-aggregate repositories. Each method MUST NOT call SaveChangesAsync
+        // (P0-2 audit) — TransactionBehavior in the MediatR pipeline owns the
+        // unit-of-work flush.
+        services.AddScoped<IUserRepository, UserRepository>();
 
         return services;
     }

@@ -4,28 +4,30 @@ using Enterprise.Platform.Domain.Specifications;
 namespace Enterprise.Platform.Domain.Interfaces;
 
 /// <summary>
-/// Persistence-agnostic repository contract for <b>code-first</b> aggregates inheriting
-/// <see cref="BaseEntity"/>. Handlers depend on this interface — never on EF Core's
-/// <c>DbSet</c> — so test doubles and alternate providers slot in cleanly. PlatformDb
-/// aggregates (User / Role / Tenant / AuditLog / OutboxMessage, once the D4 deferral
-/// lifts) are the target consumers.
+/// Persistence-agnostic repository contract for any entity inheriting
+/// <see cref="BaseEntity"/> — covers both hand-authored aggregates and the
+/// scaffolded entities the customised T4 templates (Phase A.4) inject the
+/// platform base classes into. Handlers depend on this interface, never on
+/// EF Core's <c>DbSet</c>, so test doubles and alternate providers slot in
+/// cleanly.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Not applicable to DB-first scaffolded entities.</b> If a future bounded
-/// context introduces DB-first POCOs that don't derive from <see cref="BaseEntity"/>
-/// (or use non-Guid keys), write a <b>per-aggregate repository</b> for those —
-/// returning DTOs (never entities), exposing aggregate-specific reads, and living
-/// in the feature folder so the contract stays close to its handlers.
+/// <b>Per-aggregate repositories still exist</b> for domain operations the
+/// generic surface can't express — bulk specifications, computed reads, or
+/// operations that need to return DTOs rather than entities. Per-aggregate
+/// repos live in the feature folder alongside their handlers; they typically
+/// inject the same <c>DbContext</c> directly rather than going through this
+/// interface.
 /// </para>
 /// <para>
 /// The open-generic DI registration (<c>services.AddScoped(typeof(IGenericRepository&lt;&gt;), typeof(GenericRepository&lt;&gt;))</c>)
-/// is harmless when no entities satisfy the constraint — DI won't close the generic
-/// over types that don't satisfy <c>T : BaseEntity</c>, so attempted resolution fails
-/// fast with a clear compiler/runtime error.
+/// is harmless when no entities satisfy the constraint — DI won't close the
+/// generic over types that don't satisfy <c>T : BaseEntity</c>, so attempted
+/// resolution fails fast with a clear compiler/runtime error.
 /// </para>
 /// </remarks>
-/// <typeparam name="T">Aggregate or entity type inheriting <see cref="BaseEntity"/>.</typeparam>
+/// <typeparam name="T">Entity type inheriting <see cref="BaseEntity"/>.</typeparam>
 public interface IGenericRepository<T> where T : BaseEntity
 {
     /// <summary>Returns the entity with <paramref name="id"/>, or <c>null</c> if absent.</summary>

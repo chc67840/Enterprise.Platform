@@ -82,7 +82,7 @@ public sealed class ValidationBehaviorTests
         }
 
         var act = async () => await behavior.HandleAsync(
-            new TestRequest("x"), Next, CancellationToken.None);
+            new TestRequest("x"), Next, CancellationToken.None).ConfigureAwait(false);
 
         var exception = await act.Should().ThrowAsync<ValidationException>();
         exception.Which.Errors.Should().ContainSingle(f => f.PropertyName == "Payload");

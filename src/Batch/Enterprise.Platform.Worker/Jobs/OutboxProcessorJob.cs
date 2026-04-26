@@ -8,9 +8,9 @@ using Microsoft.Extensions.Logging;
 namespace Enterprise.Platform.Worker.Jobs;
 
 /// <summary>
-/// Drains <c>OutboxMessages</c> where <c>PublishedAt IS NULL</c> and either
-/// <c>NextAttemptAt IS NULL</c> or <c>NextAttemptAt &lt;= UtcNow</c>. Per message:
-/// invokes <see cref="IIntegrationEventBroker"/>, marks <c>PublishedAt</c> on
+/// Drains <c>PlatformOutboxMessage</c> rows where <c>PublishedAt IS NULL</c>
+/// and <c>NextAttemptAt &lt;= UtcNow</c>. Per row: invokes
+/// <see cref="IIntegrationEventBroker"/>, marks <c>PublishedAt</c> on
 /// success, or bumps <c>AttemptCount</c> + <c>LastError</c> + computes the next
 /// exponential-backoff <c>NextAttemptAt</c> on failure. Retires messages after
 /// <see cref="MaxAttempts"/> by leaving them poisoned (manual intervention).
@@ -40,12 +40,12 @@ public sealed class OutboxProcessorJob : BaseBackgroundJob
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var broker = scope.ServiceProvider.GetRequiredService<IIntegrationEventBroker>();
 
-        var now = DateTime.UtcNow;
-        var batch = await context.PlatformOutbox
+        var now = DateTimeOffset.UtcNow;
+        var batch = await context.PlatformOutboxMessage
             .Where(m => m.PublishedAt == null
                 && m.AttemptCount < MaxAttempts
-                && (m.NextAttemptAt == null || m.NextAttemptAt <= now))
-            .OrderBy(m => m.CreatedAt)
+                && m.NextAttemptAt <= now)
+            .OrderBy(m => m.OccurredAt)
             .Take(BatchSize)
             .ToListAsync(stoppingToken)
             .ConfigureAwait(false);
@@ -65,16 +65,18 @@ public sealed class OutboxProcessorJob : BaseBackgroundJob
             try
             {
                 await broker.PublishAsync(message, stoppingToken).ConfigureAwait(false);
-                message.PublishedAt = DateTime.UtcNow;
+                message.PublishedAt = DateTimeOffset.UtcNow;
                 message.LastError = null;
-                message.NextAttemptAt = null;
+                // NextAttemptAt is non-nullable on the scaffolded entity; leave it
+                // at the value it had — once PublishedAt is set, the WHERE clause
+                // above won't pick the row up again.
                 message.AttemptCount += 1;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 message.AttemptCount += 1;
                 message.LastError = ex.Message;
-                message.NextAttemptAt = DateTime.UtcNow.Add(ComputeBackoff(message.AttemptCount));
+                message.NextAttemptAt = DateTimeOffset.UtcNow.Add(ComputeBackoff(message.AttemptCount));
 #pragma warning disable CA1848
                 Logger.LogWarning(
                     ex,

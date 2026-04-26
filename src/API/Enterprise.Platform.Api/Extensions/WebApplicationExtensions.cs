@@ -1,4 +1,5 @@
 using Enterprise.Platform.Api.Endpoints.v1;
+using Enterprise.Platform.Api.Endpoints.v1.Users;
 using Enterprise.Platform.Api.Middleware;
 
 namespace Enterprise.Platform.Api.Extensions;
@@ -56,7 +57,7 @@ public static class WebApplicationExtensions
         // Endpoints
         app.MapHealthEndpoints();
         app.MapWhoAmI();
-        // Feature endpoints (Roles, etc.) will be re-mapped here as new aggregates land.
+        app.MapUserEndpoints();
 
         return app;
     }

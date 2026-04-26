@@ -75,7 +75,34 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
       },
+      {
+        path: 'users',
+        // Phase D — first concrete feature against the db-first /api/v1/users
+        // endpoints. UsersStore is provided inside USERS_ROUTES so its lifecycle
+        // tracks navigation in/out of the feature.
+        data: {
+          label: 'Users',
+          icon: 'pi-users',
+          breadcrumb: 'Users',
+          showInNav: true,
+        } satisfies RouteMetadata,
+        loadChildren: () => import('./features/users/users.routes').then((m) => m.USERS_ROUTES),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+
+      // 404 inside the shell — keeps the master nav + footer visible so users
+      // recover via the chrome (nav back to a real route, click the logo, etc.).
+      // Sits last so explicit child routes always match first. The top-level
+      // catch-all below remains as a fallback for non-shell paths (auth/error
+      // sub-trees that don't match any of their declared children).
+      {
+        path: '**',
+        title: 'Page not found',
+        loadComponent: () =>
+          import('./features/error-pages/not-found/not-found.component').then(
+            (m) => m.NotFoundComponent,
+          ),
+      },
     ],
   },
 

@@ -1,5 +1,5 @@
 using Enterprise.Platform.Infrastructure.Common;
-using Enterprise.Platform.Infrastructure.Persistence.Outbox;
+using Enterprise.Platform.Infrastructure.Persistence.App.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
@@ -16,7 +16,7 @@ public sealed class ConsoleIntegrationEventBroker(ILogger<ConsoleIntegrationEven
     private readonly ILogger<ConsoleIntegrationEventBroker> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <inheritdoc />
-    public Task PublishAsync(OutboxMessage message, CancellationToken cancellationToken = default)
+    public Task PublishAsync(PlatformOutboxMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
