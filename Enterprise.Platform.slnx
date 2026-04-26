@@ -25,9 +25,11 @@
     <Project Path="tests/Enterprise.Platform.Application.Tests/Enterprise.Platform.Application.Tests.csproj" />
     <Project Path="tests/Enterprise.Platform.Architecture.Tests/Enterprise.Platform.Architecture.Tests.csproj" />
     <Project Path="tests/Enterprise.Platform.Domain.Tests/Enterprise.Platform.Domain.Tests.csproj" />
+    <Project Path="tests/Enterprise.Platform.DtoGen.Tests/Enterprise.Platform.DtoGen.Tests.csproj" />
     <Project Path="tests/Enterprise.Platform.Infrastructure.Tests/Enterprise.Platform.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/Enterprise.Platform.DbMigrator/Enterprise.Platform.DbMigrator.csproj" />
     <Project Path="tools/Enterprise.Platform.DtoGen/Enterprise.Platform.DtoGen.csproj" />
   </Folder>
 </Solution>

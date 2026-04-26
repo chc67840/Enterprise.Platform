@@ -9,10 +9,28 @@
     <AssemblyName>Enterprise.Platform.DtoGen</AssemblyName>
     <IsPackable>false</IsPackable>
     <IsPublishable>false</IsPublishable>
+    <!--
+      CA2007 (ConfigureAwait) only matters in libraries that may run under a
+      captured SynchronizationContext. This is a CLI exe — no context, no
+      deadlock risk. Suppressing locally instead of decorating every await.
+    -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Enterprise.Platform.DtoGen.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Per-database config files; copied to the output directory so the
+         tool can find them via Path.Combine(AppContext.BaseDirectory, "configs", ...). -->
+    <None Update="configs/*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

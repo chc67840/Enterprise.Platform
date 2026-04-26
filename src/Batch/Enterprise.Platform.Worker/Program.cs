@@ -43,9 +43,8 @@ try
     // Background jobs.
     //
     // OutboxProcessorJob drains the PlatformOutboxMessages table populated by
-    // OutboxIntegrationEventPublisher. CacheWarmupJob removed 2026-04-25 along
-    // with the EventShopper feature it warmed; reintroduce per-feature warmups
-    // when new aggregates with hot lookups land.
+    // OutboxIntegrationEventPublisher. Reintroduce per-feature cache-warmup jobs
+    // when aggregates with hot lookups land.
     // AuditRetentionJob still deferred with D4 (PlatformDb AuditLogs table).
     builder.Services.AddHostedService<OutboxProcessorJob>();
     // builder.Services.AddHostedService<AuditRetentionJob>();    // activate with PlatformDb

@@ -1,0 +1,240 @@
+<#@ template hostSpecific="true" #>
+<#@ assembly name="Microsoft.EntityFrameworkCore" #>
+<#@ assembly name="Microsoft.EntityFrameworkCore.Design" #>
+<#@ assembly name="Microsoft.EntityFrameworkCore.Relational" #>
+<#@ assembly name="Microsoft.Extensions.DependencyInjection.Abstractions" #>
+<#@ parameter name="EntityType" type="Microsoft.EntityFrameworkCore.Metadata.IEntityType" #>
+<#@ parameter name="Options" type="Microsoft.EntityFrameworkCore.Scaffolding.ModelCodeGenerationOptions" #>
+<#@ parameter name="NamespaceHint" type="System.String" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.ComponentModel.DataAnnotations" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="Microsoft.EntityFrameworkCore" #>
+<#@ import namespace="Microsoft.EntityFrameworkCore.Design" #>
+<#@ import namespace="Microsoft.Extensions.DependencyInjection" #>
+<#
+    if (EntityType.IsSimpleManyToManyJoinEntityType())
+    {
+        // Don't scaffold these
+        return "";
+    }
+
+    var services = (IServiceProvider)Host;
+    var annotationCodeGenerator = services.GetRequiredService<IAnnotationCodeGenerator>();
+    var code = services.GetRequiredService<ICSharpHelper>();
+
+    // ── Platform customisation ───────────────────────────────────────────────
+    // Columns we never want emitted on the scaffolded entity because they're
+    // declared by the AuditableEntity / BaseEntity base class. Keeping them in
+    // the scaffolded file would produce CS0102 duplicate-member errors when the
+    // sibling User.Behavior.cs declares the base type via partial.
+    //
+    // Plus an "Id" exception: the PK lives on BaseEntity. Scaffolder always
+    // emits it as a property; we strip it here so the base wins.
+    //
+    // Note on soft-delete: IsDeleted / DeletedAt / DeletedBy are declared by
+    // ISoftDeletable (an *interface*, not a base class), so they MUST be
+    // emitted on the scaffolded entity — the interface is then satisfied by
+    // those scaffolded properties via the partial declaration.
+    //
+    // The decision is per-column-name (case-insensitive); add to this list when
+    // a future audit column lands in the base.
+    var auditColumnsToSkip = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+    {
+        "Id",
+        "CreatedAt", "CreatedBy",
+        "ModifiedAt", "ModifiedBy",
+        "RowVersion",
+    };
+
+    // Per-entity base class. Add an entry here whenever a new entity should
+    // inherit from one of the platform base classes. Entities NOT listed are
+    // emitted as plain POCOs (no base class), which is the default for join
+    // tables and pure read-models.
+    //
+    // Convention:
+    //   AggregateRoot   → root of an aggregate; raises domain events; gets
+    //                     audit + RowVersion via AuditableEntity → BaseEntity chain
+    //   AuditableEntity → audit + RowVersion only (entity inside an aggregate)
+    //   BaseEntity      → Guid Id + RowVersion only (no audit, no events)
+    //
+    // The matching using is added automatically when the entry is set.
+    var entityBaseClasses = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+    {
+        { "User",                   "AggregateRoot" },
+        { "PlatformOutboxMessage",  "BaseEntity"    },
+    };
+
+    // Map base class → namespace. Avoids over-importing every namespace into
+    // every scaffolded file when most entities only need one of these.
+    var basesNamespaces = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal)
+    {
+        { "AggregateRoot",   "Enterprise.Platform.Domain.Aggregates" },
+        { "AuditableEntity", "Enterprise.Platform.Domain.Entities"   },
+        { "BaseEntity",      "Enterprise.Platform.Domain.Entities"   },
+    };
+
+    var hasPlatformBase = entityBaseClasses.TryGetValue(EntityType.Name, out var platformBaseClass);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    var usings = new List<string>
+    {
+        "System",
+        "System.Collections.Generic"
+    };
+
+    if (hasPlatformBase && basesNamespaces.TryGetValue(platformBaseClass, out var baseNs))
+    {
+        usings.Add(baseNs);
+    }
+
+    if (Options.UseDataAnnotations)
+    {
+        usings.Add("System.ComponentModel.DataAnnotations");
+        usings.Add("System.ComponentModel.DataAnnotations.Schema");
+        usings.Add("Microsoft.EntityFrameworkCore");
+    }
+
+    if (!string.IsNullOrEmpty(NamespaceHint))
+    {
+#>
+namespace <#= NamespaceHint #>;
+
+<#
+    }
+
+    if (!string.IsNullOrEmpty(EntityType.GetComment()))
+    {
+#>
+/// <summary>
+/// <#= code.XmlComment(EntityType.GetComment()) #>
+/// </summary>
+<#
+    }
+
+    if (Options.UseDataAnnotations)
+    {
+        foreach (var dataAnnotation in EntityType.GetDataAnnotations(annotationCodeGenerator))
+        {
+#>
+<#= code.Fragment(dataAnnotation) #>
+<#
+        }
+    }
+#>
+public partial class <#= EntityType.Name #><#= hasPlatformBase ? " : " + platformBaseClass : "" #>
+{
+<#
+    var firstProperty = true;
+    foreach (var property in EntityType.GetProperties().OrderBy(p => p.GetColumnOrder() ?? -1))
+    {
+        // Skip columns owned by the platform base class — see auditColumnsToSkip
+        // at the top of the template. Only applies when this entity inherits a
+        // platform base; plain POCOs keep every column the schema declares.
+        if (hasPlatformBase && auditColumnsToSkip.Contains(property.GetColumnBaseName()))
+        {
+            continue;
+        }
+
+        if (!firstProperty)
+        {
+            WriteLine("");
+        }
+
+        if (!string.IsNullOrEmpty(property.GetComment()))
+        {
+#>
+    /// <summary>
+    /// <#= code.XmlComment(property.GetComment(), indent: 1) #>
+    /// </summary>
+<#
+        }
+
+        if (Options.UseDataAnnotations)
+        {
+            var dataAnnotations = property.GetDataAnnotations(annotationCodeGenerator)
+                .Where(a => !(a.Type == typeof(RequiredAttribute) && Options.UseNullableReferenceTypes && !property.ClrType.IsValueType));
+            foreach (var dataAnnotation in dataAnnotations)
+            {
+#>
+    <#= code.Fragment(dataAnnotation) #>
+<#
+            }
+        }
+
+        usings.AddRange(code.GetRequiredUsings(property.ClrType));
+
+        var needsNullable = Options.UseNullableReferenceTypes && property.IsNullable && !property.ClrType.IsValueType;
+        var needsInitializer = Options.UseNullableReferenceTypes && !property.IsNullable && !property.ClrType.IsValueType;
+#>
+    public <#= code.Reference(property.ClrType) #><#= needsNullable ? "?" : "" #> <#= property.Name #> { get; set; }<#= needsInitializer ? " = null!;" : "" #>
+<#
+        firstProperty = false;
+    }
+
+    foreach (var navigation in EntityType.GetNavigations())
+    {
+        WriteLine("");
+
+        if (Options.UseDataAnnotations)
+        {
+            foreach (var dataAnnotation in navigation.GetDataAnnotations(annotationCodeGenerator))
+            {
+#>
+    <#= code.Fragment(dataAnnotation) #>
+<#
+            }
+        }
+
+        var targetType = navigation.TargetEntityType.Name;
+        if (navigation.IsCollection)
+        {
+#>
+    public virtual ICollection<<#= targetType #>> <#= navigation.Name #> { get; set; } = new List<<#= targetType #>>();
+<#
+        }
+        else
+        {
+            var needsNullable = Options.UseNullableReferenceTypes && !(navigation.ForeignKey.IsRequired && navigation.IsOnDependent);
+            var needsInitializer = Options.UseNullableReferenceTypes && navigation.ForeignKey.IsRequired && navigation.IsOnDependent;
+#>
+    public virtual <#= targetType #><#= needsNullable ? "?" : "" #> <#= navigation.Name #> { get; set; }<#= needsInitializer ? " = null!;" : "" #>
+<#
+        }
+    }
+
+    foreach (var skipNavigation in EntityType.GetSkipNavigations())
+    {
+        WriteLine("");
+
+        if (Options.UseDataAnnotations)
+        {
+            foreach (var dataAnnotation in skipNavigation.GetDataAnnotations(annotationCodeGenerator))
+            {
+#>
+    <#= code.Fragment(dataAnnotation) #>
+<#
+            }
+        }
+#>
+    public virtual ICollection<<#= skipNavigation.TargetEntityType.Name #>> <#= skipNavigation.Name #> { get; set; } = new List<<#= skipNavigation.TargetEntityType.Name #>>();
+<#
+    }
+#>
+}
+<#
+    var previousOutput = GenerationEnvironment;
+    GenerationEnvironment = new StringBuilder();
+
+    foreach (var ns in usings.Distinct().OrderBy(x => x, new NamespaceComparer()))
+    {
+#>
+using <#= ns #>;
+<#
+    }
+
+    WriteLine("");
+
+    GenerationEnvironment.Append(previousOutput);
+#>

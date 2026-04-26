@@ -84,6 +84,11 @@ public sealed class NamingConventionTests
     [Fact]
     public void Concrete_Pipeline_Behaviors_Should_End_With_Behavior()
     {
+        // Reflection's Type.Name for open generics keeps the arity suffix
+        // (e.g. "LoggingBehavior`2"), so a literal `EndsWith("Behavior")` would
+        // never match. Match against a regex that allows the optional `\<digit>`
+        // tail — that way the convention applies whether the behavior is closed
+        // or open at inspection time.
         var result = Types.InAssembly(ApplicationAssembly)
             .That()
             .ImplementInterface(typeof(IPipelineBehavior<,>))
@@ -92,7 +97,7 @@ public sealed class NamingConventionTests
             .And()
             .AreNotInterfaces()
             .Should()
-            .HaveNameEndingWith("Behavior", StringComparison.Ordinal)
+            .HaveNameMatching(@"Behavior(`\d+)?$")
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(FormatFailingTypes(

@@ -1,0 +1,20 @@
+{
+  "databaseName": "App",
+
+  "entityRoot": "src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Entities",
+
+  "baseClassFiles": [
+    "src/Core/Enterprise.Platform.Domain/Entities/BaseEntity.cs",
+    "src/Core/Enterprise.Platform.Domain/Entities/AuditableEntity.cs",
+    "src/Core/Enterprise.Platform.Domain/Aggregates/AggregateRoot.cs"
+  ],
+
+  "dtoOutput":    "src/Contracts/Enterprise.Platform.Contracts/DTOs/App",
+  "mapperOutput": "src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Mappings",
+
+  "dtoNamespace":    "Enterprise.Platform.Contracts.DTOs.App",
+  "mapperNamespace": "Enterprise.Platform.Infrastructure.Persistence.App.Mappings",
+
+  "skipColumns": [ "RowVersion", "DomainEvents" ],
+  "skipFiles":   [ "*.Behavior.cs" ]
+}

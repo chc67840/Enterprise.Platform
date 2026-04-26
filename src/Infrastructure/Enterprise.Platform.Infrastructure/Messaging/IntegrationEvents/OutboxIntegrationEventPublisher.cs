@@ -1,18 +1,23 @@
 using System.Text.Json;
 using Enterprise.Platform.Domain.Events;
 using Enterprise.Platform.Infrastructure.Persistence.App.Contexts;
-using Enterprise.Platform.Infrastructure.Persistence.Outbox;
+using Enterprise.Platform.Infrastructure.Persistence.App.Entities;
 using Microsoft.AspNetCore.Http;
 
 namespace Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
 
 /// <summary>
-/// Real <see cref="IIntegrationEventPublisher"/> — persists the event to the outbox
-/// inside the caller's transaction so the "publish" only commits alongside the
-/// originating domain changes. Actual transmission happens asynchronously from
-/// <c>OutboxProcessorJob</c>. Replaces <c>NullIntegrationEventPublisher</c> whenever
-/// outbox is wired (post-Stage-4 hardening).
+/// Real <see cref="IIntegrationEventPublisher"/> — persists the event to the
+/// <c>PlatformOutboxMessage</c> table inside the caller's transaction so the
+/// "publish" only commits alongside the originating domain changes. Actual
+/// transmission happens asynchronously from <c>OutboxProcessorJob</c>.
 /// </summary>
+/// <remarks>
+/// Uses the scaffolded <see cref="PlatformOutboxMessage"/> entity (db-first
+/// pivot, Phase A). The pre-pivot hand-authored <c>OutboxMessage</c> class +
+/// <c>OutboxSchemaBootstrapper</c> were dropped in Phase C.3 — schema is now
+/// owned by <c>infra/db/scripts/App/001-initial.sql</c> + 003.
+/// </remarks>
 public sealed class OutboxIntegrationEventPublisher(
     AppDbContext context,
     IHttpContextAccessor? httpContextAccessor = null) : IIntegrationEventPublisher
@@ -29,16 +34,15 @@ public sealed class OutboxIntegrationEventPublisher(
 
         var payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), SerializerOptions);
 
-        var message = new OutboxMessage
-        {
-            Id = integrationEvent.EventId == Guid.Empty ? Guid.NewGuid() : integrationEvent.EventId,
-            EventType = integrationEvent.EventType,
-            Payload = payload,
-            CreatedAt = integrationEvent.OccurredOn.UtcDateTime,
-            CorrelationId = ResolveCorrelationId(),
-        };
+        // PlatformOutboxMessage.Create owns the EventId-as-PK dedupe rule —
+        // see PlatformOutboxMessage.Behavior.cs for why.
+        var message = PlatformOutboxMessage.Create(
+            integrationEvent,
+            payload,
+            ResolveCorrelationId(),
+            traceId: System.Diagnostics.Activity.Current?.TraceId.ToString());
 
-        await _context.PlatformOutbox.AddAsync(message, cancellationToken).ConfigureAwait(false);
+        await _context.PlatformOutboxMessage.AddAsync(message, cancellationToken).ConfigureAwait(false);
         // Persistence happens with the caller's SaveChanges / transaction commit —
         // intentional coupling so outbox writes never outlive a rolled-back command.
     }

@@ -81,10 +81,10 @@ public static class DependencyInjection
         // Integration events — outbox-backed publisher (persists with the caller's
         // transaction) + pluggable broker adapter (console logger by default; swap in
         // Azure Service Bus / RabbitMQ / Kafka when the real broker is provisioned).
-        // The outbox schema is ensured at startup by OutboxSchemaBootstrapper.
+        // Schema lives in infra/db/scripts/App/001-initial.sql + 003 — applied via
+        // tools/Enterprise.Platform.DbMigrator (no startup bootstrapper needed).
         services.AddScoped<IIntegrationEventPublisher, OutboxIntegrationEventPublisher>();
         services.AddSingleton<IIntegrationEventBroker, ConsoleIntegrationEventBroker>();
-        services.AddHostedService<Persistence.Outbox.OutboxSchemaBootstrapper>();
 
         // Resolve cache settings once — drives both the distributed-cache backend
         // choice (below) and the idempotency-store backend choice.

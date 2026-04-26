@@ -1,13 +1,59 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Enterprise.Platform.Shared\Enterprise.Platform.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Used by generated <Db>MappingRegistry.cs files so the Add<Db>Mappers()
+      extensions can return IServiceCollection. Abstractions-only — no runtime
+      DI implementation pulled in.
+    -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!--
+      Toggle for the DtoGen regen-on-build target below. Defaults to running
+      because the generator is idempotent and cheap when nothing changed.
+      Set <SkipDtoGen>true</SkipDtoGen> in CI / a Directory.Build.props override
+      when you want to *guarantee* the committed files are used as-is (e.g. the
+      schema-drift check job that asserts no regen would change anything).
+    -->
+    <SkipDtoGen Condition=" '$(SkipDtoGen)' == '' ">false</SkipDtoGen>
   </PropertyGroup>
+
+  <!--
+    DtoGen regen target. Runs the generator ahead of every Contracts compile so
+    DTOs and mappers track the scaffolded entities without a manual step.
+
+    Inputs / Outputs lets MSBuild skip the target on subsequent builds when no
+    entity file has changed (the common case). The sentinel "*Dto.cs" glob on
+    Outputs covers our default convention; if a future entity emits to a custom
+    output path, add it here too.
+
+    The target is conditioned on $(SkipDtoGen) so CI can opt out cleanly. The
+    real CI guard is a separate "drift" job that runs DtoGen and fails if the
+    working tree differs from the committed output (see DB-First-Workflow.md §5).
+  -->
+  <ItemGroup>
+    <EntityFilesForDtoGen Include="$(MSBuildThisFileDirectory)..\..\Infrastructure\Enterprise.Platform.Infrastructure\Persistence\App\Entities\*.cs"
+                          Exclude="$(MSBuildThisFileDirectory)..\..\Infrastructure\Enterprise.Platform.Infrastructure\Persistence\App\Entities\*.Behavior.cs" />
+    <GeneratedDtoOutputs Include="$(MSBuildThisFileDirectory)DTOs\App\*Dto.cs" />
+  </ItemGroup>
+
+  <Target Name="GenerateAppDtos"
+          BeforeTargets="BeforeBuild"
+          Condition=" '$(SkipDtoGen)' != 'true' "
+          Inputs="@(EntityFilesForDtoGen)"
+          Outputs="@(GeneratedDtoOutputs)">
+    <Message Text="DtoGen: regenerating DTOs + mappers for App database (entity file changed)" Importance="high" />
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)..\..\..\tools\Enterprise.Platform.DtoGen\Enterprise.Platform.DtoGen.csproj&quot; -- generate App"
+          WorkingDirectory="$(MSBuildThisFileDirectory)..\..\.." />
+  </Target>
 
 </Project>

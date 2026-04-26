@@ -160,7 +160,17 @@
       "Bash(find src/Infrastructure/Enterprise.Platform.Infrastructure/Messaging/DomainEvents -type f -name \"*.cs\")",
       "Bash(cat \"src/Core/Enterprise.Platform.Domain/Interfaces/IDomainEventDispatcher.cs\")",
       "Bash(ls src/app/core/observability/)",
-      "Bash(ls src/app/app.ts)"
+      "Bash(ls src/app/app.ts)",
+      "Bash(ls src/Core/Enterprise.Platform.Domain/ValueObjects/)",
+      "Bash(ls src/Core/Enterprise.Platform.Domain/Events/)",
+      "Bash(ls src/Core/Enterprise.Platform.Domain/Exceptions/)",
+      "Bash(cat src/Core/Enterprise.Platform.Application/Abstractions/Messaging/ICommand.cs)",
+      "Bash(cat src/Core/Enterprise.Platform.Application/Abstractions/Messaging/ICommandHandler.cs)",
+      "Bash(cat src/Core/Enterprise.Platform.Application/Abstractions/Messaging/IQuery.cs)",
+      "Bash(dotnet new *)",
+      "Bash(rmdir src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Configurations src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Repositories src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Projections)",
+      "Bash(rmdir src/API/Enterprise.Platform.Api/Endpoints/v1/Users)",
+      "Bash(python -c \"import json; json.load\\(open\\('src/API/Enterprise.Platform.Api/appsettings.Development.json'\\)\\)\")"
     ]
   }
 }

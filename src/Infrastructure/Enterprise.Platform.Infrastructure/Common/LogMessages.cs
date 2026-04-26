@@ -40,15 +40,11 @@ internal static partial class LogMessages
     [LoggerMessage(EventId = 2201, Level = LogLevel.Information, Message = "Cache region '{Region}' invalidation requested but the active provider doesn't support prefix-scans; entries will fall out by TTL. Wire RedisCacheRegionInvalidator to make this immediate.")]
     public static partial void CacheRegionInvalidationDeferred(this ILogger logger, string region);
 
-    // 2700–2799 — Outbox + integration events (extension to existing range)
+    // 2700–2799 — Outbox + integration events (extension to existing range).
+    // 2701/2702 (table verified / table ensure failed) were retired in Phase C.3;
+    // schema is now owned by the DbMigrator + infra/db/scripts/App/*.sql.
     [LoggerMessage(EventId = 2700, Level = LogLevel.Information, Message = "Integration event published: {EventType} / {MessageId} (correlation={CorrelationId}, attempt={AttemptCount}).")]
     public static partial void IntegrationEventPublished(this ILogger logger, string eventType, Guid messageId, string correlationId, int attemptCount);
-
-    [LoggerMessage(EventId = 2701, Level = LogLevel.Information, Message = "PlatformOutboxMessages table verified/created.")]
-    public static partial void OutboxTableVerified(this ILogger logger);
-
-    [LoggerMessage(EventId = 2702, Level = LogLevel.Error, Message = "Failed to ensure PlatformOutboxMessages table — outbox operations will fail until this is resolved.")]
-    public static partial void OutboxTableEnsureFailed(this ILogger logger, Exception exception);
 
     // 2300–2399 — File storage / email
     [LoggerMessage(EventId = 2300, Level = LogLevel.Debug, Message = "LocalFileStorage: {Operation} {Container}/{Blob}.")]
