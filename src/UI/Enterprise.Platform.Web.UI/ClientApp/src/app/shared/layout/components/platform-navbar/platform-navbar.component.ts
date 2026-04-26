@@ -406,11 +406,16 @@ import type {
         .ep-navbar { border-radius: 0; box-shadow: none; }
       }
       .ep-navbar--sticky { position: sticky; top: 0; }
-      .ep-navbar--glass.ep-navbar--scrolled {
-        background-color: color-mix(in srgb, var(--ep-color-primary-700) 88%, transparent);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-      }
+      /*
+       * Glass-morphism on scroll — intentionally a no-op. The earlier
+       * implementation dropped opacity to 88% + applied backdrop-blur,
+       * which let page text bleed through the indigo chrome and reads
+       * as "the navbar background broke" rather than premium glass. We
+       * keep the .ep-navbar--glass class hook in case a future surface
+       * (lighter brand variant, marketing site) wants to opt back in,
+       * but the production navbar stays fully opaque at every scroll
+       * position.
+       */
 
       .ep-navbar__row {
         display: flex;
@@ -421,13 +426,14 @@ import type {
         /*
          * Hard cap at 100% so an over-eager descendant (rare, but possible
          * when a third-party widget mounts a wide popover root inline) can
-         * never make the row itself wider than the viewport. Combined with
-         * overflow-x:hidden on main (app-shell) and min-width:0 on the
-         * centre/right zones below, the page can never develop a
-         * horizontal scrollbar at any breakpoint.
+         * never make the row itself wider than the viewport. overflow-x:clip
+         * (not hidden) avoids creating a scrolling container — important
+         * because the parent <nav> uses position:sticky, and a scrolling
+         * ancestor would scope the sticky to that container instead of the
+         * document, breaking page-scroll stickiness.
          */
         max-width: 100%;
-        overflow-x: hidden;
+        overflow-x: clip;
       }
       @media (min-width: 640px) { .ep-navbar__row { padding: 0 1.5rem; } }
       @media (min-width: 1024px) { .ep-navbar__row { padding: 0 2rem; } }
