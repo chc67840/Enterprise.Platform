@@ -27,6 +27,7 @@ import { type Menu, MenuModule } from 'primeng/menu';
 import { AvatarModule } from 'primeng/avatar';
 import type { MenuItem } from 'primeng/api';
 
+import { toInitials } from '@utils';
 import type {
   NavActionEvent,
   NavLogoutEvent,
@@ -179,13 +180,10 @@ export class UserMenuButtonComponent {
   protected readonly initials = computed<string>(() => {
     const p = this.profile();
     if (!p) return '?';
-    const name = p.displayName.trim();
-    if (name) {
-      const parts = name.split(/\s+/).filter(Boolean);
-      const first = parts[0]?.[0] ?? '';
-      const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
-      return (first + last).toUpperCase() || '?';
-    }
+    // Prefer displayName-derived initials; fall back to first email character
+    // when the user has no display name yet (e.g. fresh sign-in).
+    const fromName = toInitials(p.displayName);
+    if (fromName !== '?') return fromName;
     return p.email.charAt(0).toUpperCase() || '?';
   });
 

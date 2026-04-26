@@ -11,9 +11,10 @@
  */
 import { Injectable, computed, signal } from '@angular/core';
 
+import { STORAGE_KEYS } from '@constants';
 import type { DomainKey } from '@shared/layout/domains';
 
-const STORAGE_KEY = 'ep:active-domain';
+const STORAGE_KEY = STORAGE_KEYS.DOMAIN;
 const DEFAULT_DOMAIN: DomainKey = 'finance';
 
 @Injectable({ providedIn: 'root' })

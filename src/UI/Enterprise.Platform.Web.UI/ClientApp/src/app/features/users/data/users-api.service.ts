@@ -35,6 +35,7 @@ import { Injectable, inject } from '@angular/core';
 import { type Observable, map } from 'rxjs';
 
 import { API_BASE_URL } from '@core/http/api-config.token';
+import { generateIdempotencyKey } from '@utils';
 
 import {
   type ChangeUserEmailRequest,
@@ -146,7 +147,7 @@ export class UsersApiService {
    * `/api/v1/*` (per `MapPlatformApiV1Group()`).
    */
   private idempotencyHeader(options: MutationOptions): HttpHeaders {
-    const key = options.idempotencyKey?.trim() || crypto.randomUUID();
+    const key = options.idempotencyKey?.trim() || generateIdempotencyKey();
     return new HttpHeaders({ 'Idempotency-Key': key });
   }
 }

@@ -37,6 +37,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { RouterLink } from '@angular/router';
 import { TooltipModule } from 'primeng/tooltip';
 
+import { STORAGE_KEYS } from '@constants';
 import type {
   ComplianceBadge,
   FooterConfig,
@@ -45,7 +46,7 @@ import type {
   SocialPlatform,
 } from '@shared/layout';
 
-const COOKIE_CONSENT_KEY = 'ep:cookie-consent:accepted';
+const COOKIE_CONSENT_KEY = STORAGE_KEYS.COOKIE_CONSENT;
 
 interface ComplianceMeta {
   readonly icon: string;
