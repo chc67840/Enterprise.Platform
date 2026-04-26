@@ -164,12 +164,44 @@
   --font-mono:      var(--ep-font-mono);
 }
 
-/* Baseline — intentionally minimal. */
+/*
+ * Baseline — intentionally minimal.
+ *
+ * SCROLL MODEL (locked-in for now): document scroll. The window owns the
+ * scroll; the navbar uses position:sticky against the document. We DO NOT
+ * adopt the "app-scroll" pattern (body:overflow:hidden + main as scroll
+ * owner) because (a) we have no sidebar / data tables / split panes that
+ * require it, (b) it would invalidate the sticky context on the navbar,
+ * and (c) Angular Router's built-in scrollPositionRestoration only works
+ * for window scroll.
+ *
+ * Forbidden patterns under the document-scroll model:
+ *   - position:fixed on in-page chrome that should scroll with content
+ *   - height:100vh anywhere (use 100dvh — fixes iOS Safari toolbar bug)
+ *   - overflow:hidden on body (kills page scroll entirely)
+ *   - manual window.scrollY listeners for layout decisions (use IntersectionObserver)
+ *
+ * If/when the first data table with frozen headers, split pane, or
+ * virtual-scroll feed lands, revisit and migrate to app-scroll
+ * surgically (one feature at a time).
+ */
 html,
 body {
   height: 100%;
   background: var(--ep-surface-0);
   color: var(--ep-text-primary);
+}
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
+
+html {
+  /* Reserves the scrollbar gutter at all times so content doesn't jump
+   * horizontally when a page goes from short → long (scrollbar appears). */
+  scrollbar-gutter: stable;
+  /* Smooth in-page anchor scrolling — respects prefers-reduced-motion
+   * automatically per CSS spec. */
+  scroll-behavior: smooth;
 }
 
 body {
@@ -181,6 +213,38 @@ body {
   line-height: var(--ep-leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Stops iOS rubber-band scroll past the document edges from bouncing
+   * the underlying chrome (status banners, sticky navbar). */
+  overscroll-behavior-y: none;
+}
+
+/*
+ * Print media reset — without this, position:sticky / fixed elements +
+ * fixed-height containers print as a single viewport-sized box, wasting
+ * pages. Applies to every page; reports + audit pages depend on it.
+ */
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .ep-navbar,
+  .ep-mobile-menu,
+  .ep-mobile-backdrop,
+  .ep-footer__accent,
+  app-status-banner-host,
+  p-toast,
+  p-confirmdialog {
+    display: none !important;
+  }
+  .ep-navbar { border-radius: 0 !important; box-shadow: none !important; }
+  /* Long URLs after links so print is self-describing. */
+  a[href]::after { content: ' (' attr(href) ')'; font-size: 0.75em; color: #555; }
+  a[href^='#']::after,
+  a[href^='javascript']::after { content: ''; }
+  /* Avoid widows / orphans inside data rows when tables eventually arrive. */
+  tr, li { page-break-inside: avoid; }
 }
 
 /* Uniform focus ring — used by `:focus-visible` across primitives. */

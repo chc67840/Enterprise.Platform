@@ -71,9 +71,10 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
 
       <main
         class="mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
-        style="overflow-x: clip;"
+        style="overflow-x: clip; overscroll-behavior: contain;"
         role="main"
         id="main-content"
+        tabindex="-1"
       >
         <router-outlet />
       </main>

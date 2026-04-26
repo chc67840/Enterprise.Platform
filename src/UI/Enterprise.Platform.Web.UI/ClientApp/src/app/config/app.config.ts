@@ -50,6 +50,7 @@ import {
 import {
   provideRouter,
   withComponentInputBinding,
+  withInMemoryScrolling,
   withPreloading,
   withRouterConfig,
   withViewTransitions,
@@ -67,6 +68,7 @@ import { loadRuntimeConfig } from './runtime-config';
 import { AuthService } from '@core/auth/auth.service';
 import { LoggerService } from '@core/services/logger.service';
 import { CspViolationReporterService } from '@core/services/csp-violation-reporter.service';
+import { FocusManagementService } from '@core/services/focus-management.service';
 
 import {
   cacheInterceptor,
@@ -94,6 +96,18 @@ export const appConfig: ApplicationConfig = {
       withViewTransitions(),
       withRouterConfig({ onSameUrlNavigation: 'reload' }),
       withPreloading(CustomPreloader),
+      /*
+       * Browser back/forward restores the previous scroll position;
+       * fresh navigations scroll to top; in-page #fragment links jump
+       * to the anchored element. Works with the document-scroll model
+       * we run today — no custom service needed. If we ever migrate
+       * to app-scroll, this becomes a no-op and we'd need a manual
+       * ScrollRestorationService scoped to the new scroll owner.
+       */
+      withInMemoryScrolling({
+        scrollPositionRestoration: 'enabled',
+        anchorScrolling: 'enabled',
+      }),
     ),
 
     // ── 4. HTTP client + interceptor chain ──────────────────────────────
@@ -181,6 +195,18 @@ export const appConfig: ApplicationConfig = {
      */
     provideAppInitializer(() => {
       inject(CspViolationReporterService).register();
+    }),
+
+    // ── 9.b APP INITIALIZER — focus <main> after navigation (WCAG 2.4.3) ─
+    /*
+     * Screen readers stay on the previously focused element on the OLD
+     * page after an Angular SPA route change. FocusManagementService
+     * subscribes to NavigationEnd and moves keyboard focus to <main>
+     * with preventScroll:true so it doesn't fight the router's scroll
+     * restoration (enabled above in withInMemoryScrolling).
+     */
+    provideAppInitializer(() => {
+      inject(FocusManagementService).init();
     }),
 
     // ── 10. Locale ───────────────────────────────────────────────────────
