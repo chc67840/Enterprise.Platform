@@ -24,6 +24,7 @@ import {
   signal,
 } from '@angular/core';
 import { HttpClient, type HttpErrorResponse } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '@core/auth/auth.service';
 import { AuthStore } from '@core/auth/auth.store';
@@ -50,14 +51,29 @@ type VerifyState =
   selector: 'app-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink],
   template: `
     <section class="space-y-6">
-      <header>
-        <h2 class="text-2xl font-semibold tracking-tight text-gray-900">
-          Welcome, {{ auth.displayName() || auth.email() }}
-        </h2>
-        <p class="mt-1 text-sm text-gray-500">Phase 1 scaffold — stabilization complete.</p>
-      </header>
+      <!--
+        Page title now lives in the SubNavOrchestrator's <app-page-header>,
+        sourced from route data (data.pageHeader). The personalised greeting
+        below is page-specific content, not the page title — it stays here.
+      -->
+      @if (auth.displayName() || auth.email()) {
+        <p class="text-sm text-gray-700">
+          Welcome, <strong>{{ auth.displayName() || auth.email() }}</strong>.
+        </p>
+      }
+
+      <!-- ⚠ TEMPORARY DEMO LAUNCHER — remove with the demo route. -->
+      <a
+        routerLink="/demo/sub-nav"
+        class="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200"
+      >
+        <i class="pi pi-bolt" aria-hidden="true"></i>
+        Open Sub-Nav Demo (visual test rig)
+      </a>
+      <!-- ⚠ END DEMO LAUNCHER -->
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200">

@@ -24,7 +24,7 @@ import { AuthService, AuthStore, SessionMonitorService } from '@core/auth';
 import { DomainStore, LoggerService, NavbarConfigService } from '@core/services';
 import { GlobalProgressBarComponent } from '@shared/components/global-progress-bar/global-progress-bar.component';
 import { SessionExpiringDialogComponent } from '@shared/components/session-expiring-dialog/session-expiring-dialog.component';
-import { StatusBannerHostComponent } from '@shared/components/status-banner/status-banner-host.component';
+import { SubNavOrchestratorComponent } from '@shared/layout/sub-nav';
 import {
   PlatformFooterV2Component,
   PlatformNavbarComponent,
@@ -50,7 +50,7 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
     GlobalProgressBarComponent,
     SessionExpiringDialogComponent,
     PlatformNavbarComponent,
-    StatusBannerHostComponent,
+    SubNavOrchestratorComponent,
     PlatformFooterV2Component,
   ],
   template: `
@@ -67,7 +67,7 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
         (logout)="onLogout($event)"
       />
 
-      <app-status-banner-host />
+      <app-sub-nav-orchestrator (action)="onPageHeaderAction($event)" />
 
       <main
         class="mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
@@ -164,6 +164,10 @@ export class AppShellComponent {
       case 'language.change':
         // Future: i18n service hook.
         return;
+      case 'nav.home':
+        return void this.router.navigateByUrl('/');
+      case 'users.create':
+        return void this.router.navigateByUrl('/users/new');
     }
   }
 
@@ -189,6 +193,17 @@ export class AppShellComponent {
 
   onSearched(e: NavSearchEvent): void {
     this.log.info('shell.searched', e);
+  }
+
+  /**
+   * Page-header action dispatcher. Bridges the (action) emitter from the
+   * sub-nav orchestrator into our existing nav-action pipeline so feature
+   * pages have ONE place to handle CTA clicks regardless of source
+   * (navbar widget, page-header button, status-banner CTA).
+   */
+  onPageHeaderAction(actionKey: string): void {
+    this.log.info('shell.pageHeaderAction', { actionKey });
+    this.onNavAction({ source: 'menu', actionKey });
   }
 
   onLogout(e: NavLogoutEvent): void {

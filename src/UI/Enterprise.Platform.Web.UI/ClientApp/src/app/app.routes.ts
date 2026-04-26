@@ -71,9 +71,21 @@ export const routes: Routes = [
           breadcrumb: 'Dashboard',
           showInNav: true,
           preload: true,
+          pageHeader: {
+            title: 'Dashboard',
+            subtitle: 'Phase 1 scaffold — stabilization complete.',
+            icon: 'pi pi-home',
+          },
         } satisfies RouteMetadata,
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
+      },
+      // ⚠ TEMPORARY DEMO — see src/app/features/__demo/sub-nav-demo.component.ts header for removal checklist.
+      {
+        path: 'demo/sub-nav',
+        title: 'Sub-Nav Demo',
+        loadChildren: () =>
+          import('./features/__demo/sub-nav-demo.routes').then((m) => m.SUB_NAV_DEMO_ROUTES),
       },
       {
         path: 'users',
@@ -95,9 +107,26 @@ export const routes: Routes = [
       // Sits last so explicit child routes always match first. The top-level
       // catch-all below remains as a fallback for non-shell paths (auth/error
       // sub-trees that don't match any of their declared children).
+      //
+      // pageHeader is declared so the SubNavOrchestrator owns the <h1> +
+      // gives proper breathing room between navbar and content. Without it
+      // the orchestrator renders an empty 0px container and the card slams
+      // up against the navbar.
       {
         path: '**',
         title: 'Page not found',
+        data: {
+          pageHeader: {
+            title: 'Page not found',
+            subtitle: 'The URL you followed does not match any route in this app.',
+            icon: 'pi pi-question-circle',
+            primaryAction: {
+              label: 'Return home',
+              icon: 'pi pi-home',
+              actionKey: 'nav.home',
+            },
+          },
+        } satisfies RouteMetadata,
         loadComponent: () =>
           import('./features/error-pages/not-found/not-found.component').then(
             (m) => m.NotFoundComponent,
