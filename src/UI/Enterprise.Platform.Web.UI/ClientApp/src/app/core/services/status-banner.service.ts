@@ -46,6 +46,8 @@
  */
 import { Injectable, computed, signal } from '@angular/core';
 
+import { STORAGE_KEYS } from '@constants';
+
 /** Severity drives both visual treatment AND ARIA live-region behavior. */
 export type StatusBannerSeverity =
   | 'info'
@@ -103,7 +105,7 @@ export interface StatusBanner {
   readonly icon?: string;
 }
 
-const DISMISS_STORAGE_KEY = 'ep:status-banner:dismissed';
+const DISMISS_STORAGE_KEY = STORAGE_KEYS.BANNER_DISMISSED;
 
 @Injectable({ providedIn: 'root' })
 export class StatusBannerService {

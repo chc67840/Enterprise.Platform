@@ -34,19 +34,9 @@ import { inject } from '@angular/core';
 import { finalize } from 'rxjs';
 
 import { CorrelationContextService } from '@core/services/correlation-context.service';
+import { generateCorrelationId } from '@utils';
 
 const CORRELATION_HEADER = 'X-Correlation-ID';
-
-/** Generates a correlation id. `crypto.randomUUID` is widely supported. */
-function generateCorrelationId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  // Fallback for environments without `crypto.randomUUID` (e.g. some jsdom
-  // configurations under test). Not cryptographically strong — that's fine,
-  // correlation ids are not security tokens.
-  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-}
 
 export const correlationInterceptor: HttpInterceptorFn = (req, next) => {
   const existing = req.headers.get(CORRELATION_HEADER);

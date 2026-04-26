@@ -33,13 +33,17 @@
 
     /* Path aliases — tier model */
     "paths": {
-      "@core/*":     ["src/app/core/*"],
-      "@shared/*":   ["src/app/shared/*"],
-      "@features/*": ["src/app/features/*"],
-      "@layouts/*":  ["src/app/layouts/*"],
-      "@config/*":   ["src/app/config/*"],
-      "@models/*":   ["src/app/core/models/*"],
-      "@env/*":      ["src/environments/*"]
+      "@core/*":      ["src/app/core/*"],
+      "@shared/*":    ["src/app/shared/*"],
+      "@features/*":  ["src/app/features/*"],
+      "@layouts/*":   ["src/app/layouts/*"],
+      "@config/*":    ["src/app/config/*"],
+      "@models/*":    ["src/app/core/models/*"],
+      "@env/*":       ["src/environments/*"],
+      "@utils":       ["src/app/shared/utils"],
+      "@utils/*":     ["src/app/shared/utils/*"],
+      "@constants":   ["src/app/shared/constants"],
+      "@constants/*": ["src/app/shared/constants/*"]
     }
   },
   "angularCompilerOptions": {

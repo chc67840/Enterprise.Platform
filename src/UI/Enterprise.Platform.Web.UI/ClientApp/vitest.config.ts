@@ -41,6 +41,8 @@ export default defineConfig({
       '@config': r('src/app/config'),
       '@models': r('src/app/core/models'),
       '@env': r('src/environments'),
+      '@utils': r('src/app/shared/utils'),
+      '@constants': r('src/app/shared/constants'),
     },
   },
   test: {

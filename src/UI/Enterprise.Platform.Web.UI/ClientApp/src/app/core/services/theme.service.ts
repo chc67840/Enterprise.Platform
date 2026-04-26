@@ -31,10 +31,12 @@
  */
 import { DOCUMENT, Injectable, computed, effect, inject, signal } from '@angular/core';
 
+import { STORAGE_KEYS } from '@constants';
+
 import { LoggerService } from './logger.service';
 
 /** localStorage key for the user's preferred mode. */
-const THEME_KEY = 'ep:theme-mode';
+const THEME_KEY = STORAGE_KEYS.THEME;
 
 /** CSS class added to `<html>` when dark mode is active. Matches PrimeNG config. */
 const DARK_CLASS = 'dark';
