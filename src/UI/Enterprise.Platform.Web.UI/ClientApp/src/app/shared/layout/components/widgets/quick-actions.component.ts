@@ -15,6 +15,7 @@ import {
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { type Popover, PopoverModule } from 'primeng/popover';
 import { TooltipModule } from 'primeng/tooltip';
@@ -38,12 +39,20 @@ import type {
       [pTooltip]="config().label ?? 'Quick actions'"
       tooltipPosition="bottom"
       [attr.aria-label]="config().label ?? 'Quick actions'"
-      (click)="popover.toggle($event)"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="isOpen()"
+      (click)="onTriggerClick($event)"
     >
       <i [class]="config().icon ?? 'pi pi-plus'" aria-hidden="true"></i>
     </button>
 
-    <p-popover #popover styleClass="w-[200px]">
+    <p-popover
+      #popover
+      appendTo="body"
+      styleClass="w-[200px]"
+      (onShow)="isOpen.set(true)"
+      (onHide)="isOpen.set(false)"
+    >
       <header class="border-b border-[color:var(--ep-color-neutral-200)] px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--ep-color-neutral-500)]">
         {{ config().label ?? 'Quick actions' }}
       </header>
@@ -77,8 +86,8 @@ import type {
     `
       .ep-qa-trigger {
         display: inline-flex;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 2.75rem;
+        width: 2.75rem;
         align-items: center;
         justify-content: center;
         border-radius: 0.375rem;
@@ -113,6 +122,15 @@ export class QuickActionsComponent {
   readonly action = output<NavActionEvent>();
 
   @ViewChild('popover') popover!: Popover;
+
+  /** Mirrors PrimeNG onShow/onHide for the trigger's aria-expanded. */
+  protected readonly isOpen = signal<boolean>(false);
+
+  /** stopPropagation prevents stale popover document listeners from eating the open click. */
+  protected onTriggerClick(event: Event): void {
+    event.stopPropagation();
+    this.popover.toggle(event);
+  }
 
   protected readonly visibleActions = computed<readonly QuickAction[]>(() =>
     this.config().actions.filter((a) => this.isAllowed(a.permission)),

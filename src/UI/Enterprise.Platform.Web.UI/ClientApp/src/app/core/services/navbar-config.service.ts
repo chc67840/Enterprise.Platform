@@ -25,7 +25,7 @@
  *   the UI doesn't flash empty chrome. First-time errors fall through to
  *   the static `DOMAIN_CHROME_REGISTRY[domain]` snapshot.
  */
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 
@@ -49,6 +49,13 @@ export class NavbarConfigService {
   private readonly domains = inject(DomainStore);
   private readonly authService = inject(AuthService);
   private readonly authStore = inject(AuthStore);
+  /**
+   * Captured at construction so `takeUntilDestroyed(destroyRef)` works from
+   * `fetch()` — which is invoked from the `_autoReload` effect callback and
+   * from the public `refresh()` method, neither of which runs in injection
+   * context. The arg-less overload would NG0203 there.
+   */
+  private readonly destroyRef = inject(DestroyRef);
 
   // ── state signals ──────────────────────────────────────────────────────
 
@@ -113,7 +120,7 @@ export class NavbarConfigService {
           this.error.set(err);
           return of<DomainChromeConfig | null>(null);
         }),
-        takeUntilDestroyed(),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((cfg) => {
         if (cfg) {

@@ -34,6 +34,15 @@
 @import './styles/fonts.css';
 @import './styles/animations.css';
 
+/*
+ * PrimeIcons font (registers @font-face primeicons + every `.pi-*` glyph
+ * class). MUST land in the @import block — CSS spec requires every @import
+ * to precede any other at-rule. Without this line, every `<i class="pi pi-…">`
+ * across the app renders as an empty box because the font never loads, even
+ * though the class compiles down to font-family: 'primeicons' + content code.
+ */
+@import 'primeicons/primeicons.css';
+
 @import 'tailwindcss';
 
 @theme inline {
@@ -179,4 +188,66 @@ body {
   outline: none;
   box-shadow: var(--ep-shadow-focus);
   border-radius: var(--ep-radius-md);
+}
+
+/*
+ * ─── CHROME INTERACTION GUARDS (production-hardened) ─────────────────────────
+ *
+ * Targets every interactive element inside the canonical chrome surfaces
+ * (.ep-navbar, .ep-mobile-menu, .ep-footer). Lives in global styles.css so
+ * it cascades through component encapsulation boundaries — sub-components
+ * (app-nav-menu, app-user-menu-button, app-notification-bell, etc.) inherit
+ * automatically without each needing to re-implement the rule.
+ *
+ * 1. touch-action: manipulation
+ *      Eliminates the 300 ms double-tap-zoom delay on iOS Safari + older
+ *      Android Chrome. Without it, every tap waits up to 300 ms to see if
+ *      a second tap arrives → users perceive the navbar as unresponsive
+ *      and tap repeatedly, sometimes opening + immediately closing menus.
+ *
+ * 2. -webkit-tap-highlight-color: transparent
+ *      Suppresses the gray flash overlay that mobile WebKit paints over
+ *      tapped controls. Visually breaks our brand focus rings.
+ *
+ * 3. Children of buttons/links: pointer-events: none + user-select: none
+ *      The single most impactful UX fix in any chrome refactor: when an
+ *      <i>, <span>, or <svg> sits inside <button>/<a>, mobile browsers
+ *      sometimes deliver the tap event to the child node rather than the
+ *      button. The (click) handler is on the button → nothing fires → user
+ *      taps again. This rule forces every tap on the button surface (and
+ *      its painted children) to register on the button itself.
+ *
+ *      We intentionally exclude children that carry their OWN role/aria
+ *      contract (e.g. nested action items inside a menu); those want the
+ *      events.
+ *
+ * Scope: opt-in via the chrome class names so app content (forms, tables,
+ * editors) keeps its native click behaviour.
+ */
+.ep-navbar a,
+.ep-navbar button,
+.ep-mobile-menu a,
+.ep-mobile-menu button,
+.ep-footer a,
+.ep-footer button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ep-navbar a > i,
+.ep-navbar a > svg,
+.ep-navbar a > span:not([role]):not([aria-label]),
+.ep-navbar button > i,
+.ep-navbar button > svg,
+.ep-navbar button > span:not([role]):not([aria-label]),
+.ep-mobile-menu a > i,
+.ep-mobile-menu a > svg,
+.ep-mobile-menu button > i,
+.ep-mobile-menu button > svg,
+.ep-footer a > i,
+.ep-footer a > svg,
+.ep-footer button > i,
+.ep-footer button > svg {
+  pointer-events: none;
+  user-select: none;
 }

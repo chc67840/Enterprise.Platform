@@ -128,10 +128,17 @@ import type {
           </a>
 
           @if (showEnvBadge()) {
+            <!--
+              Decorative status indicator. The visible glyph already conveys
+              the environment to sighted users; assistive tech doesn't need
+              to navigate to a non-interactive label, so aria-hidden plus
+              pointer-events:none keeps it out of both the tab order and
+              the click event chain.
+            -->
             <span
               class="ep-env-badge"
               [attr.data-env]="config().leftZone.logo.envBadge"
-              [attr.aria-label]="'Environment: ' + config().leftZone.logo.envBadge"
+              aria-hidden="true"
             >{{ config().leftZone.logo.envBadge }}</span>
           }
 
@@ -177,11 +184,11 @@ import type {
           @if (config().rightZone.globalSearch?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn"
+              class="ep-icon-btn ep-navbar__hide-md"
               [pTooltip]="searchTooltip()"
               tooltipPosition="bottom"
               [attr.aria-label]="config().rightZone.globalSearch!.placeholder ?? 'Open search'"
-              (click)="onSearchClick()"
+              (click)="onSearchClick($event)"
             >
               <i class="pi pi-search" aria-hidden="true"></i>
             </button>
@@ -190,11 +197,11 @@ import type {
           @if (config().rightZone.aiAssistant?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn ep-icon-btn--accent"
+              class="ep-icon-btn ep-icon-btn--accent ep-navbar__hide-md"
               [pTooltip]="config().rightZone.aiAssistant!.label ?? 'AI assistant'"
               tooltipPosition="bottom"
               [attr.aria-label]="config().rightZone.aiAssistant!.label ?? 'Open AI assistant'"
-              (click)="onAiClick()"
+              (click)="onAiClick($event)"
             >
               <i [class]="(config().rightZone.aiAssistant!.icon ?? 'pi pi-sparkles')" aria-hidden="true"></i>
             </button>
@@ -202,6 +209,7 @@ import type {
 
           @if (config().rightZone.quickActions?.enabled) {
             <app-quick-actions
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.quickActions!"
               (action)="navAction.emit($event)"
             />
@@ -209,6 +217,7 @@ import type {
 
           @if (config().rightZone.messages?.enabled) {
             <app-notification-bell
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.messages!"
               [notifications]="messageItems()"
               heading="Messages"
@@ -219,6 +228,7 @@ import type {
 
           @if (config().rightZone.notifications?.enabled) {
             <app-notification-bell
+              class="ep-navbar__hide-sm"
               [config]="config().rightZone.notifications!"
               [notifications]="notifications()"
               heading="Notifications"
@@ -230,11 +240,11 @@ import type {
           @if (config().rightZone.help?.enabled) {
             <button
               type="button"
-              class="ep-icon-btn"
+              class="ep-icon-btn ep-navbar__hide-md"
               [pTooltip]="config().rightZone.help!.label ?? 'Help'"
               tooltipPosition="bottom"
               aria-label="Open help"
-              (click)="onHelpClick()"
+              (click)="onHelpClick($event)"
             >
               <i [class]="config().rightZone.help!.icon ?? 'pi pi-question-circle'" aria-hidden="true"></i>
             </button>
@@ -242,6 +252,7 @@ import type {
 
           @if (config().rightZone.themeToggle?.enabled) {
             <app-theme-toggle-button
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.themeToggle!"
               tone="dark"
             />
@@ -249,6 +260,7 @@ import type {
 
           @if (config().rightZone.languageSwitcher?.enabled) {
             <app-language-switcher
+              class="ep-navbar__hide-md"
               [config]="config().rightZone.languageSwitcher!"
               (languageChanged)="onLanguageChanged($event)"
             />
@@ -280,7 +292,8 @@ import type {
             type="button"
             class="ep-icon-btn ep-hamburger"
             [attr.aria-expanded]="isMobileMenuOpen()"
-            aria-label="Toggle navigation menu"
+            aria-controls="ep-mobile-menu"
+            [attr.aria-label]="isMobileMenuOpen() ? 'Close navigation menu' : 'Open navigation menu'"
             (click)="toggleMobileMenu()"
           >
             <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
@@ -289,21 +302,38 @@ import type {
       </div>
     </nav>
 
-    <!-- Mobile menu overlay — fixed below the navbar; CSS toggles via [data-open]. -->
-    <div
-      class="ep-mobile-menu"
-      [attr.data-open]="isMobileMenuOpen()"
-      role="dialog"
-      aria-label="Navigation menu"
-      [attr.aria-hidden]="!isMobileMenuOpen()"
-    >
-      <app-nav-menu
-        [config]="config().centerZone.menu"
-        tone="light"
-        layout="vertical"
-        (action)="onMobileNavAction($event)"
-      />
-    </div>
+    <!--
+      Mobile drawer — @if-mounted (NOT CSS-toggled).
+      Removing the drawer from the DOM when closed kills three classes of bug:
+        a) duplicate <nav> landmarks announced by screen readers
+        b) hidden tab stops the user can still reach via keyboard
+        c) click-outside listeners firing against an invisible-but-present element
+
+      Layout: full-height side panel (left edge → max 320px or 85vw). The
+      remaining 15%+ of the viewport stays uncovered so a backdrop tap can
+      dismiss the drawer — non-negotiable mobile UX pattern.
+    -->
+    @if (isMobileMenuOpen()) {
+      <div
+        class="ep-mobile-backdrop"
+        (click)="closeMobileMenu()"
+        aria-hidden="true"
+      ></div>
+      <div
+        id="ep-mobile-menu"
+        class="ep-mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+      >
+        <app-nav-menu
+          [config]="config().centerZone.menu"
+          tone="light"
+          layout="vertical"
+          (action)="onMobileNavAction($event)"
+        />
+      </div>
+    }
   `,
   styles: [
     /*
@@ -359,6 +389,16 @@ import type {
         gap: 0.75rem;
         height: var(--nav-height);
         padding: 0 1rem;
+        /*
+         * Hard cap at 100% so an over-eager descendant (rare, but possible
+         * when a third-party widget mounts a wide popover root inline) can
+         * never make the row itself wider than the viewport. Combined with
+         * overflow-x:hidden on main (app-shell) and min-width:0 on the
+         * centre/right zones below, the page can never develop a
+         * horizontal scrollbar at any breakpoint.
+         */
+        max-width: 100%;
+        overflow-x: hidden;
       }
       @media (min-width: 640px) { .ep-navbar__row { padding: 0 1.5rem; } }
       @media (min-width: 1024px) { .ep-navbar__row { padding: 0 2rem; } }
@@ -393,6 +433,20 @@ import type {
         background-color: var(--ep-color-jessamine-500);
         color: var(--ep-color-primary-900);
       }
+      /*
+       * Brand text + sub-text + logo are presentational children of the
+       * brand <a>. Explicitly opt out of pointer events / selection so the
+       * entire bounding box of the <a> is one uniform click target — no
+       * "dead zone on the text side" symptom.
+       */
+      .ep-navbar__brand-text,
+      .ep-navbar__brand-name,
+      .ep-navbar__brand-sub,
+      .ep-navbar__logo-img,
+      .ep-navbar__logo-glyph {
+        pointer-events: none;
+        user-select: none;
+      }
       .ep-navbar__brand-text {
         display: none;
         flex-direction: column;
@@ -408,7 +462,7 @@ import type {
         color: rgba(255, 255, 255, 0.7);
       }
 
-      /* ── env badge ── */
+      /* ── env badge — informational only, never interactive ── */
       .ep-env-badge {
         display: inline-flex;
         align-items: center;
@@ -420,6 +474,8 @@ import type {
         letter-spacing: 0.08em;
         background-color: var(--ep-color-jessamine-500);
         color: var(--ep-color-primary-900);
+        pointer-events: none;
+        user-select: none;
       }
       .ep-env-badge[data-env='dev'] { background-color: var(--ep-color-palmetto-500); color: #fff; }
       .ep-env-badge[data-env='staging'] { background-color: var(--ep-color-jessamine-500); color: var(--ep-color-primary-900); }
@@ -456,6 +512,32 @@ import type {
         flex-shrink: 0;
         margin-left: auto;
         background-color: var(--ep-color-primary-700);
+        min-width: 0;
+      }
+
+      /*
+       * Progressive disclosure for non-essential right-zone widgets.
+       *
+       *   < 1024px (where the centre menu is hidden + hamburger appears)
+       *     → hide search / AI / quick-actions / messages bell / help /
+       *       theme-toggle / language switcher. Their affordances live in
+       *       the mobile drawer or are simply non-essential at this width.
+       *
+       *   < 640px (true phone)
+       *     → also hide notifications. Only user menu + hamburger remain.
+       *
+       * Class is applied DIRECTLY to the button or sub-component host
+       * element (no positional <span> wrappers — those create brittle
+       * nth-of-type selectors). !important is required so the rule beats
+       * any sub-component :host display value (NotificationBellComponent,
+       * QuickActionsComponent etc. don't set one today, but defending
+       * against future drift is cheaper than another debugging round).
+       */
+      @media (max-width: 1023px) {
+        .ep-navbar__hide-md { display: none !important; }
+      }
+      @media (max-width: 639px) {
+        .ep-navbar__hide-sm { display: none !important; }
       }
 
       /* clock + status pills */
@@ -480,6 +562,8 @@ import type {
         border-radius: 9999px;
         font-size: 0.75rem;
         font-weight: 500;
+        pointer-events: none;
+        user-select: none;
       }
       @media (min-width: 768px) { .ep-status-pill { display: inline-flex; } }
       .ep-status-pill--positive {
@@ -506,11 +590,11 @@ import type {
         .ep-status-pill__dot--pulse { animation: none; }
       }
 
-      /* icon buttons */
+      /* icon buttons — WCAG 2.5.5 minimum 44x44 touch target */
       .ep-icon-btn {
         display: inline-flex;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 2.75rem;
+        width: 2.75rem;
         align-items: center;
         justify-content: center;
         border-radius: 0.375rem;
@@ -569,25 +653,60 @@ import type {
       .ep-hamburger { display: inline-flex; }
       @media (min-width: 1024px) { .ep-hamburger { display: none; } }
 
-      /* mobile overlay menu */
-      .ep-mobile-menu {
+      /*
+       * Mobile drawer — side panel with backdrop. Only mounted via @if when
+       * isMobileMenuOpen() is true, so the closed state has no DOM cost and
+       * no accessibility footprint (no duplicate landmarks, no stray tab
+       * stops). Slides in from the left so the right-edge backdrop region
+       * is always tappable for dismissal.
+       */
+      .ep-mobile-backdrop {
         position: fixed;
         top: var(--nav-height);
         left: 0;
         right: 0;
         bottom: 0;
         z-index: 25;
+        background-color: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        cursor: pointer;
+        animation: ep-backdrop-in 180ms ease forwards;
+      }
+      .ep-mobile-menu {
+        position: fixed;
+        top: var(--nav-height);
+        left: 0;
+        bottom: 0;
+        z-index: 26;
+        /* min(320px, 85vw) keeps a tappable backdrop region at every
+         * viewport width — even down to 320px the drawer is 272px wide,
+         * leaving 48px of backdrop. */
+        width: min(320px, 85vw);
         background-color: var(--ep-color-neutral-50);
-        padding: 1rem;
+        border-right: 1px solid var(--ep-color-neutral-200);
+        box-shadow: 6px 0 24px rgba(15, 31, 59, 0.18);
+        padding: 1rem 0.75rem 2rem;
         overflow-y: auto;
-        transform: translateY(-110%);
-        transition: transform 200ms ease;
+        overscroll-behavior: contain;
+        animation: ep-drawer-in 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      @keyframes ep-backdrop-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes ep-drawer-in {
+        from { transform: translateX(-100%); }
+        to   { transform: translateX(0); }
       }
       @media (prefers-reduced-motion: reduce) {
-        .ep-mobile-menu { transition: none; }
+        .ep-mobile-backdrop,
+        .ep-mobile-menu { animation: none; }
       }
-      .ep-mobile-menu[data-open='true'] { transform: translateY(0); }
-      @media (min-width: 1024px) { .ep-mobile-menu { display: none; } }
+      @media (min-width: 1024px) {
+        .ep-mobile-backdrop,
+        .ep-mobile-menu { display: none; }
+      }
     `,
   ],
 })
@@ -643,11 +762,37 @@ export class PlatformNavbarComponent {
 
   // ── event handlers ─────────────────────────────────────────────────────
 
-  protected toggleMobileMenu(): void {
+  protected toggleMobileMenu(event?: Event): void {
+    /*
+     * stopPropagation is the ONE-LINE FIX for the "hamburger needs 4 taps"
+     * bug class: without it the same click that opens the drawer continues
+     * propagating, can trigger any document-level listener (PrimeNG popovers,
+     * future tour-step overlays, etc.) and may immediately close what we
+     * just opened. Stopping the bubble here scopes the event to the toggle.
+     */
+    event?.stopPropagation();
     this.isMobileMenuOpen.update((open) => !open);
   }
 
-  protected onSearchClick(): void {
+  protected closeMobileMenu(): void {
+    this.isMobileMenuOpen.set(false);
+  }
+
+  /**
+   * Global Escape closes the mobile drawer. WCAG 2.1.2 — keyboard users
+   * must have an unconditional "back out" affordance from any modal-like
+   * surface. We listen on document so focus can be anywhere when Escape
+   * fires (including inside the drawer's nav items).
+   */
+  @HostListener('document:keydown.escape')
+  protected onDocumentEscape(): void {
+    if (this.isMobileMenuOpen()) {
+      this.closeMobileMenu();
+    }
+  }
+
+  protected onSearchClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.globalSearch;
     if (cfg?.commandPaletteMode) {
       this.navAction.emit({ source: 'menu', actionKey: 'search.commandPalette' });
@@ -656,7 +801,8 @@ export class PlatformNavbarComponent {
     }
   }
 
-  protected onAiClick(): void {
+  protected onAiClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.aiAssistant;
     if (cfg) this.navAction.emit({ source: 'aiAssistant', actionKey: cfg.actionKey });
   }
@@ -669,7 +815,8 @@ export class PlatformNavbarComponent {
     this.navAction.emit({ source: 'notification', actionKey: 'notifications.open', payload: { id: n.id } });
   }
 
-  protected onHelpClick(): void {
+  protected onHelpClick(event?: Event): void {
+    event?.stopPropagation();
     const cfg = this.config().rightZone.help;
     if (cfg?.docsUrl) {
       window.open(cfg.docsUrl, '_blank', 'noopener,noreferrer');

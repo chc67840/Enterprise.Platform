@@ -54,7 +54,7 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
     PlatformFooterV2Component,
   ],
   template: `
-    <div class="flex min-h-screen flex-col bg-[color:var(--ep-surface-50)]">
+    <div class="ep-app-shell flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[color:var(--ep-surface-50)]">
       <app-global-progress-bar />
 
       <app-platform-navbar
@@ -70,7 +70,7 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
       <app-status-banner-host />
 
       <main
-        class="mx-auto w-full max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
+        class="mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 overflow-x-hidden px-4 py-6 sm:px-6"
         role="main"
         id="main-content"
       >
