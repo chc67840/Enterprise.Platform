@@ -60,7 +60,6 @@ export default defineConfig({
         'src/app/**/*.types.ts',
         'src/app/**/*.config.ts',
         'src/app/config/app.config.ts',
-        'src/app/core/observability/web-vitals-budgets.ts',
         'src/main.ts',
       ],
       // Global baseline — matches or exceeds the per-tier floors below.

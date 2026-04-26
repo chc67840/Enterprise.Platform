@@ -119,7 +119,7 @@ export default tseslint.config(
       '@angular-eslint/directive-class-suffix': ['error', { suffixes: ['Directive'] }],
       '@angular-eslint/no-empty-lifecycle-method': 'error',
       '@angular-eslint/prefer-inject': 'error',
-      '@angular-eslint/prefer-on-push-component-change-detection': 'warn',
+      '@angular-eslint/prefer-on-push-component-change-detection': 'error',
       '@angular-eslint/use-lifecycle-interface': 'error',
 
       // ── TypeScript style ─────────────────────────────────────────────

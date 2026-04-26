@@ -1,8 +1,10 @@
 /**
  * ─── PLAYWRIGHT CONFIG ──────────────────────────────────────────────────────────
  *
- * Phase 4 scope — E2E scaffold only. Full MSAL-backed happy-path specs land
- * once an Entra test tenant is provisioned (tracked in Phase 4.4.1 deferred).
+ * E2E scaffold. Real happy-path specs land when feature work begins —
+ * post-Phase-9 the BFF cookie-session flow can be exercised without an
+ * external Entra dependency for read-only smoke tests; full sign-in flows
+ * still require a test tenant when that work is scheduled.
  *
  * What this config does today:
  *   - Boots the dev server (`ng serve` via `npm run start`) before running
@@ -12,9 +14,9 @@
  *   - Screenshot on failure, trace on first retry — cheap debug data.
  *
  * WHY ONLY CHROMIUM AT FIRST
- *   Storybook + cross-browser matrix belong to Phase 5. Keeping the E2E
- *   runtime narrow here keeps CI fast — wider coverage is cheap to add
- *   when a real feature reaches "visual regression worthy" state.
+ *   Cross-browser matrix expansion is cheap to add when a real feature
+ *   reaches "visual regression worthy" state. Today's surface (auth shell
+ *   + dashboard placeholder) doesn't justify the CI cost.
  */
 import { defineConfig, devices } from '@playwright/test';
 

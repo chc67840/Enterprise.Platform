@@ -18,9 +18,9 @@ namespace Enterprise.Platform.Application;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers Application-tier services. Binds <see cref="MultiTenancySettings"/>
-    /// and <see cref="CacheSettings"/> from configuration so behaviors can read them
-    /// via <c>IOptions&lt;T&gt;</c>; infrastructure registers other settings.
+    /// Registers Application-tier services. Binds <see cref="CacheSettings"/> from
+    /// configuration so behaviors can read it via <c>IOptions&lt;T&gt;</c>;
+    /// infrastructure registers other settings.
     /// </summary>
     /// <param name="services">DI collection.</param>
     /// <param name="configuration">Root configuration.</param>
@@ -33,9 +33,6 @@ public static class DependencyInjection
 
         var applicationAssembly = typeof(DependencyInjection).Assembly;
 
-        services.AddOptions<MultiTenancySettings>()
-            .Bind(configuration.GetSection(MultiTenancySettings.SectionName));
-
         services.AddOptions<CacheSettings>()
             .Bind(configuration.GetSection(CacheSettings.SectionName));
 
@@ -47,7 +44,6 @@ public static class DependencyInjection
         // that was still correct.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TenantFilterBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CacheInvalidationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));

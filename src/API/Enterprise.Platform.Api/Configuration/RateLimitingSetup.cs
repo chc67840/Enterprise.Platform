@@ -39,25 +39,8 @@ public static class RateLimitingSetup
                             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         });
                 }),
-                PartitionedRateLimiter.Create<HttpContext, string>(context =>
-                {
-                    var settings = context.RequestServices.GetRequiredService<IOptions<RateLimitSettings>>().Value;
-                    var tenantId = context.Request.Headers[HttpHeaderNames.TenantId].ToString();
-                    if (string.IsNullOrWhiteSpace(tenantId) || settings.PerTenantPermitsPerWindow <= 0)
-                    {
-                        return RateLimitPartition.GetNoLimiter("tenant-none");
-                    }
-
-                    return RateLimitPartition.GetFixedWindowLimiter(
-                        $"tenant:{tenantId}",
-                        _ => new FixedWindowRateLimiterOptions
-                        {
-                            PermitLimit = settings.PerTenantPermitsPerWindow,
-                            Window = settings.Window,
-                            QueueLimit = settings.QueueLimit,
-                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                        });
-                }),
+                // Per-tenant rate limiter removed 2026-04-25 (single-tenant strip).
+                // PerTenantPermitsPerWindow + Headers[X-Tenant-ID] no longer apply.
                 PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 {
                     var settings = context.RequestServices.GetRequiredService<IOptions<RateLimitSettings>>().Value;

@@ -123,10 +123,7 @@ export class AppShellComponent {
   /** Exposed so the @defer trigger expression can read it. */
   readonly session = inject(SessionMonitorService);
 
-  /**
-   * Branding payload. Currently a constant — when per-tenant theming lands
-   * (Phase 9 of UI roadmap) this becomes a signal driven by `TenantService`.
-   */
+  /** Branding payload. Constant for the single-tenant app. */
   readonly branding = computed<NavBranding>(() => ({
     productName: 'Enterprise Platform',
     productSubLabel: 'Workspace',

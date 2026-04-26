@@ -27,9 +27,28 @@ internal static partial class LogMessages
     [LoggerMessage(EventId = 2101, Level = LogLevel.Error, Message = "Domain event handler {HandlerType} failed for {EventType}.")]
     public static partial void DomainEventHandlerFailed(this ILogger logger, Exception exception, string handlerType, string eventType);
 
+    [LoggerMessage(EventId = 2102, Level = LogLevel.Information, Message = "Domain event handler {HandlerType} succeeded for {EventType} in {ElapsedMs} ms.")]
+    public static partial void DomainEventHandlerSucceeded(this ILogger logger, string handlerType, string eventType, long elapsedMs);
+
+    [LoggerMessage(EventId = 2103, Level = LogLevel.Error, Message = "Domain event handler {HandlerType} timed out after {TimeoutSeconds}s for {EventType} — exceeded the per-handler budget.")]
+    public static partial void DomainEventHandlerTimedOut(this ILogger logger, string handlerType, double timeoutSeconds, string eventType);
+
     // 2200–2299 — Caching / invalidation
     [LoggerMessage(EventId = 2200, Level = LogLevel.Debug, Message = "Cache invalidation fired for keys: {Keys}.")]
     public static partial void CacheInvalidated(this ILogger logger, string keys);
+
+    [LoggerMessage(EventId = 2201, Level = LogLevel.Information, Message = "Cache region '{Region}' invalidation requested but the active provider doesn't support prefix-scans; entries will fall out by TTL. Wire RedisCacheRegionInvalidator to make this immediate.")]
+    public static partial void CacheRegionInvalidationDeferred(this ILogger logger, string region);
+
+    // 2700–2799 — Outbox + integration events (extension to existing range)
+    [LoggerMessage(EventId = 2700, Level = LogLevel.Information, Message = "Integration event published: {EventType} / {MessageId} (correlation={CorrelationId}, attempt={AttemptCount}).")]
+    public static partial void IntegrationEventPublished(this ILogger logger, string eventType, Guid messageId, string correlationId, int attemptCount);
+
+    [LoggerMessage(EventId = 2701, Level = LogLevel.Information, Message = "PlatformOutboxMessages table verified/created.")]
+    public static partial void OutboxTableVerified(this ILogger logger);
+
+    [LoggerMessage(EventId = 2702, Level = LogLevel.Error, Message = "Failed to ensure PlatformOutboxMessages table — outbox operations will fail until this is resolved.")]
+    public static partial void OutboxTableEnsureFailed(this ILogger logger, Exception exception);
 
     // 2300–2399 — File storage / email
     [LoggerMessage(EventId = 2300, Level = LogLevel.Debug, Message = "LocalFileStorage: {Operation} {Container}/{Blob}.")]

@@ -16,19 +16,17 @@
  *     1. loadRuntimeConfig — populates RUNTIME_CONFIG from `/config.json`
  *     2. AuthService.refreshSession — fetches `/api/auth/session` so the
  *        first render already knows whether we're signed in
- *     3. TelemetryService.init — reads runtime config + (later) session user
- *     4. CspViolationReporter — subscribes to `securitypolicyviolation` DOM event
+ *     3. CspViolationReporter — subscribes to `securitypolicyviolation` DOM event
  *
- * HTTP INTERCEPTOR CHAIN (functional — Architecture §4.3, updated for Phase 9)
+ * HTTP INTERCEPTOR CHAIN (functional — Architecture §4.3, post-2026-04-25 single-tenant strip)
  *     1. correlationInterceptor — mints / echoes `X-Correlation-ID`
- *     2. tenantInterceptor       — attaches `X-Tenant-ID`
- *     3. securityInterceptor     — reads `XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header
- *     4. cacheInterceptor        — GET cache (Phase 6)
- *     5. dedupInterceptor        — in-flight GET dedup (Phase 6)
- *     6. loadingInterceptor      — global loading indicator
- *     7. loggingInterceptor      — structured request/response logs
- *     8. retryInterceptor        — idempotent-safe retry on transient failures
- *     9. errorInterceptor        — 401/403 redirect handling, error normalization
+ *     2. securityInterceptor     — reads `XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header
+ *     3. cacheInterceptor        — GET cache (Phase 6)
+ *     4. dedupInterceptor        — in-flight GET dedup (Phase 6)
+ *     5. loadingInterceptor      — global loading indicator
+ *     6. loggingInterceptor      — structured request/response logs
+ *     7. retryInterceptor        — idempotent-safe retry on transient failures
+ *     8. errorInterceptor        — 401/403 redirect handling, error normalization
  *
  *   MSAL's class interceptor is removed; the BFF attaches bearer tokens
  *   server-side. The browser carries only the HttpOnly session cookie
@@ -36,7 +34,6 @@
  *   the XSRF double-submit pair.
  */
 import {
-  ErrorHandler,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
@@ -70,10 +67,6 @@ import { loadRuntimeConfig } from './runtime-config';
 import { AuthService } from '@core/auth/auth.service';
 import { LoggerService } from '@core/services/logger.service';
 import { CspViolationReporterService } from '@core/services/csp-violation-reporter.service';
-import {
-  GlobalErrorHandlerService,
-  TelemetryService,
-} from '@core/observability';
 
 import {
   cacheInterceptor,
@@ -84,7 +77,6 @@ import {
   loggingInterceptor,
   retryInterceptor,
   securityInterceptor,
-  tenantInterceptor,
 } from '@core/interceptors';
 
 export const appConfig: ApplicationConfig = {
@@ -125,7 +117,6 @@ export const appConfig: ApplicationConfig = {
       }),
       withInterceptors([
         correlationInterceptor,
-        tenantInterceptor,
         securityInterceptor,
         cacheInterceptor,
         dedupInterceptor,
@@ -179,22 +170,20 @@ export const appConfig: ApplicationConfig = {
      */
     provideAppInitializer(() => inject(AuthService).refreshSession()),
 
-    // ── 9. APP INITIALIZER — Telemetry (Phase 3.1) ──────────────────────
-    provideAppInitializer(() => inject(TelemetryService).init()),
-
+    // ── 9. APP INITIALIZER — CSP violation reporter (Phase 2.2) ─────────
     /*
-     * Replace Angular's default `ErrorHandler` with our telemetry-aware
-     * handler. Registered near the top of the provider list so descendant
-     * components inherit it without a local override.
+     * Telemetry initializer + custom ErrorHandler removed in Phase 3 —
+     * client-side observability is delegated to the BFF + .NET backend
+     * (Serilog + OpenTelemetry). Browser still emits unhandled errors via
+     * `provideBrowserGlobalErrorListeners()` registered above; they surface
+     * in the dev console + propagate up to Angular's default ErrorHandler
+     * (which logs to console without forwarding to a remote sink).
      */
-    { provide: ErrorHandler, useClass: GlobalErrorHandlerService },
-
-    // ── 10. APP INITIALIZER — CSP violation reporter (Phase 2.2) ────────
     provideAppInitializer(() => {
       inject(CspViolationReporterService).register();
     }),
 
-    // ── 11. Locale ───────────────────────────────────────────────────────
+    // ── 10. Locale ───────────────────────────────────────────────────────
     { provide: LOCALE_ID, useValue: 'en-US' },
   ],
 };

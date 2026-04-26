@@ -61,11 +61,6 @@ function buildFallbackConfig(): RuntimeConfig {
   return RuntimeConfigSchema.parse({
     apiBaseUrl: env.apiBaseUrl,
     bffBaseUrl: env.bffBaseUrl,
-    telemetry: {
-      appInsightsConnectionString: '',
-      sampleRate: 1,
-      webVitalsSampleRate: 0.1,
-    },
     session: {
       accessTokenLifetimeSeconds: 900,
       warningLeadTimeSeconds: 120,
@@ -200,7 +195,6 @@ function applyConfig(next: RuntimeConfig): void {
   // deliberate mutation visible to readers of this file.
   RUNTIME_CONFIG_HOLDER.apiBaseUrl = next.apiBaseUrl;
   RUNTIME_CONFIG_HOLDER.bffBaseUrl = next.bffBaseUrl;
-  RUNTIME_CONFIG_HOLDER.telemetry = next.telemetry;
   RUNTIME_CONFIG_HOLDER.session = next.session;
   RUNTIME_CONFIG_HOLDER.features = next.features;
 }

@@ -33,6 +33,10 @@ public static class OpenTelemetrySetup
             tracing.SetSampler(new TraceIdRatioBasedSampler(Math.Clamp(settings.SamplingRatio, 0d, 1d)));
             tracing.AddAspNetCoreInstrumentation();
 
+            // P0-1 / P1-3 (audit) — domain-event handler activity source so each
+            // handler invocation surfaces as a span under the originating request.
+            tracing.AddSource("Enterprise.Platform.DomainEvents");
+
             if (settings.EnableHttpInstrumentation)
             {
                 tracing.AddHttpClientInstrumentation();

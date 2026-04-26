@@ -51,7 +51,7 @@ module.exports = {
       name: 'shared-must-not-import-feature-tier-core',
       severity: 'error',
       comment:
-        'shared/ may consume cross-cutting infrastructure (core/services/* logger/notification/correlation-context, core/observability/*) but must NOT reach into feature-coupled core modules (http, store, guards, interceptors). Those are consumed by features, not shared primitives.',
+        'shared/ may consume cross-cutting infrastructure (core/services/* logger/notification/correlation-context) but must NOT reach into feature-coupled core modules (http, store, guards, interceptors). Those are consumed by features, not shared primitives.',
       from: { path: '^src/app/shared' },
       to: {
         path: '^src/app/core/(http|store|guards|interceptors)',
@@ -77,8 +77,6 @@ module.exports = {
         path: '^src/app',
         pathNot: [
           '^src/app/config/',
-          '^src/app/core/observability/telemetry\\.service\\.ts$',
-          '^src/app/core/observability/global-error-handler\\.service\\.ts$',
           '^src/app/core/services/logger\\.service\\.ts$',
           '^src/app/core/interceptors/retry\\.interceptor\\.ts$',
           // Phase 6.2.4 — `withDevtools` branches on `environment.production`

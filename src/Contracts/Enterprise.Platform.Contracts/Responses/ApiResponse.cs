@@ -62,9 +62,6 @@ public sealed class ResponseMeta
     /// <summary>End-to-end correlation id (<c>X-Correlation-ID</c>). Echoed for diagnostics.</summary>
     public string? CorrelationId { get; init; }
 
-    /// <summary>Tenant the response was computed for. Helps clients detect tenant drift.</summary>
-    public string? TenantId { get; init; }
-
     /// <summary>UTC timestamp the response was produced. Useful for cache debugging.</summary>
     public DateTimeOffset ServerTime { get; init; } = DateTimeOffset.UtcNow;
 

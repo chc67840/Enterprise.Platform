@@ -35,8 +35,11 @@ public sealed class LocalFileStorageService(string rootPath, ILogger<LocalFileSt
         Directory.CreateDirectory(targetDir);
         var targetPath = Path.Combine(targetDir, blobName);
 
-        await using var file = File.Create(targetPath);
-        await content.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+        var file = File.Create(targetPath);
+        await using (file.ConfigureAwait(false))
+        {
+            await content.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+        }
 
         _logger.LocalFileOp("Upload", container, blobName);
         return new Uri(targetPath);

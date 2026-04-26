@@ -1,3 +1,4 @@
+using Enterprise.Platform.Infrastructure.Common;
 using Enterprise.Platform.Infrastructure.Persistence.Outbox;
 using Microsoft.Extensions.Logging;
 
@@ -19,18 +20,11 @@ public sealed class ConsoleIntegrationEventBroker(ILogger<ConsoleIntegrationEven
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        if (_logger.IsEnabled(LogLevel.Information))
-        {
-#pragma warning disable CA1848
-            _logger.LogInformation(
-                "Integration event published: {EventType} / {MessageId} (correlation={CorrelationId}, tenant={TenantId}, attempt={AttemptCount}).",
-                message.EventType,
-                message.Id,
-                message.CorrelationId ?? "(none)",
-                message.TenantId?.ToString() ?? "(none)",
-                message.AttemptCount + 1);
-#pragma warning restore CA1848
-        }
+        _logger.IntegrationEventPublished(
+            message.EventType,
+            message.Id,
+            message.CorrelationId ?? "(none)",
+            message.AttemptCount + 1);
 
         return Task.CompletedTask;
     }

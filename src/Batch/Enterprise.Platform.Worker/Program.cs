@@ -3,7 +3,7 @@ using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure;
 using Enterprise.Platform.Infrastructure.Configuration;
 using Enterprise.Platform.Infrastructure.Observability;
-using Enterprise.Platform.Infrastructure.Persistence.EventShopper;
+using Enterprise.Platform.Infrastructure.Persistence.App;
 using Enterprise.Platform.Worker.Jobs;
 using Serilog;
 
@@ -37,15 +37,16 @@ try
     // Core services (dispatcher, behaviors, handlers, repos, DbContext).
     builder.Services.AddApplication(builder.Configuration);
     builder.Services.AddInfrastructure(builder.Configuration);
-    builder.Services.AddEventShopperDb(builder.Configuration);
+    builder.Services.AddAppDb(builder.Configuration);
     builder.Services.AddPlatformOpenTelemetry(observability);
 
     // Background jobs.
     //
-    // CacheWarmupJob + OutboxProcessorJob active (OutboxProcessor drains the
-    // OutboxMessages table populated by OutboxIntegrationEventPublisher).
+    // OutboxProcessorJob drains the PlatformOutboxMessages table populated by
+    // OutboxIntegrationEventPublisher. CacheWarmupJob removed 2026-04-25 along
+    // with the EventShopper feature it warmed; reintroduce per-feature warmups
+    // when new aggregates with hot lookups land.
     // AuditRetentionJob still deferred with D4 (PlatformDb AuditLogs table).
-    builder.Services.AddHostedService<CacheWarmupJob>();
     builder.Services.AddHostedService<OutboxProcessorJob>();
     // builder.Services.AddHostedService<AuditRetentionJob>();    // activate with PlatformDb
 

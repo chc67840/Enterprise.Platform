@@ -10,9 +10,6 @@ public static class HttpHeaderNames
     /// <summary>End-to-end correlation id for tracing a single request across services.</summary>
     public const string CorrelationId = "X-Correlation-ID";
 
-    /// <summary>Tenant id resolved by <c>TenantResolutionMiddleware</c> for multi-tenant routing.</summary>
-    public const string TenantId = "X-Tenant-ID";
-
     /// <summary>Caller-supplied idempotency key for at-most-once command execution.</summary>
     public const string IdempotencyKey = "X-Idempotency-Key";
 

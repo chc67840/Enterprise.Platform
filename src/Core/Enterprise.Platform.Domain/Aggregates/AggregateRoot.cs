@@ -14,7 +14,7 @@ namespace Enterprise.Platform.Domain.Aggregates;
 /// <see cref="DomainEvents"/>, then calls <see cref="ClearDomainEvents"/> — never
 /// inspect or mutate the collection from application code.
 /// </remarks>
-public abstract class AggregateRoot : TenantAuditableEntity
+public abstract class AggregateRoot : AuditableEntity
 {
     private readonly List<IDomainEvent> _domainEvents = [];
 

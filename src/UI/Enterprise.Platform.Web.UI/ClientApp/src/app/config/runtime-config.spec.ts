@@ -58,13 +58,11 @@ describe('loadRuntimeConfig', () => {
   });
 
   it('applies Zod defaults for optional fields that are omitted', async () => {
-    // `telemetry`, `session`, and `features` are optional with defaults.
+    // `session` and `features` are optional with defaults.
     const fetchImpl = vi.fn(async () => jsonResponse(validPayload()));
 
     await loadRuntimeConfig({ fetchImpl });
 
-    expect(RUNTIME_CONFIG_HOLDER.telemetry.appInsightsConnectionString).toBe('');
-    expect(RUNTIME_CONFIG_HOLDER.telemetry.sampleRate).toBe(1);
     expect(RUNTIME_CONFIG_HOLDER.session.warningLeadTimeSeconds).toBe(120);
     expect(RUNTIME_CONFIG_HOLDER.features).toEqual({});
   });

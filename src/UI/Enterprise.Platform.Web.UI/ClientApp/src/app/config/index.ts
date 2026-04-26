@@ -10,6 +10,5 @@ export {
 export {
   RuntimeConfigSchema,
   type RuntimeConfig,
-  type TelemetryRuntimeConfig,
   type SessionRuntimeConfig,
 } from './runtime-config.model';

@@ -177,7 +177,6 @@ public static class AuthenticationSetup
         {
             OnTokenValidated = ctx =>
             {
-                MapEntraTenantToPlatformTenant(ctx.Principal, settings);
                 EmitAudienceMatchedTelemetry(ctx);
                 return Task.CompletedTask;
             },
@@ -237,30 +236,6 @@ public static class AuthenticationSetup
                 return Task.CompletedTask;
             },
         };
-    }
-
-    private static void MapEntraTenantToPlatformTenant(ClaimsPrincipal? principal, EntraIdSettings settings)
-    {
-        if (principal?.Identity is not ClaimsIdentity identity)
-        {
-            return;
-        }
-
-        if (identity.HasClaim(c => c.Type == EpClaimTypes.TenantId))
-        {
-            return;
-        }
-
-        var entraTenantId = identity.FindFirst(settings.TenantIdClaim)?.Value;
-        if (string.IsNullOrWhiteSpace(entraTenantId))
-        {
-            return;
-        }
-
-        if (settings.PlatformTenantMapping.TryGetValue(entraTenantId, out var platformTenantId))
-        {
-            identity.AddClaim(new Claim(EpClaimTypes.TenantId, platformTenantId.ToString("D")));
-        }
     }
 
     private static string? TryReadIssuer(string jwt)

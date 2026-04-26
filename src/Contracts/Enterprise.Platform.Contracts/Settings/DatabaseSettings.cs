@@ -9,13 +9,13 @@ namespace Enterprise.Platform.Contracts.Settings;
 /// <code>
 /// {
 ///   "ConnectionStrings": {
-///     "EventShopperDb": "Data Source=..."
+///     "AppDb": "Data Source=..."
 ///   },
 ///   "DatabaseSettings": {
-///     "DefaultConnection": "EventShopper",
+///     "DefaultConnection": "App",
 ///     "Connections": {
-///       "EventShopper": {
-///         "ConnectionStringName": "EventShopperDb",
+///       "App": {
+///         "ConnectionStringName": "AppDb",
 ///         "Provider": "SqlServer",
 ///         "CommandTimeoutSeconds": 30,
 ///         "IsReadReplica": false,
@@ -42,7 +42,7 @@ public sealed class DatabaseSettings
 
     /// <summary>
     /// Registry of named logical connections. Keyed by the logical name
-    /// (e.g. <c>"EventShopper"</c>, <c>"Platform"</c>, <c>"ReportsPostgres"</c>) that
+    /// (e.g. <c>"App"</c>, <c>"ReportsPostgres"</c>) that
     /// <see cref="IDbContextFactory"/> consumers use to resolve contexts.
     /// </summary>
     public Dictionary<string, DatabaseConnectionSettings> Connections { get; set; } = new();

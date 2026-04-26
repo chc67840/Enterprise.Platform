@@ -8,6 +8,7 @@ using Enterprise.Platform.Domain.Interfaces;
 using Enterprise.Platform.Shared.Results;
 using FluentValidation;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 
 namespace Enterprise.Platform.Api.Middleware;
@@ -53,7 +54,6 @@ public sealed class GlobalExceptionMiddleware(
     {
         var (status, title, type) = ClassifyException(exception);
         var correlationId = context.Items[CorrelationIdMiddleware.ItemKey]?.ToString();
-        var tenantId = context.RequestServices.GetService<ICurrentTenantService>()?.TenantId?.ToString();
 
         var (errors, fieldErrors) = BuildErrors(exception);
 
@@ -65,7 +65,6 @@ public sealed class GlobalExceptionMiddleware(
             Detail = _environment.IsDevelopment() ? exception.Message : null,
             Instance = context.Request.Path,
             CorrelationId = correlationId,
-            TenantId = tenantId,
             Errors = errors,
             FieldErrors = fieldErrors,
         };
@@ -87,10 +86,15 @@ public sealed class GlobalExceptionMiddleware(
     {
         EntityNotFoundException => ((int)HttpStatusCode.NotFound, "Resource not found.", "urn:ep:error:not_found"),
         ValidationException => ((int)HttpStatusCode.BadRequest, "Validation failed.", "urn:ep:error:validation"),
+        // P1-1 (audit) — body-binding failures (malformed JSON, type-coercion errors,
+        // missing required fields) surface as `BadHttpRequestException` from
+        // ASP.NET Core's model binder. Map them to the same RFC 7807 ProblemDetails
+        // shape we use for semantic validation, so clients render binding errors
+        // identically to FluentValidation errors instead of getting a raw 400.
+        BadHttpRequestException => ((int)HttpStatusCode.BadRequest, "Request could not be bound.", "urn:ep:error:binding"),
         BusinessRuleViolationException => ((int)HttpStatusCode.Conflict, "Business rule violated.", "urn:ep:error:conflict"),
         ConcurrencyConflictException => ((int)HttpStatusCode.Conflict, "Concurrency conflict.", "urn:ep:error:conflict"),
         AccessDeniedException => ((int)HttpStatusCode.Forbidden, "Access denied.", "urn:ep:error:forbidden"),
-        TenantMismatchException => ((int)HttpStatusCode.Forbidden, "Tenant mismatch.", "urn:ep:error:forbidden"),
         DomainException => ((int)HttpStatusCode.BadRequest, "Domain rule failure.", "urn:ep:error:domain"),
         _ => ((int)HttpStatusCode.InternalServerError, "Unexpected server error.", "urn:ep:error:internal"),
     };

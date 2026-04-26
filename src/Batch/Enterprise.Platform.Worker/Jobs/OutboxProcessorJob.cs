@@ -1,6 +1,6 @@
 using Enterprise.Platform.Infrastructure.BackgroundJobs;
 using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
-using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
+using Enterprise.Platform.Infrastructure.Persistence.App.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -35,8 +35,9 @@ public sealed class OutboxProcessorJob : BaseBackgroundJob
     /// <inheritdoc />
     protected override async Task ExecuteCycleAsync(CancellationToken stoppingToken)
     {
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var context = scope.ServiceProvider.GetRequiredService<EventShopperDbContext>();
+        var scope = _scopeFactory.CreateAsyncScope();
+        await using var scopeRegistration = scope.ConfigureAwait(false);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var broker = scope.ServiceProvider.GetRequiredService<IIntegrationEventBroker>();
 
         var now = DateTime.UtcNow;

@@ -12,19 +12,17 @@ namespace Enterprise.Platform.Domain.Interfaces;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Not applicable to DB-first scaffolded entities</b> like those in EventShopperDb —
-/// they don't derive from <see cref="BaseEntity"/> and have integer (or other)
-/// primary keys, not <see cref="Guid"/>. For DB-first aggregates, write a
-/// <b>per-aggregate repository</b> like
-/// <c>Application.Features.EventShopper.Roles.Repositories.IRolesRepository</c> — it
-/// returns DTOs (never entities), exposes aggregate-specific reads, and lives in the
-/// feature folder so the contract stays close to its handlers.
+/// <b>Not applicable to DB-first scaffolded entities.</b> If a future bounded
+/// context introduces DB-first POCOs that don't derive from <see cref="BaseEntity"/>
+/// (or use non-Guid keys), write a <b>per-aggregate repository</b> for those —
+/// returning DTOs (never entities), exposing aggregate-specific reads, and living
+/// in the feature folder so the contract stays close to its handlers.
 /// </para>
 /// <para>
 /// The open-generic DI registration (<c>services.AddScoped(typeof(IGenericRepository&lt;&gt;), typeof(GenericRepository&lt;&gt;))</c>)
-/// is harmless for EventShopperDb entities — DI won't close the generic over types
-/// that don't satisfy the <c>T : BaseEntity</c> constraint, so attempted resolution
-/// fails fast with a clear compiler/runtime error.
+/// is harmless when no entities satisfy the constraint — DI won't close the generic
+/// over types that don't satisfy <c>T : BaseEntity</c>, so attempted resolution fails
+/// fast with a clear compiler/runtime error.
 /// </para>
 /// </remarks>
 /// <typeparam name="T">Aggregate or entity type inheriting <see cref="BaseEntity"/>.</typeparam>

@@ -13,6 +13,20 @@ insert_final_newline = true
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
 
+# P3-2 + P3-3 (audit) — explicitly enable analyzers that matter for this codebase.
+# Both ship as suggestion-level by default in latest-recommended; we want them at
+# warning severity so TreatWarningsAsErrors=true escalates them to build failures.
+
+# CA1852: Sealed internal types — non-public concrete classes should be sealed
+# unless intentionally inheritable. Prevents accidental subclassing chains.
+dotnet_diagnostic.CA1852.severity = warning
+
+# CA2007: ConfigureAwait(false) — required in library code that may be consumed
+# from sync-context-bound hosts (WPF/WinForms/Blazor). ASP.NET Core has no
+# SyncContext so it's optimization-only here, but the consistency pays off when
+# code moves between layers.
+dotnet_diagnostic.CA2007.severity = warning
+
 # this. preferences
 dotnet_style_qualification_for_field = false:warning
 dotnet_style_qualification_for_property = false:warning

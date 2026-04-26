@@ -19,7 +19,6 @@ namespace Enterprise.Platform.Application.Behaviors;
 public sealed class AuditBehavior<TRequest, TResponse>(
     IAuditWriter auditWriter,
     ICurrentUserService currentUser,
-    ICurrentTenantService currentTenant,
     IDateTimeProvider dateTime,
     ILogger<AuditBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
@@ -83,7 +82,6 @@ public sealed class AuditBehavior<TRequest, TResponse>(
                     {
                         Timestamp = timestamp,
                         UserId = currentUser.UserId,
-                        TenantId = currentTenant.TenantId,
                         Action = audit.AuditAction,
                         Subject = audit.AuditSubject,
                         RequestType = typeof(TRequest).Name,
@@ -106,44 +104,84 @@ public sealed class AuditBehavior<TRequest, TResponse>(
     /// <c>[AuditMask]</c> string values are masked via
     /// <see cref="StringExtensions.ToMask"/>; remaining properties serialize as-is.
     /// </summary>
+    /// <remarks>
+    /// <b>P3-6 audit:</b> the snapshot now recurses into nested complex objects so a
+    /// command containing <c>command.Address.Street</c> applies <c>[AuditMask]</c>
+    /// throughout the graph instead of only at the top level. Recursion is bounded
+    /// by <see cref="MaxRecursionDepth"/> to prevent runaway when an aggregate has
+    /// circular navigation properties — the offending branch is replaced with a
+    /// type-hint placeholder.
+    /// </remarks>
     private static string? SerializeSnapshot(TRequest request)
     {
         try
         {
-            var shape = ShapeCache.GetOrAdd(typeof(TRequest), BuildShape);
-            var safeDict = new Dictionary<string, object?>(shape.Count, StringComparer.Ordinal);
-
-            foreach (var field in shape)
-            {
-                if (field.Action == SnapshotAction.Ignore)
-                {
-                    continue;
-                }
-
-                var value = field.Accessor(request!);
-
-                if (field.Action == SnapshotAction.Mask)
-                {
-                    safeDict[field.Name] = value switch
-                    {
-                        null => null,
-                        string s => s.ToMask(field.MaskAttribute!.VisiblePrefix, field.MaskAttribute.VisibleSuffix),
-                        _ => $"[{value.GetType().Name}]",    // non-string masks become a type-hint placeholder
-                    };
-                }
-                else
-                {
-                    safeDict[field.Name] = value;
-                }
-            }
-
-            return JsonSerializer.Serialize(safeDict, SnapshotOptions);
+            var safeShape = BuildSafeShape(request, depth: 0);
+            return JsonSerializer.Serialize(safeShape, SnapshotOptions);
         }
         catch (NotSupportedException)
         {
             return null;
         }
     }
+
+    /// <summary>Maximum object-graph depth to descend before replacing with a type hint.</summary>
+    private const int MaxRecursionDepth = 8;
+
+    private static object? BuildSafeShape(object? value, int depth)
+    {
+        if (value is null) return null;
+        if (depth >= MaxRecursionDepth) return $"[depth-cap:{value.GetType().Name}]";
+
+        var valueType = value.GetType();
+
+        // Primitives + strings + value types serialize as-is — no graph to mask.
+        if (valueType.IsPrimitive || value is string || valueType.IsEnum
+            || value is decimal or DateTime or DateTimeOffset or TimeSpan or Guid or DateOnly or TimeOnly or Uri)
+        {
+            return value;
+        }
+
+        // Collections: recurse element-wise.
+        if (value is System.Collections.IEnumerable enumerable)
+        {
+            var safeList = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                safeList.Add(BuildSafeShape(item, depth + 1));
+            }
+            return safeList;
+        }
+
+        // Complex object: walk fields per the cached shape, mask + recurse.
+        var shape = ShapeCache.GetOrAdd(valueType, BuildShape);
+        var safeDict = new Dictionary<string, object?>(shape.Count, StringComparer.Ordinal);
+
+        foreach (var field in shape)
+        {
+            if (field.Action == SnapshotAction.Ignore)
+            {
+                continue;
+            }
+
+            var fieldValue = field.Accessor(value);
+
+            safeDict[field.Name] = field.Action switch
+            {
+                SnapshotAction.Mask => MaskValue(fieldValue, field.MaskAttribute!),
+                _ => BuildSafeShape(fieldValue, depth + 1),
+            };
+        }
+
+        return safeDict;
+    }
+
+    private static string? MaskValue(object? value, AuditMaskAttribute mask) => value switch
+    {
+        null => null,
+        string s => s.ToMask(mask.VisiblePrefix, mask.VisibleSuffix),
+        _ => $"[{value.GetType().Name}]",   // non-string masks become a type-hint placeholder
+    };
 
     private static IReadOnlyList<SnapshotField> BuildShape(Type type)
     {

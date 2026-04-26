@@ -11,9 +11,8 @@ namespace Enterprise.Platform.Application.Abstractions.Persistence;
 public interface IDbConnectionFactory
 {
     /// <summary>
-    /// Opens a connection keyed by logical database name (<c>"EventShopper"</c>,
-    /// <c>"Platform"</c>, etc.). The caller owns the returned connection and must
-    /// dispose it.
+    /// Opens a connection keyed by logical database name (<c>"App"</c>, etc.).
+    /// The caller owns the returned connection and must dispose it.
     /// </summary>
     Task<DbConnection> CreateConnectionAsync(
         string logicalName,

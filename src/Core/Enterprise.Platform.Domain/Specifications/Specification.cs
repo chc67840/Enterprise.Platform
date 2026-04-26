@@ -38,7 +38,13 @@ public abstract class Specification<T> : ISpecification<T>
     public bool IsPagingEnabled { get; private set; }
 
     /// <inheritdoc />
-    public bool AsNoTracking { get; private set; }
+    /// <remarks>
+    /// <b>P1-6 audit:</b> default flipped to <c>true</c> so READS are safe-by-default.
+    /// Specifications used by write-side handlers (load aggregate → mutate → save)
+    /// must opt INTO tracking via <see cref="UseTracking"/>. The earlier default
+    /// (<c>false</c>) leaked tracked entities through every read path.
+    /// </remarks>
+    public bool AsNoTracking { get; private set; } = true;
 
     /// <inheritdoc />
     public bool AsSplitQuery { get; private set; }
@@ -90,8 +96,19 @@ public abstract class Specification<T> : ISpecification<T>
         OrderBy = null;
     }
 
-    /// <summary>Enables <c>AsNoTracking</c> — defaults to off for safety on write paths.</summary>
+    /// <summary>
+    /// Enables <c>AsNoTracking</c>. <b>Now redundant</b> — <see cref="AsNoTracking"/>
+    /// defaults to <c>true</c> (P1-6 audit). Kept for backward-compat / explicitness.
+    /// </summary>
     protected void UseNoTracking() => AsNoTracking = true;
+
+    /// <summary>
+    /// Opts INTO change-tracking. Required for specifications consumed by write-side
+    /// handlers that load → mutate → save the resulting entities. Without this
+    /// (default after P1-6 audit), the spec returns untracked entities and any
+    /// mutation is invisible to <c>SaveChangesAsync</c>.
+    /// </summary>
+    protected void UseTracking() => AsNoTracking = false;
 
     /// <summary>Enables <c>AsSplitQuery</c> for include-heavy specs.</summary>
     protected void UseSplitQuery() => AsSplitQuery = true;

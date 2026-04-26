@@ -4,7 +4,8 @@ using Enterprise.Platform.Application;
 using Enterprise.Platform.Contracts.Settings;
 using Enterprise.Platform.Infrastructure;
 using Enterprise.Platform.Infrastructure.Configuration.Validation;
-using Enterprise.Platform.Infrastructure.Persistence.EventShopper;
+using Enterprise.Platform.Infrastructure.Persistence.App;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.Extensions.Options;
 
 namespace Enterprise.Platform.Api.Extensions;
@@ -32,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
 
         services.AddValidatedOptions<CorsSettings>(configuration, CorsSettings.SectionName);
+        services.AddSingleton<IValidateOptions<CorsSettings>, CorsSettingsValidator>();
         services.AddValidatedOptions<RateLimitSettings>(configuration, RateLimitSettings.SectionName);
         services.AddValidatedOptions<ObservabilitySettings>(configuration, ObservabilitySettings.SectionName);
 
@@ -44,7 +46,7 @@ public static class ServiceCollectionExtensions
         // Core tiers
         services.AddApplication(configuration);
         services.AddInfrastructure(configuration);
-        services.AddEventShopperDb(configuration);
+        services.AddAppDb(configuration);
 
         // Api tier — authentication signature changed in H9 to read the full config
         // (Entra B2B + B2C + symmetric-key fallback all live in appsettings).
@@ -54,6 +56,21 @@ public static class ServiceCollectionExtensions
         services.AddPlatformHealthChecks();
         services.AddPlatformRateLimiting();
         services.AddPlatformCompression();
+
+        // P1-7 (audit) — global request-timeout policy. Without this, a slow
+        // database query or hung handler can hold a thread-pool worker for the
+        // duration of the client connection, which under scale-out exhausts the
+        // pool. 30 s default fits the 99th-percentile of well-behaved handlers;
+        // long-running ops (file-export, batch ingest) opt out per-endpoint via
+        // `[RequestTimeout(...)]` or `MapXxx(...).WithRequestTimeout(...)`.
+        services.AddRequestTimeouts(options =>
+        {
+            options.DefaultPolicy = new RequestTimeoutPolicy
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                TimeoutStatusCode = StatusCodes.Status504GatewayTimeout,
+            };
+        });
 
         // CORS: per-environment origins from CorsSettings.
         var corsSettings = configuration.GetSection(CorsSettings.SectionName).Get<CorsSettings>() ?? new CorsSettings();

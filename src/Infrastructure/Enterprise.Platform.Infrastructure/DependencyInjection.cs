@@ -12,7 +12,6 @@ using Enterprise.Platform.Infrastructure.Identity.Authorization;
 using Enterprise.Platform.Infrastructure.Identity.Services;
 using Enterprise.Platform.Infrastructure.Messaging.DomainEvents;
 using Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
-using Enterprise.Platform.Infrastructure.MultiTenancy;
 using Enterprise.Platform.Infrastructure.PdfGeneration;
 using Enterprise.Platform.Infrastructure.Persistence;
 using Enterprise.Platform.Infrastructure.Resilience;
@@ -50,7 +49,6 @@ public static class DependencyInjection
         services.AddValidatedOptions<DatabaseSettings>(configuration, DatabaseSettings.SectionName);
         services.AddSingleton<IValidateOptions<DatabaseSettings>, DatabaseSettingsValidator>();
 
-        services.AddValidatedOptions<MultiTenancySettings>(configuration, MultiTenancySettings.SectionName);
         services.AddValidatedOptions<AzureSettings>(configuration, AzureSettings.SectionName);
 
         services.AddValidatedOptions<CacheSettings>(configuration, CacheSettings.SectionName);
@@ -71,15 +69,11 @@ public static class DependencyInjection
         // interceptors would otherwise trip the scope validator with "Cannot resolve scoped
         // service from root provider."
         services.AddSingleton<ICurrentUserService, CurrentUserService>();
-        services.AddSingleton<ICurrentTenantService, CurrentTenantService>();
 
         // Claims-based authorization (RBAC + resource ownership).
         services.AddSingleton<IAuthorizationPolicyProvider, RbacPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddScoped<IAuthorizationHandler, ResourceOwnershipHandler>();
-
-        // Multi-tenancy isolation strategies (only SharedDatabase is active).
-        services.AddScoped<ITenantIsolationStrategy, SharedDatabaseTenantStrategy>();
 
         // Domain-event dispatcher (in-process fan-out).
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
@@ -118,14 +112,14 @@ public static class DependencyInjection
 
         // NOTE: IUnitOfWork is intentionally NOT registered here.
         // `UnitOfWork<TContext>` is generic on a concrete DbContext; host/feature modules
-        // bind the closed form (e.g. UnitOfWork<EventShopperDbContext>) via AddEventShopperDb.
+        // bind the closed form (e.g. UnitOfWork<AppDbContext>) via AddAppDb.
 
         // Open-generic repository: DI closes both sides over the same T at resolve time.
 #pragma warning disable CA2263 // Open-generic registration has no generic-overload equivalent.
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 #pragma warning restore CA2263
 
-        // Save-changes interceptors are attached directly in AddEventShopperDb using `new`
+        // Save-changes interceptors are attached directly in AddAppDb using `new`
         // instances. They hold no DI-resolvable deps (scoped services are resolved per-save
         // via `context.GetService<T>()` inside each interceptor), which is what makes them
         // safe to share across a pooled DbContext's slots.
@@ -142,6 +136,12 @@ public static class DependencyInjection
         }
 
         services.AddScoped<CacheInvalidationService>();
+
+        // P2-2 (audit) — region-prefix invalidator. Default is the no-op variant
+        // that logs the request but doesn't physically evict (works for in-memory
+        // cache where prefix scans aren't available). Replace with
+        // RedisCacheRegionInvalidator when Redis is wired in production.
+        services.AddSingleton<Application.Abstractions.Behaviors.ICacheRegionInvalidator, Caching.NoopCacheRegionInvalidator>();
 
         // Resilience: standard pipeline available under the "ep-standard" key.
         services.AddStandardResiliencePipeline();

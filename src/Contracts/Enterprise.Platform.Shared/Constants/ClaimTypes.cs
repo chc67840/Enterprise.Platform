@@ -10,9 +10,6 @@ public static class ClaimTypes
     /// <summary>Platform user id (GUID, string-serialized).</summary>
     public const string UserId = "ep:user_id";
 
-    /// <summary>Tenant id the user is currently acting for.</summary>
-    public const string TenantId = "ep:tenant_id";
-
     /// <summary>Fine-grained permission token (e.g. <c>users.read</c>, <c>audit.export</c>).</summary>
     public const string Permission = "ep:permission";
 

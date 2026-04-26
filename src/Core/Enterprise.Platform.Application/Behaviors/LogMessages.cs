@@ -43,4 +43,11 @@ internal static partial class LogMessages
 
     [LoggerMessage(EventId = 1401, Level = LogLevel.Warning, Message = "Idempotency store write failed for {RequestType}")]
     public static partial void IdempotencyWriteFailed(this ILogger logger, Exception exception, string requestType);
+
+    // CacheInvalidationBehavior (P3-1 audit migration) -----------------------
+    [LoggerMessage(EventId = 1500, Level = LogLevel.Warning, Message = "Cache invalidation failed for {CacheKey}")]
+    public static partial void CacheInvalidationFailed(this ILogger logger, Exception exception, string cacheKey);
+
+    [LoggerMessage(EventId = 1501, Level = LogLevel.Warning, Message = "Cache region invalidation failed for {Region}")]
+    public static partial void CacheRegionInvalidationFailed(this ILogger logger, Exception exception, string region);
 }

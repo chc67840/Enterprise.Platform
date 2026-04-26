@@ -69,13 +69,6 @@ export interface EffectivePermissions {
   readonly permissions: readonly string[];
 
   /**
-   * Platform-level tenant id this user is currently scoped to (distinct from
-   * the AAD `tid`). Flows into the `X-Tenant-ID` header via `tenantInterceptor`.
-   * `null` for super-admins or unscoped identities.
-   */
-  readonly tenantId: string | null;
-
-  /**
    * Server-granted bypass — when `true`, permission checks short-circuit to
    * allow. Replaces the old `'super:admin'` magic-string convention; explicit,
    * auditable, revocable without a client release.

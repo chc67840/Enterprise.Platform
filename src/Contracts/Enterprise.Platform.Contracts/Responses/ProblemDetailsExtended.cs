@@ -35,9 +35,6 @@ public sealed class ProblemDetailsExtended
     /// <summary>Correlation id for cross-service log tracing (<c>X-Correlation-ID</c>).</summary>
     public string? CorrelationId { get; init; }
 
-    /// <summary>Tenant the failing request was resolved to. <c>null</c> when unresolved.</summary>
-    public string? TenantId { get; init; }
-
     /// <summary>
     /// Structured error list — one entry per <see cref="Error"/> surfaced by the handler
     /// or validator. Clients render these inline on form fields when

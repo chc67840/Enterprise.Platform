@@ -2,13 +2,13 @@
  * ─── AuthStore — UNIT TESTS ─────────────────────────────────────────────────────
  *
  * Proves the contract that permission/role guards + directives depend on:
- *   - hydrate() success patches roles / permissions / tenantId / bypass.
+ *   - hydrate() success patches roles / permissions / bypass.
  *   - hydrate() error preserves existing state + captures error.
  *   - TTL → `isStale()` flips true when the clock passes `expiresAt`.
  *   - hasAnyPermission / hasAllPermissions: case-insensitive, OR / AND.
  *   - `bypass: true` short-circuits permission checks — but NOT role checks.
  *   - hasRole / hasAnyRole: case-insensitive.
- *   - reset() clears everything + notifies TenantService.
+ *   - reset() clears everything.
  */
 import {
   HttpClient,
@@ -24,7 +24,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthStore } from './auth.store';
 import type { EffectivePermissions } from '@core/models';
-import { TenantService } from '@core/services/tenant.service';
 
 /**
  * Phase-9 update: hydrate() now hits the BFF-owned endpoint directly (not the
@@ -40,7 +39,6 @@ describe('AuthStore', () => {
   // that the older `ReturnType<typeof TestBed.inject<…>>` expression hit.
   let store: AuthStore;
   let httpMock: HttpTestingController;
-  let tenant: TenantService;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -54,7 +52,6 @@ describe('AuthStore', () => {
     });
     store = TestBed.inject(AuthStore);
     httpMock = TestBed.inject(HttpTestingController);
-    tenant = TestBed.inject(TenantService);
     TestBed.inject(HttpClient);
   });
 
@@ -68,23 +65,19 @@ describe('AuthStore', () => {
     req.flush(payload);
   }
 
-  it('hydrate patches roles / permissions / tenantId / bypass on 200', () => {
+  it('hydrate patches roles / permissions / bypass on 200', () => {
     hydrateWith({
       roles: ['admin', 'manager'],
       permissions: ['users:read', 'users:update'],
-      tenantId: 't1',
       bypass: false,
       ttlSeconds: 60,
     });
 
     expect(store.roles()).toEqual(['admin', 'manager']);
     expect(store.permissions()).toEqual(['users:read', 'users:update']);
-    expect(store.tenantId()).toBe('t1');
     expect(store.bypass()).toBe(false);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
-    // TenantService is notified so the tenantInterceptor sees the id.
-    expect(tenant.current()).toBe('t1');
   });
 
   it('isStale() flips to true after expiresAt elapses (Phase 6.2.1 reactivity fix)', () => {
@@ -94,7 +87,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: [],
       permissions: [],
-      tenantId: null,
       bypass: false,
       ttlSeconds: 10,
     });
@@ -108,7 +100,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: ['admin'],
       permissions: ['users:read'],
-      tenantId: 't1',
       bypass: false,
       ttlSeconds: 60,
     });
@@ -129,7 +120,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: [],
       permissions: ['Users:Read'],
-      tenantId: null,
       bypass: false,
     });
     expect(store.hasAnyPermission('users:read')).toBe(true);
@@ -141,7 +131,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: [],
       permissions: ['users:read', 'users:update'],
-      tenantId: null,
       bypass: false,
     });
     expect(store.hasAllPermissions('USERS:READ', 'users:update')).toBe(true);
@@ -152,7 +141,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: [],
       permissions: [],
-      tenantId: null,
       bypass: true,
     });
     expect(store.hasAnyPermission('anything:at:all')).toBe(true);
@@ -163,7 +151,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: [],
       permissions: [],
-      tenantId: null,
       bypass: true,
     });
     expect(store.hasRole('admin')).toBe(false);
@@ -174,7 +161,6 @@ describe('AuthStore', () => {
     hydrateWith({
       roles: ['Admin'],
       permissions: [],
-      tenantId: null,
       bypass: false,
     });
     expect(store.hasRole('admin')).toBe(true);
@@ -183,19 +169,16 @@ describe('AuthStore', () => {
     expect(store.hasAnyRole('viewer')).toBe(false);
   });
 
-  it('reset clears state + notifies TenantService', () => {
+  it('reset clears state', () => {
     hydrateWith({
       roles: ['admin'],
       permissions: ['users:read'],
-      tenantId: 't1',
       bypass: false,
     });
     store.reset();
 
     expect(store.roles()).toEqual([]);
     expect(store.permissions()).toEqual([]);
-    expect(store.tenantId()).toBeNull();
     expect(store.bypass()).toBe(false);
-    expect(tenant.current()).toBeNull();
   });
 });

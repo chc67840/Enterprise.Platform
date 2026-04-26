@@ -21,9 +21,6 @@ public sealed class AuditEntry
     /// <summary>Authenticated user id, if any.</summary>
     public Guid? UserId { get; init; }
 
-    /// <summary>Tenant id resolved for the request.</summary>
-    public Guid? TenantId { get; init; }
-
     /// <summary>Correlation id threaded through from the inbound request.</summary>
     public string? CorrelationId { get; init; }
 

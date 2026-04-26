@@ -1,5 +1,4 @@
 using Enterprise.Platform.Api.Endpoints.v1;
-using Enterprise.Platform.Api.Endpoints.v1.EventShopper;
 using Enterprise.Platform.Api.Middleware;
 
 namespace Enterprise.Platform.Api.Extensions;
@@ -7,8 +6,8 @@ namespace Enterprise.Platform.Api.Extensions;
 /// <summary>
 /// Middleware ordering is as consequential as it is fragile — this helper keeps
 /// the sequence in one place so <c>Program.cs</c> stays declarative. Ordering rule
-/// of thumb: correlation / security / exception → routing / CORS → auth → tenant
-/// → rate-limit → endpoints.
+/// of thumb: correlation / security / exception → routing / CORS → auth →
+/// rate-limit → endpoints.
 /// </summary>
 public static class WebApplicationExtensions
 {
@@ -44,17 +43,20 @@ public static class WebApplicationExtensions
 
         app.UseCors();
 
+        // P1-7 (audit) — request-timeout middleware. Sits after CORS so OPTIONS
+        // preflights aren't subject to the timeout, but before auth so an
+        // attacker can't tie up worker threads with hung auth handshakes.
+        app.UseRequestTimeouts();
+
         app.UseAuthentication();
         app.UseAuthorization();
-
-        app.UseMiddleware<TenantResolutionMiddleware>();
 
         app.UseRateLimiter();
 
         // Endpoints
         app.MapHealthEndpoints();
         app.MapWhoAmI();
-        app.MapRolesEndpoints();
+        // Feature endpoints (Roles, etc.) will be re-mapped here as new aggregates land.
 
         return app;
     }

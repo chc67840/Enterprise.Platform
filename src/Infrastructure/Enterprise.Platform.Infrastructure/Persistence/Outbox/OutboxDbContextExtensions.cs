@@ -1,4 +1,5 @@
-using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
+using Enterprise.Platform.Infrastructure.Common;
+using Enterprise.Platform.Infrastructure.Persistence.App.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,15 +8,15 @@ using Microsoft.Extensions.Logging;
 namespace Enterprise.Platform.Infrastructure.Persistence.Outbox;
 
 /// <summary>
-/// Hosted service that guarantees the <c>PlatformOutboxMessages</c> table exists in the
-/// EventShopperDb before any outbox write attempts to use it. Runs once at startup
-/// via an idempotent SQL check — avoids an EF migration dependency and keeps the
+/// Hosted service that guarantees the <c>PlatformOutboxMessages</c> table exists in
+/// AppDb before any outbox write attempts to use it. Runs once at startup via an
+/// idempotent SQL check — avoids an EF migration dependency and keeps the
 /// bootstrap hermetic on first deployment.
 /// </summary>
 /// <remarks>
 /// Uses SQL Server syntax (<c>IF NOT EXISTS (SELECT ... FROM sys.tables)</c>). When
 /// the platform adds Postgres in the future, the DDL will need a provider switch;
-/// for now it matches the SqlServer provider already wired for EventShopperDb.
+/// for now it matches the SqlServer provider already wired for AppDb.
 /// </remarks>
 public sealed class OutboxSchemaBootstrapper(
     IServiceProvider serviceProvider,
@@ -33,8 +34,7 @@ public sealed class OutboxSchemaBootstrapper(
                 [AttemptCount]    INT NOT NULL CONSTRAINT [DF_PlatformOutboxMessages_AttemptCount] DEFAULT 0,
                 [LastError]       NVARCHAR(MAX) NULL,
                 [NextAttemptAt]   DATETIME2(7) NULL,
-                [CorrelationId]   NVARCHAR(64) NULL,
-                [TenantId]        UNIQUEIDENTIFIER NULL
+                [CorrelationId]   NVARCHAR(64) NULL
             );
 
             CREATE INDEX [IX_PlatformOutboxMessages_PublishedAt_NextAttemptAt]
@@ -49,22 +49,21 @@ public sealed class OutboxSchemaBootstrapper(
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await using var scope = _serviceProvider.CreateAsyncScope();
-        var context = scope.ServiceProvider.GetRequiredService<EventShopperDbContext>();
+        var scope = _serviceProvider.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         try
         {
             await context.Database.ExecuteSqlRawAsync(EnsureTableSql, cancellationToken).ConfigureAwait(false);
-#pragma warning disable CA1848
-            _logger.LogInformation("PlatformOutboxMessages table verified/created.");
-#pragma warning restore CA1848
+            _logger.OutboxTableVerified();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-#pragma warning disable CA1848
-            _logger.LogError(ex, "Failed to ensure PlatformOutboxMessages table — outbox operations will fail until this is resolved.");
-#pragma warning restore CA1848
+            _logger.OutboxTableEnsureFailed(ex);
             throw;
+        }
         }
     }
 

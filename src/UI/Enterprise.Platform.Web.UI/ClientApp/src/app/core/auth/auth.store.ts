@@ -23,7 +23,7 @@
  *     ↓ AuthService detects login
  *   loading    → `hydrate()` in flight
  *     ↓ 200 OK
- *   loaded     → `permissions() / roles() / bypass() / tenantId()` authoritative
+ *   loaded     → `permissions() / roles() / bypass()` authoritative
  *     ↓ hydrateTtl expires / user logs out
  *   stale/reset → re-hydrate next check, or cleared on logout
  *
@@ -45,7 +45,6 @@ import { tapResponse } from '@ngrx/operators';
 
 import type { EffectivePermissions } from '@core/models';
 import { LoggerService } from '@core/services/logger.service';
-import { TenantService } from '@core/services/tenant.service';
 
 /**
  * BFF-owned permissions endpoint. Until D4 lifts the BFF returns a placeholder
@@ -66,9 +65,6 @@ interface AuthState {
   /** Fine-grained permission strings (`<resource>:<action>`). */
   readonly permissions: readonly string[];
 
-  /** Platform tenant id, or `null` for unscoped identities. */
-  readonly tenantId: string | null;
-
   /** Server-granted bypass flag. When `true`, all permission checks pass. */
   readonly bypass: boolean;
 
@@ -85,7 +81,6 @@ interface AuthState {
 const INITIAL_STATE: AuthState = {
   roles: [],
   permissions: [],
-  tenantId: null,
   bypass: false,
   expiresAt: 0,
   loading: false,
@@ -102,7 +97,7 @@ const DEFAULT_TTL_SECONDS = 300;
  * `AuthStore` — the single source of truth for effective authorization data.
  *
  * Exposed signals (computed where useful):
- *   - `roles()`, `permissions()`, `tenantId()`, `bypass()` — raw state
+ *   - `roles()`, `permissions()`, `bypass()` — raw state
  *   - `isStale()` — `now >= expiresAt`; guards re-hydrate on true
  *   - `hasAnyPermission(...)`, `hasAllPermissions(...)`, `hasRole(...)` — helpers
  *
@@ -117,7 +112,6 @@ export const AuthStore = signalStore(
   withMethods((store) => {
     const http = inject(HttpClient);
     const log = inject(LoggerService);
-    const tenant = inject(TenantService);
 
     return {
       /**
@@ -153,13 +147,11 @@ export const AuthStore = signalStore(
                   patchState(store, {
                     roles: resp.roles,
                     permissions: resp.permissions,
-                    tenantId: resp.tenantId,
                     bypass: resp.bypass,
                     expiresAt: Date.now() + ttl,
                     loading: false,
                     error: null,
                   });
-                  tenant.setTenant(resp.tenantId);
                   log.info('auth.permissions.hydrated', {
                     roleCount: resp.roles.length,
                     permissionCount: resp.permissions.length,
@@ -215,7 +207,6 @@ export const AuthStore = signalStore(
        */
       reset(): void {
         patchState(store, INITIAL_STATE);
-        tenant.setTenant(null);
       },
     };
   }),

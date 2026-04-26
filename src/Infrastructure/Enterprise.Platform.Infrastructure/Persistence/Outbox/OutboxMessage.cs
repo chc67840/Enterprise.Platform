@@ -36,7 +36,4 @@ public sealed class OutboxMessage
 
     /// <summary>Correlation id threaded from the originating request, when available.</summary>
     public string? CorrelationId { get; set; }
-
-    /// <summary>Tenant id the message belongs to.</summary>
-    public Guid? TenantId { get; set; }
 }

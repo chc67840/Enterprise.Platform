@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Enterprise.Platform.Domain.Events;
-using Enterprise.Platform.Domain.Interfaces;
-using Enterprise.Platform.Infrastructure.Persistence.EventShopper.Contexts;
+using Enterprise.Platform.Infrastructure.Persistence.App.Contexts;
 using Enterprise.Platform.Infrastructure.Persistence.Outbox;
 using Microsoft.AspNetCore.Http;
 
@@ -15,14 +14,12 @@ namespace Enterprise.Platform.Infrastructure.Messaging.IntegrationEvents;
 /// outbox is wired (post-Stage-4 hardening).
 /// </summary>
 public sealed class OutboxIntegrationEventPublisher(
-    EventShopperDbContext context,
-    ICurrentTenantService currentTenant,
+    AppDbContext context,
     IHttpContextAccessor? httpContextAccessor = null) : IIntegrationEventPublisher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly EventShopperDbContext _context = context ?? throw new ArgumentNullException(nameof(context));
-    private readonly ICurrentTenantService _currentTenant = currentTenant ?? throw new ArgumentNullException(nameof(currentTenant));
+    private readonly AppDbContext _context = context ?? throw new ArgumentNullException(nameof(context));
     private readonly IHttpContextAccessor? _httpContextAccessor = httpContextAccessor;
 
     /// <inheritdoc />
@@ -39,7 +36,6 @@ public sealed class OutboxIntegrationEventPublisher(
             Payload = payload,
             CreatedAt = integrationEvent.OccurredOn.UtcDateTime,
             CorrelationId = ResolveCorrelationId(),
-            TenantId = _currentTenant.TenantId,
         };
 
         await _context.PlatformOutbox.AddAsync(message, cancellationToken).ConfigureAwait(false);

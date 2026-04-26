@@ -44,25 +44,27 @@ import {
   signal,
 } from '@angular/core';
 
-import { TelemetryService } from '@core/observability/telemetry.service';
 import { LoggerService } from '@core/services/logger.service';
 
 /**
  * Local `ErrorHandler` that captures errors thrown inside the component
  * subtree and surfaces them as a signal. Kept as a provided class (not
  * providedIn: 'root') so each boundary instance has its own state.
+ *
+ * Phase 3 (2026-04-25) — telemetry forwarding removed; the BFF + .NET
+ * backend own observability server-side. Error visibility on the client
+ * comes via `LoggerService` (which writes to console + the structured
+ * logging pipeline) and via the rendered fallback UI below.
  */
 @Injectable()
 export class BoundaryErrorHandler implements ErrorHandler {
   private readonly log = inject(LoggerService);
-  private readonly telemetry = inject(TelemetryService);
 
   private readonly _last = signal<unknown>(null);
   readonly last = this._last.asReadonly();
 
   handleError(error: unknown): void {
     this.log.error('route.boundary.caught', { error });
-    this.telemetry.trackError(error, { category: 'route-boundary' });
     this._last.set(error);
   }
 

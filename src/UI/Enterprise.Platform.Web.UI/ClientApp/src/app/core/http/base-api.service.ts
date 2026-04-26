@@ -30,7 +30,6 @@
  *   - Auth — handled by the BFF. The browser's session cookie rides every
  *     request; the BFF attaches the downstream bearer token server-side on
  *     `/api/proxy/*` routes. The SPA never sees a bearer.
- *   - Tenant headers — `tenantInterceptor` attaches `X-Tenant-ID`.
  *   - Retry / error normalization / loading indication — separate interceptors.
  *
  *   Those concerns live in the interceptor chain (see Architecture §4.3).

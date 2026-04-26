@@ -148,7 +148,19 @@
       "Bash(ls -la .storybook/)",
       "Bash(ls -d storybook-static/)",
       "Bash(du -sh storybook-static/)",
-      "Bash(npx depcruise *)"
+      "Bash(npx depcruise *)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(grep -n \"TenantId\" src/Core/Enterprise.Platform.Application/Common/Interfaces/AuditEntry.cs)",
+      "Bash(find src/Core/Enterprise.Platform.Application/Common -name \"AuditEntry.cs\")",
+      "Bash(rm -rf \"src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/EventShopper\")",
+      "Bash(rm -rf \"src/Contracts/Enterprise.Platform.Contracts/DTOs/EventShopper\")",
+      "Bash(rm -rf \"src/API/Enterprise.Platform.Api/Endpoints/v1/EventShopper\")",
+      "Bash(rm -rf \"src/Core/Enterprise.Platform.Application/Features/EventShopper\")",
+      "Bash(mkdir -p src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Contexts src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Mappings src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Configurations src/Infrastructure/Enterprise.Platform.Infrastructure/Persistence/App/Repositories)",
+      "Bash(find src/Infrastructure/Enterprise.Platform.Infrastructure/Messaging/DomainEvents -type f -name \"*.cs\")",
+      "Bash(cat \"src/Core/Enterprise.Platform.Domain/Interfaces/IDomainEventDispatcher.cs\")",
+      "Bash(ls src/app/core/observability/)",
+      "Bash(ls src/app/app.ts)"
     ]
   }
 }
