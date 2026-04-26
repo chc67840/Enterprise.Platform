@@ -368,13 +368,24 @@ import type {
         outline-offset: 2px;
       }
 
-      /* ── navbar surface ── */
+      /* ── navbar surface ──
+       * Top corners rounded (var --ep-nav-radius-top), bottom flush so the
+       * status banner / main content butt cleanly against the navbar.
+       * overflow:hidden clips brand image + right-zone widgets to the
+       * rounded shape; popovers/tooltips already teleport to body via
+       * appendTo so they're not affected by this clip.
+       */
       .ep-navbar {
         --nav-height: 64px;
         background-color: var(--ep-color-primary-700);
         color: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(15, 31, 59, 0.06);
+        box-shadow: var(--ep-nav-shadow);
+        border-radius: var(--ep-nav-radius-top) var(--ep-nav-radius-top) 0 0;
+        overflow: hidden;
         z-index: 30;
+      }
+      @media print {
+        .ep-navbar { border-radius: 0; box-shadow: none; }
       }
       .ep-navbar--sticky { position: sticky; top: 0; }
       .ep-navbar--glass.ep-navbar--scrolled {

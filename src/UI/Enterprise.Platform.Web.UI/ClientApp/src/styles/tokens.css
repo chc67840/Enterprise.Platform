@@ -216,6 +216,17 @@
   --ep-sidebar-collapsed: 3.5rem;   /* 56px */
   --ep-content-max:       80rem;    /* 1280px — matches Tailwind's max-w-7xl */
 
+  /* ── Navbar chrome (top-anchored floating panel) ─────────────────────
+   *  Top corners only — bottom stays flush against the page so the
+   *  status banner / main content butt against a clean horizontal edge.
+   *  Shadow lifts the navbar off the page background to justify the
+   *  rounded leading edge.
+   */
+  --ep-nav-radius-top: 0.75rem;   /* 12px */
+  --ep-nav-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.18),
+    0 1px 4px rgba(0, 0, 0, 0.10);
+
   /* ── Typography: families ────────────────────────────────────────────
    *
    *  Three-role typography system (see Docs/Architecture/UI-Typography-Strategy.md
@@ -321,6 +332,11 @@
 
   /* Focus ring uses a brighter indigo at higher alpha for dark contrast. */
   --ep-shadow-focus: 0 0 0 3px rgba(95, 127, 180, 0.55);
+
+  /* Navbar shadow — heavier on dark to maintain elevation cue. */
+  --ep-nav-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.45),
+    0 1px 4px rgba(0, 0, 0, 0.30);
 
   /* Brand-coloured backdrops — translucent, pre-mixed for dark surfaces. */
   --ep-color-info-bg:    color-mix(in srgb, var(--ep-color-primary-400), transparent 80%);
