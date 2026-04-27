@@ -66,13 +66,22 @@ type VerifyState =
       }
 
       <!-- ⚠ TEMPORARY DEMO LAUNCHER — remove with the demo route. -->
-      <a
-        routerLink="/demo/sub-nav"
-        class="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200"
-      >
-        <i class="pi pi-bolt" aria-hidden="true"></i>
-        Open Sub-Nav Demo (visual test rig)
-      </a>
+      <div class="flex flex-wrap gap-2">
+        <a
+          routerLink="/demo/sub-nav"
+          class="inline-flex items-center gap-2 rounded-md bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-200"
+        >
+          <i class="pi pi-bolt" aria-hidden="true"></i>
+          Open Sub-Nav Demo (visual test rig)
+        </a>
+        <a
+          routerLink="/demo/ui-kit"
+          class="inline-flex items-center gap-2 rounded-md bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-900 ring-1 ring-blue-300 hover:bg-blue-200"
+        >
+          <i class="pi pi-palette" aria-hidden="true"></i>
+          Open UI Kit (14 categories — permanent reference)
+        </a>
+      </div>
       <!-- ⚠ END DEMO LAUNCHER -->
 
       <div class="grid gap-4 sm:grid-cols-2">

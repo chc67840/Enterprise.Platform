@@ -16,11 +16,11 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, s
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
-import { InputTextModule } from 'primeng/inputtext';
 import { TableModule, type TablePageEvent } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+
+import { InputComponent } from '@shared/components/dph';
 
 import { UsersStore } from '../state/users.store';
 import type { ListUsersParams } from '../data/user.types';
@@ -33,38 +33,29 @@ import type { ListUsersParams } from '../data/user.types';
     DatePipe,
     FormsModule,
     RouterLink,
-    ButtonModule,
     CheckboxModule,
-    InputTextModule,
     TableModule,
     TagModule,
+    InputComponent,
   ],
   template: `
     <section class="space-y-4">
-      <header class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-2xl font-semibold tracking-tight text-gray-900">Users</h2>
-          <p class="mt-1 text-sm text-gray-500">{{ store.total() }} total · {{ pageInfo() }}</p>
-        </div>
-        <a
-          routerLink="new"
-          class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          New user
-        </a>
-      </header>
+      <!--
+        Page title + "New user" CTA come from data.pageHeader on the route
+        and are rendered by the SubNavOrchestrator. The "users.create" action
+        is dispatched in app-shell.onNavAction → /users/new.
+      -->
+      <p class="text-sm text-gray-500">{{ store.total() }} total · {{ pageInfo() }}</p>
 
       <!-- Filters: search + active-only -->
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-white p-3 shadow-sm ring-1 ring-gray-200">
-        <input
-          pInputText
-          type="search"
-          [(ngModel)]="searchInput"
-          (ngModelChange)="onSearchChanged($event)"
-          placeholder="Search email or name…"
-          aria-label="Search users"
-          class="w-64"
-        />
+        <div class="w-64">
+          <dph-input
+            [(value)]="searchValue"
+            (valueChange)="onSearchChanged($any($event))"
+            [config]="{ type: 'search', placeholder: 'Search email or name…', prefixIcon: 'pi pi-search', clearable: true, size: 'sm' }"
+          />
+        </div>
         <label class="flex items-center gap-2 text-sm text-gray-700">
           <p-checkbox
             [(ngModel)]="activeOnlyInput"
@@ -144,8 +135,8 @@ export class UsersListComponent implements OnInit {
   private readonly router = inject(Router);
 
   // ── filter inputs (two-way bound to template) ───────────────────────────
-  /** Live value of the search box. Debounced before the store call. */
-  protected searchInput = '';
+  /** Live value of the search box. Debounced before the store call. dph-input model is signal-backed. */
+  protected readonly searchValue = signal<string | number | null>('');
   /** Live value of the active-only checkbox. */
   protected activeOnlyInput = false;
 
@@ -180,10 +171,11 @@ export class UsersListComponent implements OnInit {
   });
 
   /** Reset to the first page on user-initiated filter changes. */
-  protected onSearchChanged(value: string): void {
+  protected onSearchChanged(value: string | number | null): void {
+    const text = value === null || value === undefined ? '' : String(value);
     if (this.searchDebounce) clearTimeout(this.searchDebounce);
     this.searchDebounce = setTimeout(() => {
-      this.applyFilters({ search: value.trim() || null, page: 1 });
+      this.applyFilters({ search: text.trim() || null, page: 1 });
     }, 250);
   }
 
