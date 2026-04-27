@@ -87,6 +87,13 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/__demo/sub-nav-demo.routes').then((m) => m.SUB_NAV_DEMO_ROUTES),
       },
+      // PERMANENT — UI Kit reference (replaces Storybook). 14 component categories, all variants.
+      {
+        path: 'demo/ui-kit',
+        title: 'UI Kit',
+        loadChildren: () =>
+          import('./features/__demo/ui-kit/ui-kit.routes').then((m) => m.UI_KIT_ROUTES),
+      },
       {
         path: 'users',
         // Phase D — first concrete feature against the db-first /api/v1/users
