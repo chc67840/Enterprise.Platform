@@ -101,30 +101,169 @@ export interface MenuItem {
 
 // ─── Table ───────────────────────────────────────────────────────────────────
 
+/** All column cell renderers. */
+export type CellType =
+  | 'text'
+  | 'number'
+  | 'currency'
+  | 'date'
+  | 'datetime'
+  | 'boolean'
+  | 'badge'
+  | 'avatar'
+  | 'avatar-group'
+  | 'link'
+  | 'email'
+  | 'phone'
+  | 'image'
+  | 'rating'
+  | 'progress'
+  | 'sparkline'
+  | 'chips'
+  | 'multi-line'
+  | 'status-dot'
+  | 'json'
+  | 'actions'
+  | 'custom';
+
+/** Filter operator vocabulary — superset across all filter types. */
+export type FilterOp =
+  | 'contains'
+  | 'notContains'
+  | 'equals'
+  | 'notEquals'
+  | 'startsWith'
+  | 'endsWith'
+  | 'lt'
+  | 'lte'
+  | 'gt'
+  | 'gte'
+  | 'between'
+  | 'before'
+  | 'after'
+  | 'on'
+  | 'dateRange'
+  | 'inLast'
+  | 'is'
+  | 'isNot'
+  | 'in'
+  | 'notIn'
+  | 'isEmpty'
+  | 'isNotEmpty';
+
+/** Column filter type — drives which UI control + which ops are exposed. */
+export type FilterType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'boolean'
+  | 'enum'
+  | 'multi-enum'
+  | 'range';
+
+export interface FilterDef {
+  readonly type: FilterType;
+  readonly options?: readonly OptionItem[];
+  readonly placeholder?: string;
+  readonly debounceMs?: number;
+  readonly mode?: 'instant' | 'apply';
+  readonly ops?: readonly FilterOp[];
+  readonly defaultOp?: FilterOp;
+  readonly min?: number;
+  readonly max?: number;
+}
+
+export interface FilterValue {
+  readonly op: FilterOp;
+  readonly value: unknown;
+  readonly value2?: unknown;
+}
+
+export interface ColumnFilter {
+  readonly field: string;
+  readonly value: FilterValue | null;
+}
+
+/** Type-specific render options — keep all here, ignored when irrelevant. */
+export interface CellOptions {
+  readonly currencyCode?: string;
+  readonly dateFormat?: string;
+  readonly hrefField?: string;
+  readonly target?: '_blank' | '_self';
+  readonly external?: boolean;
+  readonly imageWidth?: string;
+  readonly imageHeight?: string;
+  readonly imageFallback?: string;
+  readonly maxChips?: number;
+  readonly chipSeverity?: (value: unknown) => Severity;
+  readonly ratingMax?: number;
+  readonly progressMax?: number;
+  readonly progressShowValue?: boolean;
+  readonly sparklineColor?: string;
+  readonly maxLines?: number;
+  readonly statusColors?: Record<string, string>;
+  readonly statusLabels?: Record<string, string>;
+  readonly maxAvatars?: number;
+  readonly badgeSeverityMap?: Record<string, Severity>;
+}
+
 export interface ColumnDef<T = unknown> {
   readonly field: string;
   readonly header: string;
-  readonly type?:
-    | 'text'
-    | 'number'
-    | 'currency'
-    | 'date'
-    | 'datetime'
-    | 'boolean'
-    | 'badge'
-    | 'avatar'
-    | 'actions'
-    | 'custom';
+  readonly type?: CellType;
   readonly sortable?: boolean;
   readonly filterable?: boolean;
+  readonly filter?: FilterDef;
   readonly frozen?: 'left' | 'right' | null;
   readonly width?: string;
   readonly minWidth?: string;
   readonly align?: 'left' | 'center' | 'right';
   readonly visible?: boolean;
+  readonly toggleable?: boolean;
+  readonly priority?: 'high' | 'medium' | 'low';
   readonly exportable?: boolean;
   readonly cssClass?: string | ((row: T) => string);
   readonly format?: (value: unknown, row: T) => string;
+  readonly cellOptions?: CellOptions;
+  readonly editable?: boolean | ((row: T) => boolean);
+  readonly editor?: 'text' | 'number' | 'select' | 'date' | 'boolean';
+  readonly editorOptions?: readonly OptionItem[];
+  readonly aggregator?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  readonly tooltip?: (value: unknown, row: T) => string | null;
+  readonly help?: string;
+}
+
+/** Multi-sort state — order in array determines priority. */
+export interface MultiSortState {
+  readonly fields: readonly SortState[];
+}
+
+/** Query envelope passed to a DataSource on every reload. */
+export interface TableQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly sort: readonly SortState[];
+  readonly filters: readonly ColumnFilter[];
+  readonly globalFilter?: string;
+  readonly cursor?: string;
+}
+
+export interface TablePage<T> {
+  readonly rows: readonly T[];
+  readonly total: number;
+  readonly nextCursor?: string;
+  readonly prevCursor?: string;
+}
+
+/**
+ * Parent of a server-mode async data source — provides rows on demand.
+ * `_T` is the row type (kept on the public surface even though the lazily-typed
+ * `unknown` return is what the kit consumes — concrete `DataTableSource<T>`
+ * narrows to `Observable<TablePage<T>>`).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface DataSource<_T> {
+  load(query: TableQuery): unknown;
 }
 
 export interface RowAction<T = unknown> {
@@ -259,36 +398,107 @@ export interface ButtonConfig {
 
 // ─── Table ───────────────────────────────────────────────────────────────────
 
+export interface BulkAction {
+  readonly key: string;
+  readonly label: string;
+  readonly icon: string;
+  readonly severity?: Severity;
+  readonly confirm?: boolean;
+  readonly confirmMessage?: string;
+}
+
+export interface TableToolbarConfig {
+  readonly search?: boolean;
+  readonly searchPlaceholder?: string;
+  readonly refresh?: boolean;
+  readonly export?: boolean;
+  readonly chooser?: boolean;
+  readonly density?: boolean;
+}
+
 export interface TableConfig<T extends Record<string, unknown> = Record<string, unknown>> {
   readonly columns: readonly ColumnDef<T>[];
   readonly idField: string;
+
+  // Selection
   readonly selectionMode?: 'single' | 'multiple' | null;
+  readonly persistSelection?: boolean;
+
+  // Sorting / filtering
   readonly sortable?: boolean;
+  readonly multiSort?: boolean;
   readonly filterable?: boolean;
   readonly globalFilter?: boolean;
   readonly globalFilterFields?: readonly string[];
+
+  // Pagination
   readonly pagination?: boolean;
   readonly pageSizes?: readonly number[];
   readonly defaultPageSize?: number;
+  readonly cursorMode?: boolean;
+
+  // Actions
   readonly rowActions?: readonly RowAction<T>[];
-  readonly bulkActions?: readonly { key: string; label: string; icon: string; severity?: Severity }[];
-  readonly expandable?: boolean;
+  readonly rowActionsMax?: number;
+  readonly bulkActions?: readonly BulkAction[];
+
+  // Layout / scroll
   readonly resizable?: boolean;
   readonly scrollable?: boolean;
   readonly scrollHeight?: string;
   readonly virtualScroll?: boolean;
   readonly virtualScrollItemSize?: number;
+  readonly stickyHeader?: boolean;
+  readonly stickyFooter?: boolean;
+  readonly responsiveMode?: 'scroll' | 'stack' | 'cards' | 'priority';
+
+  // Visual
   readonly striped?: boolean;
   readonly gridLines?: boolean;
   readonly size?: 'sm' | 'md' | 'lg';
+  readonly density?: 'sm' | 'md' | 'lg';
+  readonly densitySelector?: boolean;
+  readonly caption?: string;
+  readonly captionTemplate?: TemplateRef<unknown>;
+  readonly toolbar?: TableToolbarConfig;
+
+  // Empty / loading / error
   readonly emptyMessage?: string;
   readonly emptyIcon?: string;
-  readonly caption?: string;
+  readonly emptyAfterFilterMessage?: string;
+  readonly errorMessage?: string;
+  readonly errorRetryLabel?: string;
+  readonly skeletonRows?: number;
+
+  // Row features
+  readonly expandable?: boolean;
+  readonly rowDetailTemplate?: TemplateRef<{ $implicit: T; index: number }>;
+  readonly groupBy?: string;
+  readonly groupHeaderTemplate?: TemplateRef<{ $implicit: { key: string; rows: readonly T[] } }>;
+  readonly showGroupTotals?: boolean;
+  readonly inlineEdit?: 'cell' | 'row' | null;
+  readonly rowClass?: (row: T) => string;
+  readonly rowSeverity?: (row: T) => Severity | null;
+
+  // Nested tables (recursive — render a sub-table inside the row detail)
+  readonly nestedConfig?: (row: T) => TableConfig<Record<string, unknown>> | null;
+  readonly nestedData?: (row: T) => readonly Record<string, unknown>[] | null;
+
+  // Footer / aggregators
+  readonly footerTemplate?: TemplateRef<{ rows: readonly T[]; totals: Record<string, unknown> }>;
+
+  // Mobile card view
+  readonly cardTemplate?: TemplateRef<{ $implicit: T; index: number }>;
+
+  // Export
   readonly exportable?: boolean;
   readonly exportFilename?: string;
+
+  // Persistence
   readonly stateKey?: string;
-  readonly skeletonRows?: number;
-  readonly rowClass?: (row: T) => string;
+  readonly persistState?: 'url' | 'localStorage' | 'both' | null;
+
+  // Custom column rendering
   readonly customColumnTemplates?: Record<string, TemplateRef<{ $implicit: T; value: unknown }>>;
 }
 
@@ -451,18 +661,78 @@ export interface ContextMenuConfig {
   readonly global?: boolean;
 }
 
+// ─── Steps / Wizard ──────────────────────────────────────────────────────────
+
+export type StepState =
+  | 'pending'
+  | 'active'
+  | 'complete'
+  | 'error'
+  | 'warning'
+  | 'skipped'
+  | 'disabled'
+  | 'loading';
+
+export type StepsVariant =
+  | 'horizontal'
+  | 'vertical'
+  | 'pill-bar'
+  | 'progress'
+  | 'cards'
+  | 'split'
+  | 'accordion'
+  | 'dots';
+
+export interface StepDescriptor {
+  readonly key: string;
+  readonly label: string;
+  readonly icon?: string;
+  readonly description?: string;
+  readonly state?: StepState;
+  readonly errorCount?: number;
+  readonly optional?: boolean;
+  readonly children?: readonly StepDescriptor[];
+  readonly when?: () => boolean;
+  readonly help?: string;
+  readonly badge?: { readonly value: string; readonly severity?: Severity };
+  readonly time?: number;
+  readonly routePath?: string;
+}
+
 export interface StepsConfig {
-  readonly steps: readonly {
-    readonly label: string;
-    readonly routePath?: string;
-    readonly icon?: string;
-    readonly description?: string;
-  }[];
+  readonly steps: readonly StepDescriptor[];
   readonly activeIndex: number;
+  readonly activeKey?: string;
+  readonly variant?: StepsVariant;
+  readonly orientation?: 'horizontal' | 'vertical';
   readonly readonly?: boolean;
-  readonly variant?: 'horizontal' | 'vertical';
   readonly showLabels?: boolean;
   readonly showConnectors?: boolean;
+  readonly showProgress?: boolean;
+  readonly showHelp?: boolean;
+  readonly allowFreeNav?: boolean;
+  readonly mobileMode?: 'collapse' | 'dots' | 'drawer';
+  readonly animateConnectors?: boolean;
+  readonly compact?: boolean;
+}
+
+export interface WizardButtonsConfig {
+  readonly showBack?: boolean;
+  readonly showNext?: boolean;
+  readonly showCancel?: boolean;
+  readonly showSkip?: boolean;
+  readonly showFinish?: boolean;
+  readonly backLabel?: string;
+  readonly nextLabel?: string;
+  readonly cancelLabel?: string;
+  readonly skipLabel?: string;
+  readonly finishLabel?: string;
+  readonly nextDisabled?: boolean;
+  readonly nextLoading?: boolean;
+  readonly isLast?: boolean;
+  readonly isFirst?: boolean;
+  readonly canSkip?: boolean;
+  readonly sticky?: boolean;
 }
 
 // ─── Message / inline ────────────────────────────────────────────────────────

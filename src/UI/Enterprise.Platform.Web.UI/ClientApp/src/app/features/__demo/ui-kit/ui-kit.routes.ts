@@ -23,6 +23,7 @@ import {
   DemoMessageComponent,
   DemoOverlayComponent,
   DemoPanelComponent,
+  DemoStepsComponent,
   DemoTreeComponent,
 } from './ui-kit-demos';
 import { UiKitShellComponent } from './ui-kit-shell.component';
@@ -62,7 +63,8 @@ export const UI_KIT_ROUTES: Routes = [
   { path: 'panel',        component: DemoPanelComponent,       data: headerFor('Panel',         'Cards: default / elevated / flat / ghost / glass.', 'pi pi-window-maximize') satisfies RouteMetadata },
   { path: 'overlay',      component: DemoOverlayComponent,     data: headerFor('Overlay',       'Dialog / Drawer / Popover / Tooltip.', 'pi pi-window-restore') satisfies RouteMetadata },
   { path: 'media',        component: DemoMediaComponent,       data: headerFor('Media',         'Image / Avatar / Gallery.', 'pi pi-image') satisfies RouteMetadata },
-  { path: 'menu',         component: DemoMenuComponent,        data: headerFor('Menu',          'Dropdown / Context / Steps.', 'pi pi-bars') satisfies RouteMetadata },
+  { path: 'menu',         component: DemoMenuComponent,        data: headerFor('Menu',          'Dropdown / Context.', 'pi pi-bars') satisfies RouteMetadata },
+  { path: 'steps',        component: DemoStepsComponent,       data: headerFor('Steps / Wizard', '8 variants × sub-steps × validation × buttons.', 'pi pi-step-forward') satisfies RouteMetadata },
   { path: 'message',      component: DemoMessageComponent,     data: headerFor('Message',       'Inline messages + Toast service.', 'pi pi-comment') satisfies RouteMetadata },
   { path: 'file',         component: DemoFileComponent,        data: headerFor('File',          'Upload (dropzone/button) + list + preview.', 'pi pi-paperclip') satisfies RouteMetadata },
 ];
