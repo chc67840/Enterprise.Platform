@@ -75,65 +75,7 @@ const ICONS: Record<Severity, string> = {
       </div>
     }
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-msg {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.625rem;
-        padding: 0.75rem 1rem;
-        border: 1px solid;
-        border-left-width: 4px;
-        border-radius: var(--ep-radius-md);
-        font-size: 0.875rem;
-        line-height: 1.4;
-      }
-      .dph-msg[data-rounded='true'] { border-radius: var(--ep-radius-lg); }
-      .dph-msg[data-compact='true'] {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.8125rem;
-      }
-
-      .dph-msg__icon { font-size: 1rem; margin-top: 0.125rem; flex-shrink: 0; }
-      .dph-msg__body { display: flex; flex-direction: column; gap: 0.125rem; flex: 1; min-width: 0; }
-      .dph-msg__summary { font-weight: 600; }
-      .dph-msg__detail { color: inherit; opacity: 0.9; }
-      .dph-msg__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
-
-      .dph-msg__close {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.75rem;
-        height: 1.75rem;
-        border-radius: var(--ep-radius-sm);
-        background-color: transparent;
-        border: none;
-        color: inherit;
-        opacity: 0.7;
-        cursor: pointer;
-        flex-shrink: 0;
-      }
-      .dph-msg__close:hover { opacity: 1; background-color: rgba(0, 0, 0, 0.06); }
-      .dph-msg__close:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
-      .dph-msg__close i { pointer-events: none; }
-
-      /* severity → outline (default) */
-      .dph-msg[data-severity='info'] { background-color: var(--ep-color-primary-50); border-color: var(--ep-color-primary-200); color: var(--ep-color-primary-800); }
-      .dph-msg[data-severity='success'] { background-color: var(--ep-color-palmetto-50); border-color: var(--ep-color-palmetto-200); color: var(--ep-color-palmetto-800); }
-      .dph-msg[data-severity='warning'] { background-color: var(--ep-color-jessamine-50); border-color: var(--ep-color-jessamine-300); color: var(--ep-color-jessamine-800); }
-      .dph-msg[data-severity='danger'] { background-color: var(--ep-color-danger-50); border-color: var(--ep-color-danger-200); color: var(--ep-color-danger-700); }
-      .dph-msg[data-severity='neutral'] { background-color: var(--ep-color-neutral-50); border-color: var(--ep-color-neutral-200); color: var(--ep-color-neutral-700); }
-
-      /* filled variant */
-      .dph-msg[data-filled='true'][data-severity='info'] { background-color: var(--ep-color-primary-700); color: #fff; border-color: var(--ep-color-primary-700); }
-      .dph-msg[data-filled='true'][data-severity='success'] { background-color: var(--ep-color-palmetto-700); color: #fff; border-color: var(--ep-color-palmetto-700); }
-      .dph-msg[data-filled='true'][data-severity='warning'] { background-color: var(--ep-color-jessamine-500); color: var(--ep-color-primary-900); border-color: var(--ep-color-jessamine-500); }
-      .dph-msg[data-filled='true'][data-severity='danger'] { background-color: var(--ep-color-danger-600); color: #fff; border-color: var(--ep-color-danger-600); }
-      .dph-msg[data-filled='true'][data-severity='neutral'] { background-color: var(--ep-color-neutral-700); color: #fff; border-color: var(--ep-color-neutral-700); }
-    `,
-  ],
+  styleUrl: './inline-message.component.scss',
 })
 export class InlineMessageComponent {
   readonly config = input.required<InlineMessageConfig>();

@@ -42,38 +42,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       </div>
     }
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-field-error {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.375rem;
-        margin-top: 0.25rem;
-        font-size: 0.75rem;
-        line-height: 1.25;
-        color: var(--ep-color-danger-700);
-        animation: dph-field-error-in 200ms ease forwards;
-      }
-      .dph-field-error__icon {
-        margin-top: 0.0625rem;
-        font-size: 0.8125rem;
-      }
-      .dph-field-error__list {
-        list-style: disc;
-        margin: 0;
-        padding-left: 1rem;
-      }
-      .dph-field-error__list li + li { margin-top: 0.125rem; }
-      @keyframes dph-field-error-in {
-        from { opacity: 0; transform: translateY(-2px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dph-field-error { animation: none; }
-      }
-    `,
-  ],
+  styleUrl: './field-error.component.scss',
 })
 export class FieldErrorComponent {
   readonly errors = input<readonly string[]>([]);

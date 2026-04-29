@@ -1,0 +1,39 @@
+:host { display: contents; }
+
+.dph-dialog__subheader {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ep-color-neutral-600);
+}
+
+.dph-dialog__body {
+  position: relative;
+}
+
+.dph-dialog__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: var(--ep-color-neutral-700);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.dph-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.dph-dialog__footer[data-align='left'] { justify-content: flex-start; }
+.dph-dialog__footer[data-align='center'] { justify-content: center; }
+.dph-dialog__footer[data-align='right'] { justify-content: flex-end; }
+.dph-dialog__footer[data-align='between'] { justify-content: space-between; }
+
+// Dialog overlay rules (.p-dialog-content padding + body scroll) lifted to
+// src/styles/_primeng-overrides.scss because <p-dialog> renders to body.

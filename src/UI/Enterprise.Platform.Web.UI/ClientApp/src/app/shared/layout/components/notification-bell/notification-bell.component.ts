@@ -141,50 +141,7 @@ import type {
       }
     </p-popover>
   `,
-  styles: [
-    /*
-     * Tone-aware trigger via [data-tone] selectors (Tailwind v4 JIT can't see
-     * computed class strings; lesson from Phase E). Dark = white icon on
-     * indigo chrome; light = neutral icon on surface.
-     */
-    `
-      .ep-bell-btn {
-        position: relative;
-        display: inline-flex;
-        height: 2.75rem;
-        width: 2.75rem;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0.375rem;
-        background-color: transparent;
-        transition: background-color 120ms ease, color 120ms ease;
-      }
-      .ep-bell-btn:focus-visible {
-        outline: 2px solid var(--ep-color-jessamine-500);
-        outline-offset: 2px;
-      }
-      .ep-bell-icon { font-size: 1.125rem; line-height: 1; }
-
-      .ep-bell-btn[data-tone='light'] { color: var(--ep-text-secondary); }
-      .ep-bell-btn[data-tone='light']:hover {
-        background-color: var(--ep-surface-100);
-        color: var(--ep-text-primary);
-      }
-      .ep-bell-btn[data-tone='dark'] { color: rgba(255, 255, 255, 0.92); }
-      .ep-bell-btn[data-tone='dark']:hover {
-        background-color: rgba(255, 255, 255, 0.12);
-        color: #ffffff;
-      }
-
-      .ep-bell-item:hover {
-        background-color: var(--ep-color-primary-50);
-      }
-      .ep-bell-item:focus-visible {
-        outline: 2px solid var(--ep-color-primary-500);
-        outline-offset: -2px;
-      }
-    `,
-  ],
+  styleUrl: './notification-bell.component.scss',
 })
 export class NotificationBellComponent {
   private readonly router = inject(Router);

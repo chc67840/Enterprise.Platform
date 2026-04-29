@@ -51,12 +51,7 @@ import type { DropdownMenuConfig, MenuItem } from './dph.types';
       (onHide)="isOpen.set(false)"
     />
   `,
-  styles: [
-    `
-      :host { display: inline-flex; }
-      .dph-dropdown__trigger-wrap { display: inline-flex; }
-    `,
-  ],
+  styleUrl: './dropdown-menu.component.scss',
 })
 export class DropdownMenuComponent {
   readonly config = input.required<DropdownMenuConfig>();

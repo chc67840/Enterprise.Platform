@@ -48,45 +48,7 @@ import type { ImageConfig } from './dph.types';
       }
     </span>
   `,
-  styles: [
-    `
-      :host { display: inline-block; }
-      .dph-image {
-        position: relative;
-        display: inline-block;
-        overflow: hidden;
-      }
-      .dph-image[data-rounded='md'] { border-radius: var(--ep-radius-md); }
-      .dph-image[data-rounded='full'] { border-radius: 9999px; }
-
-      .dph-image[data-aspect='1/1'] { aspect-ratio: 1 / 1; width: 100%; }
-      .dph-image[data-aspect='4/3'] { aspect-ratio: 4 / 3; width: 100%; }
-      .dph-image[data-aspect='16/9'] { aspect-ratio: 16 / 9; width: 100%; }
-      .dph-image[data-aspect='3/2'] { aspect-ratio: 3 / 2; width: 100%; }
-
-      .dph-image img {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-
-      .dph-image__skeleton {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(90deg, var(--ep-color-neutral-200), var(--ep-color-neutral-100), var(--ep-color-neutral-200));
-        background-size: 200% 100%;
-        animation: dph-img-shimmer 1.4s ease infinite;
-        z-index: 1;
-      }
-      @keyframes dph-img-shimmer {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dph-image__skeleton { animation: none; }
-      }
-    `,
-  ],
+  styleUrl: './image.component.scss',
 })
 export class ImageComponent {
   readonly config = input.required<ImageConfig>();

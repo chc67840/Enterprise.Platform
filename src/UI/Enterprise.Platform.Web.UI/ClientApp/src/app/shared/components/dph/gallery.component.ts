@@ -41,46 +41,7 @@ import type { GalleryConfig } from './dph.types';
       }
     </ul>
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-gallery {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: 1fr;
-      }
-      .dph-gallery[data-gap='xs'] { gap: 0.25rem; }
-      .dph-gallery[data-gap='sm'] { gap: 0.5rem; }
-      .dph-gallery[data-gap='lg'] { gap: 1rem; }
-      .dph-gallery[data-gap='xl'] { gap: 1.5rem; }
-
-      @media (min-width: 480px) {
-        .dph-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-      @media (min-width: 768px) {
-        .dph-gallery[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .dph-gallery[data-cols='3'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .dph-gallery[data-cols='4'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .dph-gallery[data-cols='5'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      }
-      @media (min-width: 1024px) {
-        .dph-gallery[data-cols='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .dph-gallery[data-cols='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        .dph-gallery[data-cols='5'] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      }
-
-      .dph-gallery__item { display: flex; flex-direction: column; gap: 0.25rem; }
-      .dph-gallery__caption {
-        margin: 0;
-        font-size: 0.75rem;
-        color: var(--ep-color-neutral-600);
-        text-align: center;
-      }
-    `,
-  ],
+  styleUrl: './gallery.component.scss',
 })
 export class GalleryComponent {
   readonly config = input.required<GalleryConfig>();

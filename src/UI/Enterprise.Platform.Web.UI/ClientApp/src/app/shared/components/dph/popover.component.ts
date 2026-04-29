@@ -40,12 +40,7 @@ import type { PopoverConfig } from './dph.types';
       <ng-content />
     </p-popover>
   `,
-  styles: [
-    `
-      :host { display: inline-flex; }
-      .dph-pop__trigger { display: inline-flex; }
-    `,
-  ],
+  styleUrl: './popover.component.scss',
 })
 export class PopoverComponent {
   readonly config = input<PopoverConfig | undefined>(undefined);

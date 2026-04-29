@@ -1,0 +1,199 @@
+// ─── styles.scss — GLOBAL STYLES ENTRY POINT ──────────────────────────────
+//
+// Master entry compiled into the single global stylesheet emitted at
+// build time (referenced by `angular.json` `styles[]`). Component SCSS
+// files compile separately and never reach this file.
+//
+// COMPOSITION ORDER (load-bearing — read carefully)
+//
+//   1. `@use` partials at top.
+//      Sass requires every `@use` rule to come BEFORE any other rule
+//      (including `@import`). Order of `@use` here determines the order
+//      of CSS output — since each partial emits CSS rules at the call
+//      site, they appear in the compiled output in the order listed.
+//
+//        a. tokens          — `--ep-*` CSS custom properties on :root
+//                             (and :root.dark overrides). MUST be first
+//                             so subsequent partials can reference them.
+//        b. typography      — @font-face declarations (mostly placeholder
+//                             pending licensed fonts).
+//        c. animations      — keyframes + .ep-fade-in/.ep-scale-in
+//                             utilities + global prefers-reduced-motion.
+//        d. reset           — html/body, :focus-visible, @media print,
+//                             chrome interaction guards.
+//        e. primeng-overrides — global PrimeNG `.p-*` overrides
+//                               (populated in Phase 3).
+//
+//   2. CSS `@import` rules for external CSS bundles.
+//      Sass passes these through to the output. The browser hoists them
+//      to the top of the final stylesheet — but for that to work, Sass
+//      must recognize them as CSS imports (URL ends in `.css` or wrapped
+//      in `url(...)`). The bare `@import 'tailwindcss'` form works
+//      because Tailwind v4's package main is `./index.css` and modern
+//      Angular CLI + Sass cooperate via Node module resolution.
+//
+//        a. primeicons CSS  — registers `@font-face primeicons` + every
+//                             `.pi-*` glyph class. Without this every
+//                             `<i class="pi pi-…">` renders as an empty
+//                             box.
+//        b. tailwindcss     — generates Tailwind's `theme`, `base`,
+//                             `utilities` cascade layers. The
+//                             `@tailwindcss/postcss` plugin processes
+//                             this directive AFTER Sass compilation.
+//
+//   3. `@theme inline` block — Tailwind v4 directive (NOT an `@use`
+//      target). Aliases a subset of our `--ep-*` tokens into Tailwind's
+//      theme scale so `class="bg-primary-500"` resolves to
+//      `background-color: var(--ep-color-primary-500)`. The `inline`
+//      keyword keeps the `var(--ep-color-…)` reference in the emitted
+//      utility instead of baking the current value at build time —
+//      necessary so `.dark` token swaps repaint instantly.
+//
+// WHY THE PARTIAL CONTENT APPEARS BEFORE TAILWIND IN OUTPUT
+//   The browser processes `@import` rules first regardless of where they
+//   appear in the source (CSS spec: implicit hoist). So `:root` token
+//   declarations from `_tokens.scss` (emitted by `@use 'tokens';` near
+//   the top of THIS file) and Tailwind's utility classes (loaded via
+//   `@import 'tailwindcss';`) are both available simultaneously. Order
+//   in the source affects specificity tie-breaks, not "what loads first".
+//
+// IF SASS REJECTS `@import 'tailwindcss';`
+//   Sass v1.99 with Angular CLI's resolver cooperates via Node module
+//   resolution to find `tailwindcss/index.css`. If a future Sass version
+//   changes resolution behavior, switch to the explicit form:
+//     @import 'tailwindcss/index.css';
+// ──────────────────────────────────────────────────────────────────────────
+
+@use 'tokens';
+@use 'typography';
+@use 'animations';
+@use 'reset';
+@use 'primeng-overrides';
+
+// PrimeIcons font — explicit `.css` extension so Sass passes through
+// unambiguously to the CSS output.
+@import 'primeicons/primeicons.css';
+
+// Tailwind v4 — bare module specifier. Resolved via Node module resolution
+// (Tailwind's package main points at `./index.css`). The
+// `@tailwindcss/postcss` plugin processes this directive AFTER Sass.
+@import 'tailwindcss';
+
+@theme inline {
+  /* ── Brand palette — Indigo Blue (primary) ─────────────────────────
+   *  Usage: class="bg-primary-700"  / class="text-primary-100"
+   */
+  --color-primary-50:  var(--ep-color-primary-50);
+  --color-primary-100: var(--ep-color-primary-100);
+  --color-primary-200: var(--ep-color-primary-200);
+  --color-primary-300: var(--ep-color-primary-300);
+  --color-primary-400: var(--ep-color-primary-400);
+  --color-primary-500: var(--ep-color-primary-500);
+  --color-primary-600: var(--ep-color-primary-600);
+  --color-primary-700: var(--ep-color-primary-700);
+  --color-primary-800: var(--ep-color-primary-800);
+  --color-primary-900: var(--ep-color-primary-900);
+  --color-primary-950: var(--ep-color-primary-950);
+
+  /* ── Brand palette — Palmetto Green (secondary) ────────────────────
+   *  Usage: class="bg-palmetto-600"  / class="text-palmetto-700"
+   */
+  --color-palmetto-50:  var(--ep-color-palmetto-50);
+  --color-palmetto-100: var(--ep-color-palmetto-100);
+  --color-palmetto-200: var(--ep-color-palmetto-200);
+  --color-palmetto-300: var(--ep-color-palmetto-300);
+  --color-palmetto-400: var(--ep-color-palmetto-400);
+  --color-palmetto-500: var(--ep-color-palmetto-500);
+  --color-palmetto-600: var(--ep-color-palmetto-600);
+  --color-palmetto-700: var(--ep-color-palmetto-700);
+  --color-palmetto-800: var(--ep-color-palmetto-800);
+  --color-palmetto-900: var(--ep-color-palmetto-900);
+  --color-palmetto-950: var(--ep-color-palmetto-950);
+
+  /* ── Brand palette — Yellow Jessamine (accent) ─────────────────────
+   *  Usage: class="bg-jessamine-500"  / class="text-jessamine-900"
+   */
+  --color-jessamine-50:  var(--ep-color-jessamine-50);
+  --color-jessamine-100: var(--ep-color-jessamine-100);
+  --color-jessamine-200: var(--ep-color-jessamine-200);
+  --color-jessamine-300: var(--ep-color-jessamine-300);
+  --color-jessamine-400: var(--ep-color-jessamine-400);
+  --color-jessamine-500: var(--ep-color-jessamine-500);
+  --color-jessamine-600: var(--ep-color-jessamine-600);
+  --color-jessamine-700: var(--ep-color-jessamine-700);
+  --color-jessamine-800: var(--ep-color-jessamine-800);
+  --color-jessamine-900: var(--ep-color-jessamine-900);
+  --color-jessamine-950: var(--ep-color-jessamine-950);
+
+  /* ── Neutral palette — Opaque White (warm) ─────────────────────────
+   *  Usage: class="bg-neutral-50"  / class="text-neutral-700"
+   *  Dark theme overrides surface aliases via :root.dark in _tokens.scss.
+   */
+  --color-neutral-0:   var(--ep-color-neutral-0);
+  --color-neutral-50:  var(--ep-color-neutral-50);
+  --color-neutral-100: var(--ep-color-neutral-100);
+  --color-neutral-200: var(--ep-color-neutral-200);
+  --color-neutral-300: var(--ep-color-neutral-300);
+  --color-neutral-400: var(--ep-color-neutral-400);
+  --color-neutral-500: var(--ep-color-neutral-500);
+  --color-neutral-600: var(--ep-color-neutral-600);
+  --color-neutral-700: var(--ep-color-neutral-700);
+  --color-neutral-800: var(--ep-color-neutral-800);
+  --color-neutral-900: var(--ep-color-neutral-900);
+  --color-neutral-950: var(--ep-color-neutral-950);
+
+  /* ── Off-brand red — danger only ───────────────────────────────────
+   *  Universal "stop" signal; intentionally NOT one of the four brand
+   *  hues. Five steps cover the surfaces we actually use.
+   */
+  --color-danger-50:  var(--ep-color-danger-50);
+  --color-danger-100: var(--ep-color-danger-100);
+  --color-danger-500: var(--ep-color-danger-500);
+  --color-danger-600: var(--ep-color-danger-600);
+  --color-danger-700: var(--ep-color-danger-700);
+
+  /* ── Semantic aliases ──────────────────────────────────────────────
+   *  Components prefer these over scale indices so a future remap
+   *  ("success" → use a different palette) is a single token edit.
+   *
+   *  Usage: class="bg-success text-success-bg"
+   */
+  --color-success:    var(--ep-color-success);
+  --color-success-bg: var(--ep-color-success-bg);
+  --color-warning:    var(--ep-color-warning);
+  --color-warning-bg: var(--ep-color-warning-bg);
+  --color-danger:     var(--ep-color-danger);
+  --color-danger-bg:  var(--ep-color-danger-bg);
+  --color-info:       var(--ep-color-info);
+  --color-info-bg:    var(--ep-color-info-bg);
+
+  /* Radii. `class="rounded-ep-xl"` → 1rem. */
+  --radius-ep-sm: var(--ep-radius-sm);
+  --radius-ep-md: var(--ep-radius-md);
+  --radius-ep-lg: var(--ep-radius-lg);
+  --radius-ep-xl: var(--ep-radius-xl);
+  --radius-ep-2xl: var(--ep-radius-2xl);
+
+  /* Shadows. `class="shadow-ep-md"`. */
+  --shadow-ep-xs: var(--ep-shadow-xs);
+  --shadow-ep-sm: var(--ep-shadow-sm);
+  --shadow-ep-md: var(--ep-shadow-md);
+  --shadow-ep-lg: var(--ep-shadow-lg);
+  --shadow-ep-xl: var(--ep-shadow-xl);
+
+  /* Font stacks — bridge into Tailwind's font-* utility namespace.
+   *
+   *   class="font-primary"   → Noto Sans (UI default)
+   *   class="font-secondary" → Arno Pro (editorial / headlines)
+   *   class="font-accent"    → Bicycletter (display-only)
+   *   class="font-sans"      → alias of font-primary (back-compat)
+   *   class="font-serif"     → alias of font-secondary
+   *   class="font-mono"      → JetBrains Mono (code, IDs)
+   */
+  --font-primary:   var(--ep-font-primary);
+  --font-secondary: var(--ep-font-secondary);
+  --font-accent:    var(--ep-font-accent);
+  --font-sans:      var(--ep-font-primary);
+  --font-serif:     var(--ep-font-secondary);
+  --font-mono:      var(--ep-font-mono);
+}

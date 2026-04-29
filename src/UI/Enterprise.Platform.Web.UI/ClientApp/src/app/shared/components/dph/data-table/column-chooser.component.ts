@@ -49,57 +49,7 @@ import type { ColumnDef } from '../dph.types';
       </div>
     </p-popover>
   `,
-  styles: [
-    `
-      :host { display: inline-flex; }
-      .dph-cc__trigger {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.375rem 0.625rem;
-        border: 1px solid var(--ep-color-neutral-300);
-        background: #fff;
-        border-radius: var(--ep-radius-md);
-        font-size: 0.75rem;
-        color: var(--ep-color-neutral-700);
-        cursor: pointer;
-      }
-      .dph-cc__trigger:hover { background: var(--ep-color-neutral-50); }
-      .dph-cc__trigger:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
-      .dph-cc__count { font-variant-numeric: tabular-nums; color: var(--ep-color-neutral-500); }
-
-      .dph-cc { display: flex; flex-direction: column; gap: 0.5rem; min-width: 12rem; padding: 0.25rem; }
-      .dph-cc__title { font-size: 0.75rem; font-weight: 600; color: var(--ep-color-neutral-700); }
-      .dph-cc__list { display: flex; flex-direction: column; max-height: 18rem; overflow: auto; }
-      .dph-cc__item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.25rem 0.375rem;
-        font-size: 0.8125rem;
-        cursor: pointer;
-        border-radius: var(--ep-radius-sm);
-      }
-      .dph-cc__item:hover { background: var(--ep-color-neutral-100); }
-      .dph-cc__item input { accent-color: var(--ep-color-primary-700); }
-      .dph-cc__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        padding-top: 0.25rem;
-        border-top: 1px solid var(--ep-color-neutral-100);
-      }
-      .dph-cc__link {
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        font-size: 0.6875rem;
-        color: var(--ep-color-primary-700);
-        font-weight: 500;
-      }
-      .dph-cc__link:hover { text-decoration: underline; }
-    `,
-  ],
+  styleUrl: './column-chooser.component.scss',
 })
 export class ColumnChooserComponent {
   readonly columns = input.required<readonly ColumnDef<Record<string, unknown>>[]>();

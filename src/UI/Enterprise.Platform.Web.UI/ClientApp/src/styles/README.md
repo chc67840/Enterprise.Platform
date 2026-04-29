@@ -1,12 +1,91 @@
-# `src/styles/` — Global styles
+# `src/styles/` — Global SCSS partials
 
-Split into focused files imported from `src/styles.css`:
+The single global stylesheet emitted at build time is composed here. Each file
+is a Sass partial (leading `_` means "do not compile alone") consumed by the
+master entry `styles.scss` via `@use`.
 
-- `tokens.css` — CSS custom properties (z-index, transitions, easing, content widths, layout dimensions) (Phase 5)
-- `typography.css` — font stack + scale (Phase 5)
-- `animations.css` — keyframes (Phase 5)
-- `scrollbars.css` — cross-browser scrollbar styling (Phase 5)
-- `utilities.css` — project-specific utility classes not covered by Tailwind (Phase 5)
-- `primeng-overrides.css` — PrimeNG component restylings (Phase 5; target ≤ 20 KB per §5.6)
+```
+src/styles/
+├── styles.scss               ← master entry · referenced by angular.json styles[]
+├── _tokens.scss              ← --ep-* CSS custom properties (colors, radii,
+│                                spacing, shadows, z-index, transitions,
+│                                layout dims, typography) on :root +
+│                                :root.dark overrides
+├── _typography.scss          ← @font-face declarations (mostly placeholder
+│                                pending licensed Arno Pro / Bicycletter)
+├── _animations.scss          ← @keyframes + .ep-fade-in / .ep-scale-in
+│                                utility classes + the global
+│                                @media (prefers-reduced-motion) rule
+├── _reset.scss               ← html/body baseline, :focus-visible ring,
+│                                @media print reset, chrome interaction
+│                                guards (touch-action, tap-highlight)
+├── _primeng-overrides.scss   ← global PrimeNG `.p-*` overrides — populated
+│                                in Phase 3 from component extractions
+├── _mixins.scss              ← reusable mixins: dark, mobile, tablet-down,
+│                                desktop, focus-ring
+└── README.md
+```
 
-For Phase 0 only `src/styles.css` is populated (Tailwind import + reset).
+## Composition order in `styles.scss`
+
+```scss
+@use 'tokens';            // 1. CSS custom properties (must be first — others reference)
+@use 'typography';        // 2. @font-face
+@use 'animations';        // 3. keyframes + reduced-motion safeguard
+@use 'reset';             // 4. baseline + chrome guards
+@use 'primeng-overrides'; // 5. global PrimeNG overrides
+
+@import 'primeicons/primeicons.css';   // PrimeIcons font + .pi-* glyph classes
+@import 'tailwindcss';                  // Tailwind v4 — generates theme/base/utilities layers
+
+@theme inline { ... }     // Tailwind v4 directive — aliases --ep-* → theme scale
+```
+
+## How components use these partials
+
+Component SCSS files import only `mixins`:
+
+```scss
+// shared/components/dph/panel.component.scss
+@use 'mixins' as m;
+
+.dph-panel__close:focus-visible {
+  @include m.focus-ring;
+}
+
+.dph-panel--mobile-stack {
+  @include m.mobile {
+    flex-direction: column;
+  }
+}
+```
+
+The Sass `includePaths: ["src/styles"]` setting in `angular.json` lets
+`@use 'mixins'` resolve without relative paths from any component file.
+
+## What lives where (rules)
+
+| Concern | Goes in |
+|---|---|
+| New CSS custom property (design token) | `_tokens.scss` |
+| New `@font-face` for licensed font | `_typography.scss` |
+| New keyframe animation | `_animations.scss` |
+| New `:root` / `html` / `body` rule | `_reset.scss` |
+| New `.p-*` PrimeNG override | `_primeng-overrides.scss` |
+| New reusable mixin (3+ usages) | `_mixins.scss` |
+| Component-specific styling | `<component>.component.scss` next to the .ts file |
+
+## Cascade layer order
+
+PrimeNG declares the layer order via `cssLayer.order: 'theme, base, primeng, utilities'`
+in `src/app/config/primeng.config.ts`. Tailwind v4's `@import 'tailwindcss'`
+populates `theme`, `base`, and `utilities`; PrimeNG components live in
+`primeng`. Our overrides in `_primeng-overrides.scss` are layer-LESS
+(intentional) so they beat PrimeNG defaults without `!important`.
+
+## Why `@use` not `@import`
+
+Sass `@import` is deprecated and module-leaky (variables and mixins flow
+into the global scope). `@use` is module-scoped (`@use 'mixins' as m;` →
+prefix everything with `m.`) and deduplicates — even if 50 components
+`@use 'mixins'`, Sass compiles the partial once.

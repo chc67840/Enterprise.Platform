@@ -40,12 +40,7 @@ import type { ContextMenuConfig, MenuItem } from './dph.types';
       styleClass="dph-context-menu"
     />
   `,
-  styles: [
-    `
-      :host { display: contents; }
-      .dph-ctx__wrap { display: contents; }
-    `,
-  ],
+  styleUrl: './context-menu.component.scss',
 })
 export class ContextMenuComponent {
   readonly config = input.required<ContextMenuConfig>();

@@ -82,36 +82,7 @@ import type {
       </ul>
     </p-popover>
   `,
-  styles: [
-    `
-      .ep-qa-trigger {
-        display: inline-flex;
-        height: 2.75rem;
-        width: 2.75rem;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0.375rem;
-        background-color: transparent;
-        color: rgba(255, 255, 255, 0.92);
-        transition: background-color 120ms ease;
-      }
-      .ep-qa-trigger:hover { background-color: rgba(255, 255, 255, 0.12); color: #fff; }
-      .ep-qa-trigger:focus-visible {
-        outline: 2px solid var(--ep-color-jessamine-500);
-        outline-offset: 2px;
-      }
-
-      .ep-qa-item {
-        background: transparent;
-        border-radius: 0.375rem;
-      }
-      .ep-qa-item:hover { background-color: var(--ep-color-primary-50); }
-      .ep-qa-item:focus-visible {
-        outline: 2px solid var(--ep-color-primary-500);
-        outline-offset: -2px;
-      }
-    `,
-  ],
+  styleUrl: './quick-actions.component.scss',
 })
 export class QuickActionsComponent {
   private readonly auth = inject(AuthStore);

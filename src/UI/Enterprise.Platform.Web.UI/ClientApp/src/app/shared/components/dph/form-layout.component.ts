@@ -46,76 +46,7 @@ import type { FormLayoutConfig } from './dph.types';
       </footer>
     </div>
   `,
-  styles: [
-    `
-      :host { display: block; }
-
-      .dph-form {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      .dph-form__header:empty,
-      .dph-form__footer:empty { display: none; }
-
-      .dph-form__body {
-        display: grid;
-        gap: 1rem;
-      }
-      .dph-form[data-gap='xs'] .dph-form__body { gap: 0.5rem; }
-      .dph-form[data-gap='sm'] .dph-form__body { gap: 0.75rem; }
-      .dph-form[data-gap='lg'] .dph-form__body { gap: 1.25rem; }
-      .dph-form[data-gap='xl'] .dph-form__body { gap: 1.5rem; }
-      .dph-form--dense .dph-form__body { gap: 0.5rem; }
-
-      /* default 1-col */
-      .dph-form[data-columns='1'] .dph-form__body { grid-template-columns: 1fr; }
-
-      /* 2-col → 1 below sm */
-      .dph-form[data-columns='2'] .dph-form__body {
-        grid-template-columns: 1fr;
-      }
-      @media (min-width: 640px) {
-        .dph-form[data-columns='2'] .dph-form__body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-
-      /* 3-col → 2 below md → 1 below sm */
-      .dph-form[data-columns='3'] .dph-form__body { grid-template-columns: 1fr; }
-      @media (min-width: 640px) {
-        .dph-form[data-columns='3'] .dph-form__body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-      @media (min-width: 1024px) {
-        .dph-form[data-columns='3'] .dph-form__body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      }
-
-      /* 4-col → 2 below lg → 1 below md */
-      .dph-form[data-columns='4'] .dph-form__body { grid-template-columns: 1fr; }
-      @media (min-width: 768px) {
-        .dph-form[data-columns='4'] .dph-form__body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-      @media (min-width: 1280px) {
-        .dph-form[data-columns='4'] .dph-form__body { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-      }
-
-      /* inline variant */
-      .dph-form[data-variant='inline'] .dph-form__body {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-      }
-
-      .dph-form__footer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        justify-content: flex-end;
-        padding-top: 0.5rem;
-        border-top: 1px solid var(--ep-color-neutral-200);
-      }
-      .dph-form__footer:empty { border-top: none; padding-top: 0; }
-    `,
-  ],
+  styleUrl: './form-layout.component.scss',
 })
 export class FormLayoutComponent {
   readonly config = input.required<FormLayoutConfig>();

@@ -175,7 +175,14 @@
       "Bash(awk '/class TableModule/,/^}/' node_modules/primeng/fesm2022/primeng-table.mjs)",
       "Bash(awk '/class SharedModule/,/^}/' node_modules/primeng/fesm2022/primeng-api.mjs)",
       "Bash(awk '/ngOnChanges/,/^ }/' node_modules/primeng/fesm2022/primeng-table.mjs)",
-      "Bash(awk '/template: \\\\`/,/^\\\\s*static/' node_modules/primeng/fesm2022/primeng-table.mjs)"
+      "Bash(awk '/template: \\\\`/,/^\\\\s*static/' node_modules/primeng/fesm2022/primeng-table.mjs)",
+      "Bash(awk '/isStateful\\\\s*\\\\\\(\\\\s*\\\\\\)\\\\s*{/,/^ }/' node_modules/primeng/fesm2022/primeng-table.mjs)",
+      "Bash(awk '/restoreState\\\\s*\\\\\\(\\\\s*\\\\\\)\\\\s*{/,/^ }/' node_modules/primeng/fesm2022/primeng-table.mjs)",
+      "Bash(awk '/saveState\\\\s*\\\\\\(\\\\s*\\\\\\)\\\\s*{/,/^ }/' node_modules/primeng/fesm2022/primeng-table.mjs)",
+      "Read(//tmp/**)",
+      "Bash(xargs wc *)",
+      "Bash(git stash *)",
+      "Bash(npx playwright *)"
     ]
   }
 }

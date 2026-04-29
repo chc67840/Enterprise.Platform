@@ -1,0 +1,196 @@
+// ─── _primeng-overrides.scss ──────────────────────────────────────────────
+//
+// Global PrimeNG component overrides. EVERY `.p-*` selector that would
+// otherwise live in a component's inline styles belongs here.
+//
+// WHY GLOBAL
+//   PrimeNG overlays (dropdowns, dialogs, tooltips, paginators) render
+//   OUTSIDE the originating component's view tree — directly into the
+//   document body via PrimeNG's overlay primitive. Component-scoped CSS
+//   cannot reach them. The previous codebase used `:host ::ng-deep .p-*`
+//   patterns, which "worked" only because `viewEncapsulation: 'None'` is
+//   the global default — meaning `::ng-deep` was never load-bearing to
+//   begin with. We dropped the keyword in the Phase 3 migration.
+//
+// CASCADE LAYER
+//   This file's rules sit OUTSIDE any `@layer`. Per CSS spec, layer-less
+//   rules win over rules in named layers when specificity is equal.
+//   PrimeNG's own styles live in `@layer primeng` (declared via
+//   `cssLayer.name: 'primeng'` in `primeng.config.ts`), so our overrides
+//   beat PrimeNG defaults without `!important`.
+//
+// CONVENTION
+//   - Group rules by the originating component (heading comment).
+//   - Selectors are anchored on the `styleClass` value the component
+//     passes to its PrimeNG primitive — that's the stable hook that
+//     survives appendTo:body.
+//   - Use `var(--ep-*)` tokens; never hardcode colors / spacing.
+// ──────────────────────────────────────────────────────────────────────────
+
+// ── DialogComponent (DPH UI Kit) ──────────────────────────────────────────
+.dph-dialog .p-dialog-content {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.dph-dialog .p-dialog-content > .dph-dialog__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0;
+  padding: var(--dph-dialog-content-padding, 1.5rem);
+}
+.dph-dialog[data-no-padding] .p-dialog-content > .dph-dialog__body {
+  padding: 0;
+}
+
+// ── DrawerComponent (DPH UI Kit) ──────────────────────────────────────────
+.dph-drawer .p-drawer-content {
+  overscroll-behavior: contain;
+}
+
+// ── TreeComponent (DPH UI Kit) ────────────────────────────────────────────
+.dph-tree .p-tree-filter-container { padding: 0.5rem; }
+.dph-tree .p-treenode-content { border-radius: var(--ep-radius-sm); }
+.dph-tree .p-treenode-content:focus-visible {
+  outline: 2px solid var(--ep-color-jessamine-500);
+  outline-offset: 2px;
+}
+
+// ── InputComponent (DPH UI Kit) — flatten p-inputnumber + p-password ──────
+//
+// Both PrimeNG primitives wrap their <input> in their own div with extra
+// padding/borders. We let our outer `.dph-input__field` own the visible
+// chrome and force the inner PrimeNG wrapper to behave like a plain input.
+.dph-input__field input,
+.dph-input__field textarea,
+.dph-input__field .p-inputnumber-input,
+.dph-input__field .p-password-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ep-color-neutral-900);
+  font-family: inherit;
+}
+.dph-input__field .p-inputnumber,
+.dph-input__field .p-password { display: flex; flex: 1; min-width: 0; }
+.dph-input__field .p-inputnumber > input,
+.dph-input__field .p-password > input { flex: 1; }
+
+// ── ColumnFilterComponent (DPH data-table) ────────────────────────────────
+.dph-cf__pop .p-popover-content { padding: 0.5rem; }
+
+// ── UserMenuButtonComponent (Layout chrome) ───────────────────────────────
+//
+// The avatar tones target classes passed to <p-avatar [styleClass]>; the
+// menu rules target PrimeNG menu items rendered into the popup that's
+// appended to body.
+.ep-user-avatar-light {
+  background-color: var(--ep-color-primary-600) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+.ep-user-avatar-dark {
+  background-color: var(--ep-color-jessamine-500) !important;
+  color: var(--ep-color-primary-900) !important;
+  font-weight: 600 !important;
+}
+
+.ep-user-menu .p-menu {
+  min-width: 16rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ep-color-neutral-200);
+  box-shadow: 0 8px 24px rgba(15, 31, 59, 0.15);
+  padding: 0.25rem;
+}
+.ep-user-menu .ep-user-menu__header {
+  padding: 0.75rem 0.875rem 0.5rem;
+  border-bottom: 1px solid var(--ep-color-neutral-200);
+  margin-bottom: 0.25rem;
+  pointer-events: none;
+}
+.ep-user-menu .ep-user-menu__header .p-menu-item-link {
+  background: transparent !important;
+  cursor: default !important;
+}
+.ep-user-menu .ep-user-menu__logout .p-menu-item-link {
+  color: var(--ep-color-danger-700);
+}
+.ep-user-menu .ep-user-menu__logout .p-menu-item-link:hover {
+  background-color: var(--ep-color-danger-50);
+}
+
+// ── DataTableComponent (DPH UI Kit) ───────────────────────────────────────
+//
+// `.dph-table` is the styleClass passed to <p-table>. All inner structure
+// (.p-datatable-thead, -tbody, -wrapper, -table, paginator) is rendered by
+// PrimeNG and not reachable by component-scoped selectors.
+.dph-table .p-datatable-table {
+  font-size: 0.875rem;
+}
+.dph-table.dph-table--sm .p-datatable-tbody > tr > td,
+.dph-table.dph-table--sm .p-datatable-thead > tr > th {
+  padding: 0.375rem 0.5rem;
+}
+.dph-table.dph-table--lg .p-datatable-tbody > tr > td,
+.dph-table.dph-table--lg .p-datatable-thead > tr > th {
+  padding: 0.875rem 1rem;
+}
+.dph-table .p-datatable-thead > tr > th {
+  background: var(--ep-color-neutral-50);
+  color: var(--ep-color-neutral-800);
+  font-weight: 600;
+  border-bottom: 1px solid var(--ep-color-neutral-200);
+  position: relative;
+}
+.dph-table .p-datatable-tbody > tr {
+  transition: background-color 80ms ease;
+}
+.dph-table .p-datatable-tbody > tr:hover {
+  background: var(--ep-color-primary-50) !important;
+}
+.dph-table .p-datatable-tbody > tr[data-severity='danger']  { box-shadow: inset 4px 0 0 var(--ep-color-danger-500); }
+.dph-table .p-datatable-tbody > tr[data-severity='warning'] { box-shadow: inset 4px 0 0 var(--ep-color-jessamine-500); }
+.dph-table .p-datatable-tbody > tr[data-severity='success'] { box-shadow: inset 4px 0 0 var(--ep-color-palmetto-500); }
+.dph-table .p-datatable-tbody > tr[data-severity='info']    { box-shadow: inset 4px 0 0 var(--ep-color-primary-500); }
+.dph-table .p-datatable-thead > tr > th.dph-table__th--frozen-left,
+.dph-table .p-datatable-thead > tr > th.dph-table__th--frozen-right {
+  background: var(--ep-color-neutral-50);
+  z-index: 2;
+}
+
+// PRIORITY HIDE — hide low/medium-priority columns at narrower viewports.
+@media (max-width: 1024px) {
+  .dph-table th[data-priority='low'],
+  .dph-table td[data-priority='low'] { display: none; }
+}
+@media (max-width: 768px) {
+  .dph-table th[data-priority='medium'],
+  .dph-table td[data-priority='medium'] { display: none; }
+}
+
+// MOBILE table behaviour — horizontal scroll, tighter padding, paginator wrap.
+@media (max-width: 767px) {
+  .dph-table .p-datatable-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dph-table .p-datatable-tbody > tr > td,
+  .dph-table .p-datatable-thead > tr > th {
+    padding: 0.375rem 0.5rem;
+  }
+  .dph-table .p-paginator {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.125rem;
+    padding: 0.5rem 0.25rem;
+  }
+  .dph-table .p-paginator-first,
+  .dph-table .p-paginator-last { display: none; }
+  .dph-table .p-paginator-rpp-options { margin-left: 0; }
+}

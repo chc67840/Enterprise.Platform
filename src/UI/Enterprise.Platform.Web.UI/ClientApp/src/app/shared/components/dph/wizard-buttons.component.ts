@@ -72,51 +72,7 @@ import type { WizardButtonsConfig } from './dph.types';
       </div>
     </div>
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-wb {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 0.75rem; padding: 0.75rem 0; margin-top: 1rem;
-        border-top: 1px solid var(--ep-color-neutral-200);
-      }
-      .dph-wb--sticky {
-        position: sticky; bottom: 0; background: #fff; z-index: 1;
-        padding: 0.75rem 1rem; margin: 1rem -1rem -1rem;
-        box-shadow: 0 -4px 12px rgba(0,0,0,0.04);
-      }
-      .dph-wb__left, .dph-wb__right { display: inline-flex; gap: 0.5rem; align-items: center; }
-
-      .dph-wb__btn {
-        display: inline-flex; align-items: center; gap: 0.375rem;
-        padding: 0.5rem 1rem; border-radius: var(--ep-radius-md);
-        font-size: 0.875rem; font-weight: 500; cursor: pointer;
-        border: 1px solid transparent; min-height: 2.5rem;
-        transition: background-color 100ms, border-color 100ms;
-      }
-      .dph-wb__btn:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
-      .dph-wb__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-      .dph-wb__btn--primary { background: var(--ep-color-primary-700); color: #fff; }
-      .dph-wb__btn--primary:hover:not(:disabled) { background: var(--ep-color-primary-800); }
-
-      .dph-wb__btn--secondary {
-        background: #fff; color: var(--ep-color-neutral-800); border-color: var(--ep-color-neutral-300);
-      }
-      .dph-wb__btn--secondary:hover:not(:disabled) { background: var(--ep-color-neutral-50); border-color: var(--ep-color-neutral-400); }
-
-      .dph-wb__btn--ghost { background: transparent; color: var(--ep-color-neutral-600); }
-      .dph-wb__btn--ghost:hover:not(:disabled) { background: var(--ep-color-neutral-100); color: var(--ep-color-neutral-900); }
-
-      .dph-wb__spin {
-        width: 0.875rem; height: 0.875rem;
-        border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
-        border-radius: 9999px; animation: dph-wb-spin 0.7s linear infinite;
-      }
-      @keyframes dph-wb-spin { to { transform: rotate(360deg); } }
-      @media (prefers-reduced-motion: reduce) { .dph-wb__spin { animation: none; } }
-    `,
-  ],
+  styleUrl: './wizard-buttons.component.scss',
 })
 export class WizardButtonsComponent {
   readonly config = input.required<WizardButtonsConfig>();

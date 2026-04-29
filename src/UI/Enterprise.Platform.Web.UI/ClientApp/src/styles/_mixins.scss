@@ -1,0 +1,115 @@
+// ─── _mixins.scss ──────────────────────────────────────────────────────────
+//
+// Reusable Sass mixins extracted from repeated patterns in component styles.
+// Each mixin codifies a pattern that appears 3+ times across components, or
+// is required by the SCSS architecture (the `dark` mixin).
+//
+// USAGE PATTERN
+//   At the top of a component SCSS file:
+//     @use 'mixins' as m;
+//
+//   Then reference mixins by their namespace prefix:
+//     .my-class {
+//       @include m.focus-ring;
+//
+//       @include m.dark {
+//         background-color: rgba(0, 0, 0, 0.4);
+//       }
+//
+//       @include m.desktop {
+//         padding: 1.5rem;
+//       }
+//     }
+//
+// WHY NAMESPACED (`as m`)
+//   `@use` is module-scoped — variables/mixins from a `@use`d partial don't
+//   leak globally. Prefixing keeps call sites readable and prevents
+//   collisions with future component-local mixins of the same name.
+// ──────────────────────────────────────────────────────────────────────────
+
+// ─── Dark mode ────────────────────────────────────────────────────────────
+//
+// `ThemeService` applies the `.dark` class on `<html>`. Most theming flows
+// through `_tokens.scss` `:root.dark { ... }` token swaps (surfaces, text,
+// borders, shadows). This mixin is for the rare component-scope dark
+// overrides that token swaps cannot express (e.g., a translucent overlay
+// whose alpha is intentionally darker on dark surfaces).
+//
+// SELECTOR CHOICE
+//   `:root.dark &` (not `.dark &`) — both match the same elements (since
+//   `<html>` IS `:root`), but `:root.dark` mirrors the convention used in
+//   `_tokens.scss`. Consistency makes the codebase easier to grep.
+//
+// EXAMPLE
+//   .dph-modal__backdrop {
+//     background-color: rgba(0, 0, 0, 0.45);
+//
+//     @include m.dark {
+//       background-color: rgba(0, 0, 0, 0.7);
+//     }
+//   }
+@mixin dark {
+  :root.dark & {
+    @content;
+  }
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────
+//
+// Breakpoint values match what's actually used in existing component styles
+// across this codebase (audit phase 0). They align with Tailwind v4's
+// default scale so utility classes (`md:flex-row`, `lg:hidden`) and these
+// mixins target the same widths:
+//
+//   mobile      ≤ 767px   (Tailwind default `sm:` triggers AT 640px;
+//                          we use 767px to match existing component CSS)
+//   tablet-down ≤ 1023px  (everything below desktop — for "show on touch")
+//   desktop     ≥ 1024px  (the most common breakpoint in this codebase —
+//                          chrome / navbar / data-table layout flips here)
+//
+// EXAMPLE
+//   .ep-sidebar {
+//     display: none;
+//
+//     @include m.desktop {
+//       display: block;
+//     }
+//   }
+@mixin mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tablet-down {
+  @media (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1024px) {
+    @content;
+  }
+}
+
+// ─── Focus ring ───────────────────────────────────────────────────────────
+//
+// Keyboard-focus visual signal. The pattern
+//   `outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px;`
+// repeats across ~6 components (panel close, panel toggle, expand button,
+// data-table action, drawer close, etc.).
+//
+// COLOR
+//   References the `--ep-color-jessamine-*` accent token so a per-tenant
+//   rebrand of the accent palette flows through every focus ring without
+//   touching component styles.
+//
+// EXAMPLE
+//   .dph-panel__close:focus-visible {
+//     @include m.focus-ring;
+//   }
+@mixin focus-ring {
+  outline: 2px solid var(--ep-color-jessamine-500);
+  outline-offset: 2px;
+}

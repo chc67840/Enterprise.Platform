@@ -74,63 +74,7 @@ import type { DialogConfig } from './dph.types';
       </ng-template>
     </p-dialog>
   `,
-  styles: [
-    `
-      :host { display: contents; }
-
-      .dph-dialog__subheader {
-        margin: 0.125rem 0 0;
-        font-size: 0.8125rem;
-        color: var(--ep-color-neutral-600);
-      }
-
-      .dph-dialog__body {
-        position: relative;
-      }
-
-      .dph-dialog__loading {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        background-color: rgba(255, 255, 255, 0.85);
-        color: var(--ep-color-neutral-700);
-        font-size: 0.875rem;
-        font-weight: 500;
-      }
-
-      .dph-dialog__footer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: center;
-      }
-      .dph-dialog__footer[data-align='left'] { justify-content: flex-start; }
-      .dph-dialog__footer[data-align='center'] { justify-content: center; }
-      .dph-dialog__footer[data-align='right'] { justify-content: flex-end; }
-      .dph-dialog__footer[data-align='between'] { justify-content: space-between; }
-
-      :host ::ng-deep .dph-dialog .p-dialog-content {
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-      }
-      :host ::ng-deep .dph-dialog .p-dialog-content > .dph-dialog__body {
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        flex: 1;
-        min-height: 0;
-        padding: var(--dph-dialog-content-padding, 1.5rem);
-      }
-      :host ::ng-deep .dph-dialog[data-no-padding] .p-dialog-content > .dph-dialog__body {
-        padding: 0;
-      }
-    `,
-  ],
+  styleUrl: './dialog.component.scss',
 })
 export class DialogComponent {
   readonly config = input.required<DialogConfig>();
