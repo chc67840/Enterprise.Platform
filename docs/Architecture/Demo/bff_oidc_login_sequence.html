@@ -1,0 +1,208 @@
+<style>
+.sq2{font-family:var(--font-sans);padding:0 0 1rem}
+.sq2-hdr{font-size:12px;font-weight:500;color:var(--color-text-secondary);padding:5px 10px;background:var(--color-background-secondary);border-left:2px solid var(--color-border-secondary);margin-bottom:14px}
+.sq2-ask{font-size:11px;padding:3px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;margin-top:10px;margin-right:6px;display:inline-block}
+.sq2-stage{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.sq2-sbtn{padding:4px 12px;font-size:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.sq2-sbtn.on{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500;border-color:var(--color-border-primary)}
+.sq2-panel{display:none}
+.sq2-panel.vis{display:block}
+.sq2-navrow{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.sq2-nav{padding:5px 14px;font-size:12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer}
+.sq2-nav:disabled{opacity:.3;cursor:default}
+.sq2-ctr{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+<div class="sq2">
+<div class="sq2-hdr">OIDC login flow — login click through cookie issued</div>
+<div class="sq2-stage" id="sq2nav"></div>
+<div id="sq2panels"></div>
+<div class="sq2-navrow">
+  <button class="sq2-nav" id="sq2prev" onclick="sq2go(sq2cur-1)" disabled>← Prev</button>
+  <span class="sq2-ctr" id="sq2ctr"></span>
+  <button class="sq2-nav" id="sq2next" onclick="sq2go(sq2cur+1)">Next →</button>
+</div>
+</div>
+<script>
+const SQ2_W = 640;
+const PARTS = [
+  {label:'Browser',     fill:'#E6F1FB', text:'#0C447C'},
+  {label:'BFF',         fill:'#E1F5EE', text:'#085041'},
+  {label:'AuthCtrl',    fill:'#E1F5EE', text:'#085041'},
+  {label:'Cookie scheme', fill:'#EEEDFE', text:'#3C3489'},
+  {label:'OIDC scheme', fill:'#EEEDFE', text:'#3C3489'},
+  {label:'Entra v2',    fill:'#FAEEDA', text:'#633806'},
+];
+const N = PARTS.length;
+const CW = SQ2_W / N;
+const cx = i => CW * i + CW / 2;
+
+const STAGES = [
+  {
+    label:'1. Login trigger',
+    title:'Stage 1 — login click → BFF → OIDC challenge → 302 to Entra',
+    msgs:[
+      {n:1,  f:0, t:1, label:'window.location = /api/auth/login'},
+      {n:2,  f:1, t:2, label:'Login(returnUrl?)'},
+      {self:true, at:2, label:'validate prompt allowlist (login|consent|select_account)'},
+      {n:3,  f:2, t:3, label:'Challenge(OidcScheme, props)'},
+      {n:4,  f:3, t:4, label:'forward challenge (DefaultChallenge=ep.oidc)'},
+      {self:true, at:4, label:'OnRedirectToIdentityProvider — build redirect_uri, attach prompt'},
+      {n:5,  f:4, t:0, label:'302 → /authorize?response_type=code&code_challenge=...', ret:true, dashed:true},
+    ],
+    ask:'Why must the prompt parameter be validated against an allowlist before forwarding to Entra?',
+  },
+  {
+    label:'2. Entra login',
+    title:'Stage 2 — browser at Entra: credentials → form_post redirect back',
+    msgs:[
+      {n:6,  f:0, t:5, label:'GET /authorize (top-level nav)'},
+      {n:7,  f:5, t:0, label:'HTML login page', ret:true, dashed:true},
+      {n:8,  f:0, t:5, label:'POST credentials'},
+      {n:9,  f:5, t:0, label:'302 form_post → /signin-oidc {code, state}', ret:true, dashed:true},
+      {n:10, f:0, t:1, label:'POST /signin-oidc (form-encoded)'},
+    ],
+    ask:'Why does Entra use a form_post instead of a query-string redirect to return the code?',
+  },
+  {
+    label:'3. Code exchange',
+    title:'Stage 3 — BFF exchanges code for tokens, validates id_token, issues cookie',
+    msgs:[
+      {n:11, f:1, t:4, label:'handle callback → OIDC middleware'},
+      {n:12, f:4, t:5, label:'POST /token: authorization_code + code_verifier + ClientSecret'},
+      {n:13, f:5, t:4, label:'200 { id_token, access_token, refresh_token }', ret:true, dashed:true},
+      {self:true, at:4, label:'validate id_token (sig, iss, aud, nonce) → build ClaimsPrincipal'},
+      {n:14, f:4, t:3, label:'SignIn(principal, SaveTokens=true)'},
+      {self:true, at:3, label:'OnSigningIn — stash session_started_at, SessionMetrics.Add(1)'},
+      {n:15, f:3, t:0, label:'Set-Cookie: ep.bff.session (HttpOnly; Secure; SameSite=Strict)', ret:true, dashed:true},
+      {n:16, f:3, t:0, label:'302 → / (returnUrl-validated)', ret:true, dashed:true},
+    ],
+    ask:'What does SaveTokens=true do and where are access_token and refresh_token stored in the cookie ticket?',
+  },
+  {
+    label:'4. Re-bootstrap',
+    title:'Stage 4 — authenticated GET / triggers re-bootstrap (see cold-load sequence)',
+    msgs:[
+      {n:17, f:0, t:1, label:'GET / (with new ep.bff.session cookie)'},
+    ],
+    note:'Bootstrap resumes at Stage 4 of the cold-load sequence: GET /api/auth/session now returns isAuthenticated:true.',
+    ask:'How does the re-bootstrap differ from the cold load — does /config.json run again?',
+  },
+];
+
+function rowH(msg) {
+  if (msg.self) return 28;
+  return 36;
+}
+
+function stageHeight(s) {
+  let h = 52;
+  s.msgs.forEach(m => h += rowH(m));
+  if (s.note) h += 36;
+  return h + 16;
+}
+
+function buildSVG(s) {
+  const H = stageHeight(s);
+  let svg = `<svg width="100%" viewBox="0 0 ${SQ2_W} ${H}" style="display:block">`;
+
+  svg += `<defs>
+    <marker id="af2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="1.5"/></marker>
+    <marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5"/></marker>
+  </defs>`;
+
+  PARTS.forEach((p, i) => {
+    const x = CW * i;
+    svg += `<rect x="${x+2}" y="8" width="${CW-4}" height="24" rx="4" fill="${p.fill}" stroke="none"/>`;
+    const short = p.label.length > 12 ? p.label.slice(0,11)+'…' : p.label;
+    svg += `<text x="${cx(i)}" y="20" text-anchor="middle" dominant-baseline="central" style="font-size:10px;font-weight:500;fill:${p.text};font-family:var(--font-sans)">${short}</text>`;
+  });
+
+  PARTS.forEach((_, i) => {
+    svg += `<line x1="${cx(i)}" y1="32" x2="${cx(i)}" y2="${H-8}" stroke="var(--color-border-tertiary)" stroke-width="0.5" stroke-dasharray="3 3"/>`;
+  });
+
+  let y = 46;
+
+  s.msgs.forEach((msg) => {
+    if (msg.self) {
+      const x = cx(msg.at);
+      svg += `<rect x="${x - CW/2 + 4}" y="${y}" width="${CW - 8}" height="20" rx="3" fill="var(--color-background-secondary)" stroke="none"/>`;
+      const txt = msg.label.length > 32 ? msg.label.slice(0,31)+'…' : msg.label;
+      svg += `<text x="${x}" y="${y+10}" text-anchor="middle" dominant-baseline="central" style="font-size:9px;fill:var(--color-text-secondary);font-family:var(--font-sans)">${txt}</text>`;
+      y += 28;
+    } else {
+      const x1 = cx(msg.f), x2 = cx(msg.t);
+      const isLeft = x2 < x1;
+      const mx = (x1 + x2) / 2;
+      const col = msg.ret ? '#888780' : '#185FA5';
+      const marker = msg.ret ? 'ar2' : 'af2';
+      const dash = msg.dashed || msg.ret ? 'stroke-dasharray="4 3"' : '';
+      const lx2 = isLeft ? x2 + 5 : x2 - 5;
+
+      svg += `<text x="0" y="${y+4}" style="font-size:9px;fill:var(--color-text-tertiary);font-family:var(--font-sans)">${msg.n}</text>`;
+      const lbl = msg.label.length > 46 ? msg.label.slice(0,45)+'…' : msg.label;
+      svg += `<text x="${mx}" y="${y+2}" text-anchor="middle" style="font-size:9px;fill:var(--color-text-secondary);font-family:var(--font-sans)">${lbl}</text>`;
+      svg += `<line x1="${x1}" y1="${y+14}" x2="${lx2}" y2="${y+14}" stroke="${col}" stroke-width="0.75" ${dash} marker-end="url(#${marker})"/>`;
+      y += 36;
+    }
+  });
+
+  if (s.note) {
+    svg += `<rect x="4" y="${y}" width="${SQ2_W-8}" height="28" rx="4" fill="var(--color-background-secondary)" stroke="none"/>`;
+    svg += `<text x="${SQ2_W/2}" y="${y+9}" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:500;fill:var(--color-text-secondary);font-family:var(--font-sans)">${s.note}</text>`;
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
+let sq2cur = 0;
+
+function sq2render() {
+  const nav = document.getElementById('sq2nav');
+  const panels = document.getElementById('sq2panels');
+  nav.innerHTML = '';
+  panels.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'sq2-sbtn' + (i===0?' on':'');
+    btn.textContent = s.label;
+    btn.onclick = () => sq2go(i);
+    nav.appendChild(btn);
+
+    const div = document.createElement('div');
+    div.id = `sq2p${i}`;
+    div.className = 'sq2-panel' + (i===0?' vis':'');
+    div.innerHTML = `<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">${s.title}</div>` + buildSVG(s);
+    if (s.ask) {
+      const ab = document.createElement('button');
+      ab.className = 'sq2-ask';
+      ab.textContent = `Ask: ${s.ask} ↗`;
+      ab.style.cssText = 'font-size:11px;padding:3px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;margin-top:8px';
+      ab.onclick = () => sendPrompt(s.ask);
+      div.appendChild(ab);
+    }
+    panels.appendChild(div);
+  });
+  sq2update();
+}
+
+function sq2go(i) {
+  sq2cur = Math.max(0, Math.min(STAGES.length-1, i));
+  sq2update();
+}
+
+function sq2update() {
+  STAGES.forEach((_, i) => {
+    document.getElementById(`sq2p${i}`).className = 'sq2-panel' + (i===sq2cur?' vis':'');
+  });
+  document.querySelectorAll('.sq2-sbtn').forEach((b,i) => {
+    b.className = 'sq2-sbtn' + (i===sq2cur?' on':'');
+  });
+  document.getElementById('sq2prev').disabled = sq2cur === 0;
+  document.getElementById('sq2next').disabled = sq2cur === STAGES.length-1;
+  document.getElementById('sq2ctr').textContent = `${sq2cur+1} / ${STAGES.length}`;
+}
+
+sq2render();
+</script>

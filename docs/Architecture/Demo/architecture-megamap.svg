@@ -1,0 +1,1746 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ENTERPRISE PLATFORM — UI + BFF ARCHITECTURE MEGAMAP
+  Consolidated single-file poster of every diagram in docs/Architecture/Demo/
+  Designed for a 4K-projector live demo or a 36"x60" printout.
+  Open in any modern browser, Inkscape, or Illustrator.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 3400 9000"
+     preserveAspectRatio="xMidYMid meet"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+
+  <!-- ─────────── DEFS ─────────── -->
+  <defs>
+    <!-- Arrowheads -->
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#374151"/>
+    </marker>
+    <marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1e40af"/>
+    </marker>
+    <marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#166534"/>
+    </marker>
+
+    <!-- Header gradient -->
+    <linearGradient id="headerGrad" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%"  stop-color="#1B3F73"/>
+      <stop offset="50%" stop-color="#1F5328"/>
+      <stop offset="100%" stop-color="#1B3F73"/>
+    </linearGradient>
+
+    <!-- Background gradient -->
+    <linearGradient id="bgGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fafaf7"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+
+    <!-- Drop shadow -->
+    <filter id="ds" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1e293b" flood-opacity="0.10"/>
+    </filter>
+
+    <!-- Reusable styles -->
+    <style><![CDATA[
+      .title { font-size: 56px; font-weight: 800; fill: #fff; letter-spacing: 0.02em; }
+      .subtitle { font-size: 22px; font-weight: 500; fill: #e2e8f0; }
+      .panelTitle { font-size: 30px; font-weight: 800; fill: #0f172a; }
+      .panelSub { font-size: 16px; font-weight: 500; fill: #475569; }
+      .lbl { font-size: 15px; font-weight: 600; fill: #1e293b; }
+      .lbl-sm { font-size: 12px; font-weight: 500; fill: #334155; }
+      .lbl-mono { font-size: 12px; font-weight: 500; fill: #334155; font-family: 'JetBrains Mono', Consolas, monospace; }
+      .num { font-size: 18px; font-weight: 800; fill: #fff; }
+      .browser { fill: #dbeafe; stroke: #1e40af; stroke-width: 2; }
+      .browser-d { fill: #93c5fd; stroke: #1e3a8a; stroke-width: 2; }
+      .bff { fill: #dcfce7; stroke: #166534; stroke-width: 2; }
+      .bff-d { fill: #86efac; stroke: #14532d; stroke-width: 2; }
+      .entra { fill: #fde68a; stroke: #b45309; stroke-width: 2; }
+      .danger { fill: #fee2e2; stroke: #991b1b; stroke-width: 2; }
+      .danger-d { fill: #fca5a5; stroke: #7f1d1d; stroke-width: 2; }
+      .warn { fill: #fef9c3; stroke: #a16207; stroke-width: 2; }
+      .neutral { fill: #f3f4f6; stroke: #475569; stroke-width: 2; }
+      .accent { fill: #fae8ff; stroke: #86198f; stroke-width: 2; }
+      .api { fill: #fef3c7; stroke: #92400e; stroke-width: 2; stroke-dasharray: 6 3; }
+      .pipe { stroke: #475569; stroke-width: 2; fill: none; }
+      .pipe-d { stroke: #475569; stroke-width: 2; fill: none; stroke-dasharray: 8 4; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 14; ry: 14; }
+      .panel-band { fill: #1e293b; }
+      .swim { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 4 4; }
+      .arr-lbl { font-size: 11px; fill: #475569; font-weight: 600; }
+      .pill { fill: #0f172a; rx: 10; ry: 10; }
+      .pill-text { font-size: 12px; fill: #fff; font-weight: 700; }
+      .footer { font-size: 14px; fill: #64748b; }
+    ]]></style>
+  </defs>
+
+  <!-- ─────────── BACKGROUND ─────────── -->
+  <rect x="0" y="0" width="3400" height="9000" fill="url(#bgGrad)"/>
+
+  <!-- ─────────── TITLE BAR ─────────── -->
+  <rect x="0" y="0" width="3400" height="180" fill="url(#headerGrad)"/>
+  <text class="title" x="60" y="90">ENTERPRISE PLATFORM</text>
+  <text class="title" x="60" y="150" font-size="42">UI + BFF Architecture Megamap</text>
+  <text class="subtitle" x="60" y="172" font-size="16">Angular 21 SPA · .NET 10 BFF · Microsoft Entra ID · OIDC Code+PKCE · Cookie session</text>
+
+  <text class="subtitle" x="3340" y="40" text-anchor="end" font-size="14">2026-04-28 · feature/db-first-pivot</text>
+  <text class="subtitle" x="3340" y="62" text-anchor="end" font-size="14">12-doc demo deck companion</text>
+  <text class="subtitle" x="3340" y="84" text-anchor="end" font-size="14">docs/Architecture/Demo/</text>
+
+  <!-- ─────────── LEGEND ─────────── -->
+  <g transform="translate(60, 200)">
+    <rect class="panel" x="0" y="0" width="3280" height="80" filter="url(#ds)"/>
+    <text class="lbl" x="20" y="30" font-size="18" font-weight="800">LEGEND</text>
+
+    <g transform="translate(140, 14)">
+      <rect class="browser" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">Browser-side (SPA, cookies)</text>
+    </g>
+    <g transform="translate(420, 14)">
+      <rect class="bff" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">BFF host (Web.UI .NET 10)</text>
+    </g>
+    <g transform="translate(700, 14)">
+      <rect class="entra" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">Microsoft Entra ID (IdP)</text>
+    </g>
+    <g transform="translate(950, 14)">
+      <rect class="api" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">Downstream (out of scope)</text>
+    </g>
+    <g transform="translate(1230, 14)">
+      <rect class="warn" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">Edge / cross-cutting</text>
+    </g>
+    <g transform="translate(1480, 14)">
+      <rect class="danger" x="0" y="0" width="40" height="28" rx="4"/>
+      <text class="lbl-sm" x="50" y="20">Boundary / error path</text>
+    </g>
+
+    <g transform="translate(1750, 14)">
+      <line x1="0" y1="14" x2="50" y2="14" class="pipe" marker-end="url(#arr)"/>
+      <text class="lbl-sm" x="60" y="20">Synchronous HTTP / call</text>
+    </g>
+    <g transform="translate(2010, 14)">
+      <line x1="0" y1="14" x2="50" y2="14" class="pipe-d" marker-end="url(#arr)"/>
+      <text class="lbl-sm" x="60" y="20">Redirect (3xx) / async event</text>
+    </g>
+    <g transform="translate(2300, 14)">
+      <line x1="0" y1="14" x2="50" y2="14" stroke="#dc2626" stroke-width="2" fill="none" marker-end="url(#arrRed)"/>
+      <text class="lbl-sm" x="60" y="20">Error / rejection</text>
+    </g>
+
+    <g transform="translate(2530, 14)">
+      <text class="lbl-sm" x="0" y="20" font-style="italic">[cookie] = HttpOnly · Secure · SameSite=Strict   ·   PKCE = code-verifier+challenge   ·   SLO = single sign-out</text>
+    </g>
+
+    <text class="lbl-sm" x="20" y="64" font-size="11" fill="#64748b">Scope: UI + BFF only · API treated as black box returning DTOs · Demo routes (__demo/*) filtered out</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 1 — SYSTEM CONTEXT (full width, hero) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 310)">
+    <rect class="panel" x="0" y="0" width="3280" height="780" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="3280" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="3280" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">01</text>
+    <text class="num" x="60" y="32" font-size="22">SYSTEM CONTEXT — bird's-eye, who calls whom, where the trust boundary is</text>
+    <text class="subtitle" x="3260" y="32" font-size="13" text-anchor="end" fill="#94a3b8">docs/Architecture/Demo/01-System-Context.md §1.1–1.3</text>
+
+    <!-- User -->
+    <g transform="translate(60, 90)">
+      <circle cx="60" cy="240" r="60" fill="#1e293b"/>
+      <text class="lbl" x="60" y="246" text-anchor="middle" fill="#fff" font-size="20">User</text>
+      <text class="lbl-sm" x="60" y="320" text-anchor="middle">browser tab open</text>
+    </g>
+
+    <!-- Browser zone -->
+    <g transform="translate(220, 90)">
+      <rect class="browser" x="0" y="0" width="540" height="540" rx="12" stroke-width="3"/>
+      <rect class="browser-d" x="0" y="0" width="540" height="50" rx="12"/>
+      <rect class="browser-d" x="0" y="20" width="540" height="30"/>
+      <text class="lbl" x="20" y="32" fill="#1e3a8a" font-size="18">UNTRUSTED ZONE — browser</text>
+
+      <!-- SPA -->
+      <rect class="browser" x="30" y="80" width="480" height="190" rx="10"/>
+      <text class="lbl" x="50" y="110" font-size="18">Angular 21 SPA</text>
+      <text class="lbl-sm" x="50" y="132">ClientApp/src/app/</text>
+      <text class="lbl-sm" x="50" y="156">• Standalone components, OnPush, zoneless</text>
+      <text class="lbl-sm" x="50" y="176">• Signal stores (NGRX Signals)</text>
+      <text class="lbl-sm" x="50" y="196">• 8 functional HTTP interceptors</text>
+      <text class="lbl-sm" x="50" y="216">• PrimeNG 21 + Tailwind v4 cssLayer</text>
+      <text class="lbl-sm" x="50" y="236">• Lazy routes, custom preloader (saveData-aware)</text>
+      <text class="lbl-sm" x="50" y="256">• PII-scrubbed structured logging</text>
+
+      <!-- Cookie jar -->
+      <rect class="browser" x="30" y="300" width="480" height="220" rx="10"/>
+      <text class="lbl" x="50" y="330" font-size="18">Cookie jar (browser-managed)</text>
+
+      <rect fill="#dbeafe" stroke="#1e40af" stroke-width="1.5" x="50" y="350" width="440" height="50" rx="6"/>
+      <text class="lbl-mono" x="60" y="370" font-size="13">ep.bff.session</text>
+      <text class="lbl-sm" x="60" y="390" font-size="11">HttpOnly · Secure · SameSite=Strict · 8h sliding · encrypted ticket</text>
+
+      <rect fill="#dbeafe" stroke="#1e40af" stroke-width="1.5" x="50" y="410" width="440" height="50" rx="6"/>
+      <text class="lbl-mono" x="60" y="430" font-size="13">XSRF-TOKEN</text>
+      <text class="lbl-sm" x="60" y="450" font-size="11">readable by JS · echoed in X-XSRF-TOKEN header (double-submit)</text>
+
+      <rect fill="#dbeafe" stroke="#1e40af" stroke-width="1.5" x="50" y="470" width="440" height="40" rx="6"/>
+      <text class="lbl-mono" x="60" y="490" font-size="13">__RequestVerificationToken</text>
+      <text class="lbl-sm" x="60" y="505" font-size="11">HttpOnly · server-validated antiforgery cookie</text>
+    </g>
+
+    <!-- Trust boundary -->
+    <line x1="780" y1="100" x2="780" y2="660" stroke="#dc2626" stroke-width="3" stroke-dasharray="10 5"/>
+    <text class="lbl" x="780" y="80" font-size="14" fill="#dc2626" text-anchor="middle" font-weight="800">— TRUST BOUNDARY —</text>
+    <text class="lbl-sm" x="780" y="680" font-size="11" fill="#dc2626" text-anchor="middle">cookie auth · XSRF check</text>
+
+    <!-- BFF -->
+    <g transform="translate(800, 90)">
+      <rect class="bff" x="0" y="0" width="780" height="540" rx="12" stroke-width="3"/>
+      <rect class="bff-d" x="0" y="0" width="780" height="50" rx="12"/>
+      <rect class="bff-d" x="0" y="20" width="780" height="30"/>
+      <text class="lbl" x="20" y="32" fill="#14532d" font-size="18">TRUSTED ZONE — Web.UI BFF host (.NET 10, Kestrel)</text>
+
+      <!-- Pipeline summary -->
+      <rect class="bff" x="20" y="74" width="370" height="220" rx="8"/>
+      <text class="lbl" x="35" y="98" font-size="15">HTTP pipeline (Program.cs)</text>
+      <text class="lbl-sm" x="35" y="120" font-size="11">1. UseSecurityHeaders (CSP nonce + HSTS)</text>
+      <text class="lbl-sm" x="35" y="138" font-size="11">2. UseCorrelationId (X-Correlation-ID + Serilog scope)</text>
+      <text class="lbl-sm" x="35" y="156" font-size="11">3. UseExceptionHandler · UseHsts (prod)</text>
+      <text class="lbl-sm" x="35" y="174" font-size="11">4. UseStaticFiles (SPA bundle)</text>
+      <text class="lbl-sm" x="35" y="192" font-size="11">5. UseRouting · UseCors</text>
+      <text class="lbl-sm" x="35" y="210" font-size="11">6. UseRateLimiter (per-session 120/m, per-IP 600/m)</text>
+      <text class="lbl-sm" x="35" y="228" font-size="11">7. UseAuthentication (cookie + OIDC)</text>
+      <text class="lbl-sm" x="35" y="246" font-size="11">8. UseAuthorization</text>
+      <text class="lbl-sm" x="35" y="264" font-size="11">9. MapHealthEndpoints (anonymous, tagged)</text>
+      <text class="lbl-sm" x="35" y="282" font-size="11">10. MapControllers · MapSpaFallback (LAST)</text>
+
+      <!-- Setup -->
+      <rect class="bff" x="410" y="74" width="350" height="220" rx="8"/>
+      <text class="lbl" x="425" y="98" font-size="15">Setup/ — DI extensions</text>
+      <text class="lbl-mono" x="425" y="120" font-size="11">PlatformAuthenticationSetup</text>
+      <text class="lbl-sm" x="425" y="135" font-size="10">cookie 'ep.bff' + OIDC 'ep.oidc' + TokenRefreshService</text>
+      <text class="lbl-mono" x="425" y="155" font-size="11">PlatformCorsSetup</text>
+      <text class="lbl-sm" x="425" y="170" font-size="10">policy = 'ep-web-ui'</text>
+      <text class="lbl-mono" x="425" y="190" font-size="11">PlatformAntiforgerySetup</text>
+      <text class="lbl-sm" x="425" y="205" font-size="10">__RequestVerificationToken + X-XSRF-TOKEN header</text>
+      <text class="lbl-mono" x="425" y="225" font-size="11">PlatformRateLimiterSetup</text>
+      <text class="lbl-sm" x="425" y="240" font-size="10">token-bucket chain · OIDC callbacks exempt</text>
+      <text class="lbl-mono" x="425" y="260" font-size="11">PlatformHealthCheckSetup</text>
+      <text class="lbl-sm" x="425" y="275" font-size="10">self (liveness) + downstream-api (readiness)</text>
+
+      <!-- Controllers -->
+      <rect class="bff" x="20" y="310" width="370" height="180" rx="8"/>
+      <text class="lbl" x="35" y="334" font-size="15">Controllers/</text>
+      <text class="lbl-mono" x="35" y="356" font-size="12">AuthController</text>
+      <text class="lbl-sm" x="35" y="370" font-size="10">/api/auth/login,logout,session,me/profile,me/permissions</text>
+      <text class="lbl-mono" x="35" y="390" font-size="12">ProxyController</text>
+      <text class="lbl-sm" x="35" y="404" font-size="10">/api/proxy/{**path} — cookie→Bearer swap</text>
+      <text class="lbl-sm" x="35" y="418" font-size="10">[Authorize] + [AutoValidateAntiforgeryToken]</text>
+      <text class="lbl-mono" x="35" y="438" font-size="12">AntiForgeryController</text>
+      <text class="lbl-sm" x="35" y="452" font-size="10">/api/antiforgery/token — sets XSRF-TOKEN cookie</text>
+      <text class="lbl-sm" x="35" y="476" font-size="10" font-style="italic">Endpoints/HealthEndpoints, SpaFallbackEndpoint</text>
+
+      <!-- Services -->
+      <rect class="bff" x="410" y="310" width="350" height="180" rx="8"/>
+      <text class="lbl" x="425" y="334" font-size="15">Services/ + Observability/</text>
+      <text class="lbl-mono" x="425" y="356" font-size="12">Authentication/TokenRefreshService</text>
+      <text class="lbl-sm" x="425" y="370" font-size="10">OnValidatePrincipal hook · refresh in last 5 min</text>
+      <text class="lbl-mono" x="425" y="390" font-size="12">Graph/GraphUserProfileService</text>
+      <text class="lbl-sm" x="425" y="404" font-size="10">/me + photo · IMemoryCache 5min · refresh-token grant</text>
+      <text class="lbl-mono" x="425" y="424" font-size="12">HealthChecks/DownstreamApiHealthCheck</text>
+      <text class="lbl-sm" x="425" y="438" font-size="10">probes ApiBaseUri</text>
+      <text class="lbl-mono" x="425" y="458" font-size="12">SessionMetrics (OTel Meter)</text>
+      <text class="lbl-sm" x="425" y="472" font-size="10">SessionsCreated · Refreshed · RefreshFailed{reason} · LifetimeSeconds</text>
+    </g>
+
+    <!-- Cloud Tier -->
+    <g transform="translate(1620, 90)">
+      <text class="lbl" x="0" y="20" font-size="16" fill="#475569">External — Microsoft cloud + downstream</text>
+
+      <!-- Entra -->
+      <rect class="entra" x="0" y="40" width="380" height="170" rx="10"/>
+      <text class="lbl" x="20" y="68" font-size="17">Microsoft Entra ID v2</text>
+      <text class="lbl-sm" x="20" y="90" font-size="11">login.microsoftonline.com/&lt;tenantId&gt;/v2.0</text>
+      <text class="lbl-sm" x="20" y="110" font-size="11">/authorize — code+PKCE start</text>
+      <text class="lbl-sm" x="20" y="128" font-size="11">/token — code+verifier or refresh_token grant</text>
+      <text class="lbl-sm" x="20" y="146" font-size="11">/logout — end-session + id_token_hint</text>
+      <text class="lbl-sm" x="20" y="170" font-size="11" font-style="italic">Issues ONE access_token per request</text>
+      <text class="lbl-sm" x="20" y="188" font-size="11" font-style="italic">→ never mix Api scope + Graph scope</text>
+
+      <!-- API -->
+      <rect class="api" x="400" y="40" width="380" height="170" rx="10"/>
+      <text class="lbl" x="420" y="68" font-size="17">Downstream API</text>
+      <text class="lbl-sm" x="420" y="90" font-size="11">src/API/ — Bearer-only authentication</text>
+      <text class="lbl-sm" x="420" y="110" font-size="11">Clean Architecture · CQRS · MediatR</text>
+      <text class="lbl-sm" x="420" y="128" font-size="11">EF Core · UnitOfWork · AuditableEntity</text>
+      <text class="lbl-sm" x="420" y="146" font-size="11">FluentValidation · ProblemDetails (RFC 7807)</text>
+      <text class="lbl-sm" x="420" y="170" font-size="11" font-style="italic">"Black box" for this deck — separate session covers</text>
+      <text class="lbl-sm" x="420" y="188" font-size="11" font-style="italic">Domain → Application → Infrastructure layers</text>
+
+      <!-- Graph -->
+      <rect class="api" x="0" y="225" width="380" height="120" rx="10"/>
+      <text class="lbl" x="20" y="253" font-size="17">Microsoft Graph</text>
+      <text class="lbl-sm" x="20" y="275" font-size="11">graph.microsoft.com/v1.0/me</text>
+      <text class="lbl-sm" x="20" y="293" font-size="11">User.Read scope (admin-consented)</text>
+      <text class="lbl-sm" x="20" y="311" font-size="11">Profile + photo enrichment (cache 5 min)</text>
+      <text class="lbl-sm" x="20" y="329" font-size="11" font-style="italic">Falls back to claim-only shape on failure</text>
+
+      <!-- Key Vault -->
+      <rect class="api" x="400" y="225" width="380" height="120" rx="10"/>
+      <text class="lbl" x="420" y="253" font-size="17">Azure Key Vault</text>
+      <text class="lbl-sm" x="420" y="275" font-size="11">ClientSecret · cookie-data-protection key ring</text>
+      <text class="lbl-sm" x="420" y="293" font-size="11">Managed identity authentication</text>
+      <text class="lbl-sm" x="420" y="311" font-size="11">Shared ring → multi-pod cookie roundtripping</text>
+      <text class="lbl-sm" x="420" y="329" font-size="11" font-style="italic">Sticky sessions NOT required</text>
+
+      <!-- DB -->
+      <rect class="api" x="0" y="360" width="780" height="100" rx="10"/>
+      <text class="lbl" x="20" y="386" font-size="17">SQL Server — EnterprisePlatform DB</text>
+      <text class="lbl-sm" x="20" y="406" font-size="11">DB-first: schema-as-source-of-truth via DbMigrator + customised EF scaffold templates + DtoGen</text>
+      <text class="lbl-sm" x="20" y="424" font-size="11">AuditableEntity row-versioning (optimistic concurrency) · per-DB context (AppDb)</text>
+      <text class="lbl-sm" x="20" y="442" font-size="11" font-style="italic">BFF has no DB dependency — all persistence in API tier</text>
+
+      <!-- Telemetry -->
+      <rect class="warn" x="0" y="476" width="780" height="60" rx="10"/>
+      <text class="lbl" x="20" y="502" font-size="15">Application Insights / OTLP collector</text>
+      <text class="lbl-sm" x="20" y="522" font-size="11">Serilog 4 + OpenTelemetry · vendor-neutral wire format · degrades silently if unreachable (logs buffer)</text>
+    </g>
+
+    <!-- Connection arrows (between zones) -->
+    <line x1="220" y1="350" x2="60" y2="350" class="pipe"/>
+    <text class="arr-lbl" x="140" y="342" text-anchor="middle">user</text>
+
+    <path d="M 760,350 L 822,350" class="pipe" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="790" y="340" text-anchor="middle">/api/auth/* /api/proxy/** /api/antiforgery/token (cookie auth)</text>
+
+    <path d="M 1582,180 L 1640,180" class="pipe-d" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="1612" y="172" text-anchor="middle">OIDC redirects</text>
+    <path d="M 1640,200 L 1582,200" class="pipe-d" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="1612" y="218" text-anchor="middle">code → token</text>
+
+    <path d="M 1582,360 L 2020,360" class="pipe" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="1800" y="350" text-anchor="middle">Authorization: Bearer (server-side only)</text>
+
+    <path d="M 1582,440 L 1620,400" class="pipe" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="1605" y="430" text-anchor="middle">/me</text>
+
+    <path d="M 2020,510 L 1900,510" class="pipe" marker-end="url(#arr)"/>
+    <text class="arr-lbl" x="1960" y="502" text-anchor="middle">SQL</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 2 — END-TO-END SEQUENCE (full width — the big sequence) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 1110)">
+    <rect class="panel" x="0" y="0" width="3280" height="1620" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="3280" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="3280" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">02</text>
+    <text class="num" x="60" y="32" font-size="22">END-TO-END SEQUENCE — cold load → first-time auth → authenticated request → token refresh → logout</text>
+    <text class="subtitle" x="3260" y="32" font-size="13" text-anchor="end" fill="#94a3b8">02-Flow-Cold-Load-And-Auth.md · 03-Flow-Authenticated-Request.md · 04-Flow-Token-Refresh-And-Logout.md</text>
+
+    <!-- Lifeline labels -->
+    <g transform="translate(60, 80)">
+      <text class="lbl" x="0" y="20" font-size="14">User</text>
+      <text class="lbl" x="320" y="20" font-size="14">Browser (SPA)</text>
+      <text class="lbl" x="800" y="20" font-size="14">BFF host</text>
+      <text class="lbl" x="1300" y="20" font-size="14">Cookie scheme (ep.bff)</text>
+      <text class="lbl" x="1830" y="20" font-size="14">OIDC scheme (ep.oidc)</text>
+      <text class="lbl" x="2310" y="20" font-size="14">TokenRefreshService</text>
+      <text class="lbl" x="2680" y="20" font-size="14">Entra v2</text>
+      <text class="lbl" x="2980" y="20" font-size="14">API (Bearer)</text>
+    </g>
+
+    <!-- Vertical lifelines -->
+    <line x1="80"   y1="110" x2="80"   y2="1580" class="swim"/>
+    <line x1="400"  y1="110" x2="400"  y2="1580" class="swim"/>
+    <line x1="900"  y1="110" x2="900"  y2="1580" class="swim"/>
+    <line x1="1380" y1="110" x2="1380" y2="1580" class="swim"/>
+    <line x1="1900" y1="110" x2="1900" y2="1580" class="swim"/>
+    <line x1="2380" y1="110" x2="2380" y2="1580" class="swim"/>
+    <line x1="2740" y1="110" x2="2740" y2="1580" class="swim"/>
+    <line x1="3060" y1="110" x2="3060" y2="1580" class="swim"/>
+
+    <!-- ─── STAGE 1: COLD LOAD ─── -->
+    <rect fill="#dbeafe" stroke="#1e40af" x="20" y="120" width="3240" height="44" rx="6"/>
+    <text class="lbl" x="40" y="148" font-size="16" font-weight="800" fill="#1e3a8a">STAGE 1 — Cold load (anonymous)</text>
+    <text class="lbl-sm" x="3240" y="148" font-size="12" text-anchor="end" font-style="italic">User just typed https://app.example.com</text>
+
+    <!-- arrows for stage 1 -->
+    <g font-size="11" fill="#334155">
+      <line x1="80" y1="190" x2="400" y2="190" class="pipe" marker-end="url(#arr)"/>
+      <text x="240" y="184" text-anchor="middle">opens tab</text>
+
+      <line x1="400" y1="220" x2="900" y2="220" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="214" text-anchor="middle">GET / (no cookie)</text>
+      <line x1="900" y1="250" x2="400" y2="250" class="pipe" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="650" y="244" text-anchor="middle">200 index.html (SPA bundle, immutable hash)</text>
+
+      <line x1="400" y1="280" x2="900" y2="280" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="274" text-anchor="middle">GET /config.json (initializer I1)</text>
+      <line x1="900" y1="310" x2="400" y2="310" class="pipe" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="650" y="304" text-anchor="middle">RUNTIME_CONFIG (or fallback to environment.ts)</text>
+
+      <line x1="400" y1="340" x2="900" y2="340" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="334" text-anchor="middle">GET /api/auth/session (initializer I2 — BLOCKS bootstrap)</text>
+      <line x1="900" y1="370" x2="400" y2="370" class="pipe" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="650" y="364" text-anchor="middle">200 { isAuthenticated: false }</text>
+
+      <text x="400" y="395" font-style="italic" fill="#475569">AppComponent.isLoading() = false → router-outlet renders</text>
+      <text x="400" y="412" font-style="italic" fill="#475569">authGuard on '/dashboard' sees no session → createUrlTree(['/auth/login'], { queryParams: { returnUrl } })</text>
+    </g>
+
+    <!-- ─── STAGE 2: LOGIN CLICK + OIDC DANCE ─── -->
+    <rect fill="#fde68a" stroke="#b45309" x="20" y="430" width="3240" height="44" rx="6"/>
+    <text class="lbl" x="40" y="458" font-size="16" font-weight="800" fill="#78350f">STAGE 2 — User clicks Sign in · OIDC code+PKCE flow</text>
+    <text class="lbl-sm" x="3240" y="458" font-size="12" text-anchor="end" font-style="italic">Top-level navigation, NOT XHR — cookie writes survive cross-origin redirects only this way</text>
+
+    <g font-size="11" fill="#334155">
+      <line x1="80" y1="500" x2="400" y2="500" class="pipe" marker-end="url(#arr)"/>
+      <text x="240" y="494" text-anchor="middle">clicks button</text>
+
+      <line x1="400" y1="525" x2="900" y2="525" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="518" text-anchor="middle">window.location = /api/auth/login?returnUrl=/</text>
+
+      <line x1="900" y1="555" x2="1380" y2="555" class="pipe" marker-end="url(#arr)"/>
+      <text x="1140" y="548" text-anchor="middle">AuthController.Login → SanitizeReturnUrl + SanitizePrompt → Challenge(props, OidcScheme)</text>
+
+      <line x1="1380" y1="585" x2="1900" y2="585" class="pipe" marker-end="url(#arr)"/>
+      <text x="1640" y="578" text-anchor="middle">forward challenge (DefaultChallenge=ep.oidc)</text>
+
+      <line x1="1900" y1="615" x2="2740" y2="615" class="pipe-d" marker-end="url(#arr)"/>
+      <text x="2320" y="608" text-anchor="middle">302 /authorize?response_type=code&amp;code_challenge=...&amp;scope=openid+profile+offline_access+&lt;ApiScope&gt;</text>
+
+      <line x1="2740" y1="645" x2="400" y2="645" class="pipe-d" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="1500" y="638" text-anchor="middle">redirect chain → user lands on Entra login page</text>
+
+      <line x1="80" y1="675" x2="2740" y2="675" class="pipe" marker-end="url(#arr)"/>
+      <text x="1410" y="668" text-anchor="middle">user authenticates · MFA · consent</text>
+
+      <line x1="2740" y1="705" x2="400" y2="705" class="pipe-d" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="1500" y="698" text-anchor="middle">302 form_post Location: https://app/signin-oidc + auto-submit form { code, state }</text>
+
+      <line x1="400" y1="735" x2="1900" y2="735" class="pipe" marker-end="url(#arr)"/>
+      <text x="1140" y="728" text-anchor="middle">POST /signin-oidc { code, state } — body, not URL (form_post)</text>
+
+      <line x1="1900" y1="765" x2="2740" y2="765" class="pipe" marker-end="url(#arr)"/>
+      <text x="2320" y="758" text-anchor="middle">POST /token grant_type=authorization_code + code_verifier + ClientSecret</text>
+
+      <line x1="2740" y1="795" x2="1900" y2="795" class="pipe" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="2320" y="788" text-anchor="middle">200 { id_token, access_token, refresh_token }</text>
+
+      <line x1="1900" y1="825" x2="1380" y2="825" class="pipe" marker-end="url(#arr)"/>
+      <text x="1640" y="818" text-anchor="middle">SignIn(principal, SaveTokens=true) — encrypt ticket → cookie</text>
+
+      <line x1="1380" y1="855" x2="400" y2="855" class="pipe-d" stroke="#1e40af" marker-end="url(#arrBlue)"/>
+      <text x="900" y="848" text-anchor="middle">Set-Cookie: ep.bff.session (HttpOnly, Secure, SameSite=Strict) + 302 → /</text>
+    </g>
+
+    <!-- ─── STAGE 3: AUTHENTICATED BOOTSTRAP ─── -->
+    <rect fill="#dcfce7" stroke="#166534" x="20" y="880" width="3240" height="44" rx="6"/>
+    <text class="lbl" x="40" y="908" font-size="16" font-weight="800" fill="#14532d">STAGE 3 — Authenticated bootstrap · session probe + antiforgery seed</text>
+
+    <g font-size="11" fill="#334155">
+      <line x1="400" y1="950" x2="900" y2="950" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="944" text-anchor="middle">GET / (cookie attached automatically)</text>
+      <line x1="900" y1="980" x2="400" y2="980" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="650" y="974" text-anchor="middle">200 index.html (re-bootstrap, bundle from cache)</text>
+
+      <line x1="400" y1="1010" x2="900" y2="1010" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="1004" text-anchor="middle">GET /api/auth/session (cookie)</text>
+      <line x1="900" y1="1040" x2="400" y2="1040" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="650" y="1034" text-anchor="middle">200 { isAuthenticated: true, name, email, roles, expiresAt }</text>
+
+      <line x1="400" y1="1070" x2="900" y2="1070" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="1064" text-anchor="middle">GET /api/antiforgery/token</text>
+      <line x1="900" y1="1100" x2="400" y2="1100" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="650" y="1094" text-anchor="middle">200 + Set-Cookie: XSRF-TOKEN (NOT HttpOnly)</text>
+
+      <text x="400" y="1124" font-style="italic" fill="#166534">AuthStore.hydrate() → /api/auth/me/permissions (placeholder until D4) → roles + bypass + ttl</text>
+      <text x="400" y="1141" font-style="italic" fill="#166534">Router.navigate('/dashboard') · authGuard passes · permissionGuard checks AuthStore.hasAllPermissions(...)</text>
+    </g>
+
+    <!-- ─── STAGE 4: AUTHENTICATED REQUEST ─── -->
+    <rect fill="#dcfce7" stroke="#166534" x="20" y="1160" width="3240" height="44" rx="6"/>
+    <text class="lbl" x="40" y="1188" font-size="16" font-weight="800" fill="#14532d">STAGE 4 — Authenticated proxy hop · 8 interceptors → cookie auth → XSRF check → Bearer attach → API</text>
+
+    <g font-size="11" fill="#334155">
+      <text x="400" y="1224" font-style="italic" fill="#475569">SPA-side interceptor chain (clone request, set headers): correlation → security → cache → dedup → loading → logging → retry → error</text>
+
+      <line x1="400" y1="1248" x2="900" y2="1248" class="pipe" marker-end="url(#arr)"/>
+      <text x="650" y="1241" text-anchor="middle">GET /api/proxy/v1/users · Cookie + X-Correlation-ID + X-XSRF-TOKEN + X-Requested-With</text>
+
+      <line x1="900" y1="1278" x2="1380" y2="1278" class="pipe" marker-end="url(#arr)"/>
+      <text x="1140" y="1271" text-anchor="middle">AuthenticateAsync(ep.bff) · OnValidatePrincipal → TokenRefreshService.ValidateAsync</text>
+
+      <line x1="1380" y1="1308" x2="2380" y2="1308" class="pipe" marker-end="url(#arr)"/>
+      <text x="1880" y="1301" text-anchor="middle">read tokens from ticket · skip refresh (>5 min remaining)</text>
+
+      <text x="900" y="1335" font-style="italic" fill="#475569">[Authorize] satisfied · [AutoValidateAntiforgeryToken] compares cookie vs header · GetTokenAsync('access_token')</text>
+
+      <line x1="900" y1="1360" x2="3060" y2="1360" class="pipe" marker-end="url(#arr)"/>
+      <text x="1980" y="1353" text-anchor="middle">forward to ApiBaseUri/v1/users · Authorization: Bearer eyJ... · hop-by-hop headers stripped (RFC 7230 §6.1)</text>
+
+      <line x1="3060" y1="1390" x2="900" y2="1390" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="1980" y="1383" text-anchor="middle">200 [DTOs] · streamed via HttpCompletionOption.ResponseHeadersRead</text>
+
+      <line x1="900" y1="1420" x2="400" y2="1420" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="650" y="1413" text-anchor="middle">200 [DTOs] · response interceptors: cache populate · dedup release · loading.dec · log("http.response 200 in 47ms")</text>
+    </g>
+
+    <!-- ─── STAGE 5: REFRESH (window) ─── -->
+    <rect fill="#fef9c3" stroke="#a16207" x="20" y="1450" width="1620" height="44" rx="6"/>
+    <text class="lbl" x="40" y="1478" font-size="16" font-weight="800" fill="#78350f">STAGE 5 — Token refresh (last 5 min of access-token life)</text>
+
+    <g font-size="11" fill="#334155">
+      <line x1="1380" y1="1518" x2="2380" y2="1518" class="pipe" marker-end="url(#arr)"/>
+      <text x="1880" y="1511" text-anchor="middle">expires in &lt; 5 min → ValidateAsync calls Entra</text>
+      <line x1="2380" y1="1542" x2="2740" y2="1542" class="pipe" marker-end="url(#arr)"/>
+      <text x="2560" y="1535" text-anchor="middle">POST /token grant_type=refresh_token</text>
+      <line x1="2740" y1="1565" x2="2380" y2="1565" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text x="2560" y="1558" text-anchor="middle">new access + refresh + expires_in</text>
+    </g>
+
+    <!-- ─── STAGE 6: LOGOUT ─── -->
+    <rect fill="#fee2e2" stroke="#991b1b" x="1660" y="1450" width="1600" height="44" rx="6"/>
+    <text class="lbl" x="1680" y="1478" font-size="16" font-weight="800" fill="#7f1d1d">STAGE 6 — Logout (POST · single sign-out · id_token_hint)</text>
+
+    <g font-size="10" fill="#334155">
+      <text x="1680" y="1510">POST /api/auth/logout (form, not XHR) → SignOut(props, CookieScheme, OidcScheme)</text>
+      <text x="1680" y="1525">→ OnSigningOut: SessionLifetimeSeconds.Record(reason:"signout")</text>
+      <text x="1680" y="1540">→ clear cookie + 302 to Entra /logout?id_token_hint=...</text>
+      <text x="1680" y="1555">→ Entra terminates session → 302 /signout-callback-oidc → 302 returnUrl</text>
+      <text x="1680" y="1570" font-style="italic" fill="#dc2626">BroadcastChannel('ep:auth') sends 'logout' message → other tabs navigate to /auth/login</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 3 — BFF INTERNALS (full width) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 2750)">
+    <rect class="panel" x="0" y="0" width="3280" height="940" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="3280" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="3280" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">03</text>
+    <text class="num" x="60" y="32" font-size="22">BFF INTERNALS — Web.UI host folder map · pipeline · named HTTP clients · CSP · health · rate limiter</text>
+    <text class="subtitle" x="3260" y="32" font-size="13" text-anchor="end" fill="#94a3b8">05-WebUI-Internals.md · 7 diagrams</text>
+
+    <!-- Folder structure (left) -->
+    <g transform="translate(40, 80)">
+      <rect class="bff" x="0" y="0" width="800" height="820" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="20">src/UI/Enterprise.Platform.Web.UI/</text>
+      <text class="lbl-sm" x="20" y="56" font-style="italic">Convention: 1 line in Program.cs per concern → AddPlatformX() in Setup/PlatformX.cs</text>
+
+      <!-- columns -->
+      <text class="lbl-mono" x="20" y="92"  font-size="14" fill="#0f172a">Program.cs</text>
+      <text class="lbl-sm" x="40" y="110">composition root · ~170 LoC · 3 phases</text>
+
+      <text class="lbl-mono" x="20" y="138" font-size="14" fill="#0f172a">Setup/</text>
+      <text class="lbl-sm" x="40" y="156">PlatformAuthenticationSetup — cookie 'ep.bff' + OIDC 'ep.oidc' + token-refresh hook</text>
+      <text class="lbl-sm" x="40" y="172">PlatformCorsSetup — policy 'ep-web-ui' (config-driven WithOrigins/Methods/Headers)</text>
+      <text class="lbl-sm" x="40" y="188">PlatformAntiforgerySetup — XSRF cookie + X-XSRF-TOKEN header (env-aware SecurePolicy)</text>
+      <text class="lbl-sm" x="40" y="204">PlatformRateLimiterSetup — per-session 120/m, per-IP 600/m, OIDC callbacks exempt</text>
+      <text class="lbl-sm" x="40" y="220">PlatformHealthCheckSetup — self (liveness) + downstream-api (readiness)</text>
+
+      <text class="lbl-mono" x="20" y="246" font-size="14" fill="#0f172a">Middleware/</text>
+      <text class="lbl-sm" x="40" y="264">SecurityHeadersMiddleware — per-request CSP nonce (16 bytes) + HSTS + X-Frame + Permissions-Policy</text>
+      <text class="lbl-sm" x="40" y="280">CorrelationIdMiddleware — X-Correlation-ID + LogContext.PushProperty for Serilog scope</text>
+
+      <text class="lbl-mono" x="20" y="306" font-size="14" fill="#0f172a">Endpoints/</text>
+      <text class="lbl-sm" x="40" y="324">HealthEndpoints — /health/live (liveness tag) + /health/ready (readiness tag) — anonymous</text>
+      <text class="lbl-sm" x="40" y="340">SpaFallbackEndpoint — MapFallback("/{**catchAll}", ...) — defense vs nonfile constraint footgun</text>
+
+      <text class="lbl-mono" x="20" y="366" font-size="14" fill="#0f172a">Controllers/</text>
+      <text class="lbl-sm" x="40" y="384">AuthController — /api/auth/login,logout,session,me/profile,me/permissions · IsLocalUrl defense</text>
+      <text class="lbl-sm" x="40" y="400">ProxyController — /api/proxy/{**path} · cookie→Bearer · [Authorize]+[AutoValidateAntiforgeryToken]</text>
+      <text class="lbl-sm" x="40" y="416">AntiForgeryController — /api/antiforgery/token · sets readable XSRF-TOKEN cookie</text>
+
+      <text class="lbl-mono" x="20" y="442" font-size="14" fill="#0f172a">Services/</text>
+      <text class="lbl-sm" x="40" y="460">Authentication/TokenRefreshService — OnValidatePrincipal hook (refresh in last 5 min)</text>
+      <text class="lbl-sm" x="40" y="476">Graph/GraphUserProfileService — /me + photo · IMemoryCache 5min · refresh-token grant for Graph</text>
+      <text class="lbl-sm" x="40" y="492">HealthChecks/DownstreamApiHealthCheck — ApiBaseUri probe</text>
+
+      <text class="lbl-mono" x="20" y="518" font-size="14" fill="#0f172a">Configuration/</text>
+      <text class="lbl-sm" x="40" y="536">AzureAdSettings · ProxySettings · SpaHostingSettings · CorsSettings · ObservabilitySettings</text>
+
+      <text class="lbl-mono" x="20" y="562" font-size="14" fill="#0f172a">Observability/</text>
+      <text class="lbl-sm" x="40" y="580">SessionMetrics — OTel Meter · 4 instruments (Created · Refreshed · RefreshFailed · LifetimeSeconds)</text>
+
+      <text class="lbl-mono" x="20" y="606" font-size="14" fill="#0f172a">ClientApp/</text>
+      <text class="lbl-sm" x="40" y="624">Angular SPA — see Panel 04 for SPA folder map</text>
+
+      <!-- Pipeline order box -->
+      <rect class="warn" x="20" y="650" width="760" height="160" rx="8"/>
+      <text class="lbl" x="40" y="676" font-size="15">HTTP pipeline order (Program.cs:73–157) — outer → inner</text>
+      <text class="lbl-sm" x="40" y="694" font-size="11">UseSecurityHeaders → UseCorrelationId → UseExceptionHandler/UseDeveloperExceptionPage → UseHsts (prod) → UseHttpsRedirection (prod)</text>
+      <text class="lbl-sm" x="40" y="710" font-size="11">→ UseStaticFiles (SPA bundle) → UseRouting → UseCors(ep-web-ui) → UseRateLimiter → UseAuthentication → UseAuthorization</text>
+      <text class="lbl-sm" x="40" y="726" font-size="11">→ MapHealthEndpoints (anonymous) → MapControllers → MapSpaFallback (LAST — only catches what nothing else claimed)</text>
+      <text class="lbl-sm" x="40" y="752" font-size="11" font-style="italic">Why RateLimiter BEFORE Auth: 429 abusers without an Entra round-trip · Why SpaFallback LAST: every other handler had its shot</text>
+      <text class="lbl-sm" x="40" y="770" font-size="11" font-style="italic">Why "/{**catchAll}" not single-arg MapFallback: nonfile constraint excludes file-extensioned paths silently</text>
+      <text class="lbl-sm" x="40" y="788" font-size="11" font-style="italic">Why AddControllersWithViews (not AddControllers): [AutoValidateAntiforgeryToken] is in Mvc.ViewFeatures</text>
+    </g>
+
+    <!-- Named HTTP clients (right top) -->
+    <g transform="translate(870, 80)">
+      <rect class="bff" x="0" y="0" width="780" height="320" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">Named HTTP clients (IHttpClientFactory)</text>
+      <text class="lbl-sm" x="20" y="52" font-style="italic">Never `new HttpClient()` — pooling + per-name policy</text>
+
+      <g transform="translate(20, 70)">
+        <rect class="bff" x="0" y="0" width="740" height="44" rx="6"/>
+        <text class="lbl-mono" x="14" y="20" font-size="13">ep-token-refresh</text>
+        <text class="lbl-sm" x="14" y="36">used by TokenRefreshService → POST Entra /token (grant_type=refresh_token)</text>
+      </g>
+      <g transform="translate(20, 122)">
+        <rect class="bff" x="0" y="0" width="740" height="44" rx="6"/>
+        <text class="lbl-mono" x="14" y="20" font-size="13">ep-proxy-api</text>
+        <text class="lbl-sm" x="14" y="36">used by ProxyController.Forward → GET/POST/PUT/PATCH/DELETE on ApiBaseUri</text>
+      </g>
+      <g transform="translate(20, 174)">
+        <rect class="bff" x="0" y="0" width="740" height="44" rx="6"/>
+        <text class="lbl-mono" x="14" y="20" font-size="13">GraphUserProfileService.TokenHttpClientName</text>
+        <text class="lbl-sm" x="14" y="36">refresh-token grant for User.Read (Graph) — separate from API access token (one resource per token)</text>
+      </g>
+      <g transform="translate(20, 226)">
+        <rect class="bff" x="0" y="0" width="740" height="44" rx="6"/>
+        <text class="lbl-mono" x="14" y="20" font-size="13">GraphUserProfileService.GraphHttpClientName</text>
+        <text class="lbl-sm" x="14" y="36">authenticated calls to graph.microsoft.com/v1.0/me + photo</text>
+      </g>
+    </g>
+
+    <!-- CSP -->
+    <g transform="translate(870, 420)">
+      <rect class="warn" x="0" y="0" width="780" height="220" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">Content-Security-Policy (header-delivered, per-request nonce)</text>
+      <text class="lbl-mono" x="20" y="56" font-size="11">default-src 'self';</text>
+      <text class="lbl-mono" x="20" y="72" font-size="11">script-src  'self' 'nonce-{N}';</text>
+      <text class="lbl-mono" x="20" y="88" font-size="11">style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;</text>
+      <text class="lbl-mono" x="20" y="104" font-size="11">img-src     'self' data: https:;</text>
+      <text class="lbl-mono" x="20" y="120" font-size="11">font-src    'self' data: https://fonts.gstatic.com;</text>
+      <text class="lbl-mono" x="20" y="136" font-size="11">connect-src 'self'  (+ ws://localhost:* in dev for hot reload);</text>
+      <text class="lbl-mono" x="20" y="152" font-size="11">frame-ancestors 'self';</text>
+      <text class="lbl-mono" x="20" y="168" font-size="11">base-uri 'self';</text>
+      <text class="lbl-mono" x="20" y="184" font-size="11">form-action 'self' https://login.microsoftonline.com;</text>
+      <text class="lbl-mono" x="20" y="200" font-size="11">object-src 'none'</text>
+    </g>
+
+    <!-- Rate limiter -->
+    <g transform="translate(1670, 80)">
+      <rect class="warn" x="0" y="0" width="780" height="320" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">Edge rate limiter (token-bucket chain)</text>
+
+      <rect class="warn" x="20" y="50" width="360" height="200" rx="6"/>
+      <text class="lbl" x="40" y="76" font-size="14">Per-session bucket</text>
+      <text class="lbl-sm" x="40" y="96">Key = ep.bff.session cookie OR ip:&lt;remote&gt;</text>
+      <text class="lbl-sm" x="40" y="114">TokenLimit = 120</text>
+      <text class="lbl-sm" x="40" y="132">ReplenishmentPeriod = 1s</text>
+      <text class="lbl-sm" x="40" y="150">TokensPerPeriod = 2</text>
+      <text class="lbl-sm" x="40" y="168">QueueLimit = 0 (no queueing)</text>
+      <text class="lbl-sm" x="40" y="190" font-style="italic">Throttles single user's burst</text>
+
+      <rect class="warn" x="400" y="50" width="360" height="200" rx="6"/>
+      <text class="lbl" x="420" y="76" font-size="14">Per-IP bucket</text>
+      <text class="lbl-sm" x="420" y="96">Key = ip:&lt;remote&gt;</text>
+      <text class="lbl-sm" x="420" y="114">TokenLimit = 600</text>
+      <text class="lbl-sm" x="420" y="132">ReplenishmentPeriod = 1s</text>
+      <text class="lbl-sm" x="420" y="150">TokensPerPeriod = 10</text>
+      <text class="lbl-sm" x="420" y="168">QueueLimit = 0</text>
+      <text class="lbl-sm" x="420" y="190" font-style="italic">Defense vs single host with many sessions</text>
+
+      <text class="lbl-sm" x="20" y="276" font-style="italic">PartitionedRateLimiter.CreateChained — either bucket exhausting returns 429 + Retry-After header</text>
+      <text class="lbl-sm" x="20" y="294">Exempt prefixes: /signin-oidc · /signout-callback-oidc · /health/live · /health/ready</text>
+    </g>
+
+    <!-- Health checks -->
+    <g transform="translate(1670, 420)">
+      <rect class="bff" x="0" y="0" width="780" height="220" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">Health probes (tag-based split)</text>
+
+      <rect class="bff" x="20" y="50" width="360" height="150" rx="6"/>
+      <text class="lbl" x="40" y="76" font-size="14">/health/live (tag = liveness)</text>
+      <text class="lbl-sm" x="40" y="98">Probe: kubelet</text>
+      <text class="lbl-sm" x="40" y="116">Action on fail: restart pod</text>
+      <text class="lbl-sm" x="40" y="134">Check: 'self' — Kestrel + process up</text>
+      <text class="lbl-sm" x="40" y="160" font-style="italic">Restart fixes the host</text>
+
+      <rect class="bff" x="400" y="50" width="360" height="150" rx="6"/>
+      <text class="lbl" x="420" y="76" font-size="14">/health/ready (tag = readiness)</text>
+      <text class="lbl-sm" x="420" y="98">Probe: load balancer</text>
+      <text class="lbl-sm" x="420" y="116">Action on fail: stop sending traffic</text>
+      <text class="lbl-sm" x="420" y="134">Check: 'downstream-api' — HTTP probe</text>
+      <text class="lbl-sm" x="420" y="160" font-style="italic">Drain pod, don't restart</text>
+    </g>
+
+    <!-- SPA fallback diagram (bottom right) -->
+    <g transform="translate(2470, 80)">
+      <rect class="bff" x="0" y="0" width="780" height="560" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">SPA fallback flow (SpaFallbackEndpoint)</text>
+
+      <rect class="browser" x="20" y="60" width="320" height="50" rx="6"/>
+      <text class="lbl-sm" x="180" y="80" text-anchor="middle">Unmatched route arrives</text>
+      <text class="lbl-mono" x="180" y="98" font-size="11" text-anchor="middle">/users/123 OR /unknown.preview</text>
+
+      <line x1="180" y1="115" x2="180" y2="140" class="pipe" marker-end="url(#arr)"/>
+
+      <rect class="warn" x="20" y="140" width="320" height="50" rx="6"/>
+      <text class="lbl-sm" x="180" y="158" text-anchor="middle">Path starts with /api/, /signin-oidc,</text>
+      <text class="lbl-sm" x="180" y="176" text-anchor="middle">/signout-callback-oidc, /health/?</text>
+
+      <line x1="100" y1="195" x2="100" y2="225" class="pipe" stroke="#dc2626" marker-end="url(#arrRed)"/>
+      <text class="lbl-sm" x="115" y="215" fill="#dc2626">yes</text>
+
+      <rect class="danger" x="40" y="225" width="120" height="40" rx="6"/>
+      <text class="lbl-sm" x="100" y="250" text-anchor="middle">404</text>
+
+      <line x1="280" y1="195" x2="280" y2="225" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <text class="lbl-sm" x="295" y="215" fill="#166534">no</text>
+
+      <rect class="bff" x="200" y="225" width="140" height="60" rx="6"/>
+      <text class="lbl-sm" x="270" y="245" text-anchor="middle">ResolveStaticRoot</text>
+      <text class="lbl-sm" x="270" y="262" text-anchor="middle">SpaHosting.StaticRoot</text>
+      <text class="lbl-sm" x="270" y="278" text-anchor="middle">OR WebRootPath</text>
+
+      <line x1="270" y1="290" x2="270" y2="320" class="pipe" marker-end="url(#arr)"/>
+
+      <rect class="warn" x="180" y="320" width="180" height="50" rx="6"/>
+      <text class="lbl-sm" x="270" y="338" text-anchor="middle">index.html exists?</text>
+
+      <line x1="200" y1="375" x2="160" y2="410" class="pipe" stroke="#dc2626" marker-end="url(#arrRed)"/>
+      <rect class="danger" x="60" y="410" width="200" height="60" rx="6"/>
+      <text class="lbl-sm" x="160" y="430" text-anchor="middle">404 + diagnostic message</text>
+      <text class="lbl-sm" x="160" y="446" text-anchor="middle">"Run npm run watch in</text>
+      <text class="lbl-sm" x="160" y="462" text-anchor="middle">ClientApp/, or copy build"</text>
+
+      <line x1="340" y1="375" x2="380" y2="410" class="pipe" stroke="#166534" marker-end="url(#arrGreen)"/>
+      <rect class="bff" x="280" y="410" width="200" height="60" rx="6"/>
+      <text class="lbl-sm" x="380" y="430" text-anchor="middle">SendFileAsync(index.html)</text>
+      <text class="lbl-sm" x="380" y="446" text-anchor="middle">ContentType: text/html</text>
+      <text class="lbl-sm" x="380" y="462" text-anchor="middle">Angular router takes over</text>
+
+      <text class="lbl-sm" x="20" y="510" font-style="italic">MapFallback("/{**catchAll}", handler) — NOT single-arg overload</text>
+      <text class="lbl-sm" x="20" y="528" font-style="italic">Single-arg uses {*path:nonfile} → silently 404s file-extensioned paths</text>
+      <text class="lbl-sm" x="20" y="546" font-style="italic" fill="#dc2626">Memorialized footgun — SPA routes like /users/edit.preview would break</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 4 — SPA STRUCTURE (full width) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 3710)">
+    <rect class="panel" x="0" y="0" width="3280" height="1100" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="3280" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="3280" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">04</text>
+    <text class="num" x="60" y="32" font-size="22">SPA STRUCTURE — folder rules · import direction · signal stores · routing · 8 interceptors · chrome</text>
+    <text class="subtitle" x="3260" y="32" font-size="13" text-anchor="end" fill="#94a3b8">06–09 of demo deck</text>
+
+    <!-- Folder map -->
+    <g transform="translate(40, 80)">
+      <rect class="browser" x="0" y="0" width="1500" height="980" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="20">ClientApp/src/app/</text>
+      <text class="lbl-sm" x="20" y="56" font-style="italic">5 top-level folders · one-way import rule (enforced by dependency-cruiser)</text>
+
+      <!-- config/ -->
+      <rect class="browser" x="20" y="76" width="1460" height="100" rx="6"/>
+      <text class="lbl" x="40" y="100" font-size="15">config/ — Boot wiring (no runtime state)</text>
+      <text class="lbl-mono" x="40" y="120" font-size="11">app.config.ts</text>
+      <text class="lbl-sm" x="180" y="120" font-size="11">ApplicationConfig — provideHttpClient(withXsrf, withInterceptors([8 interceptors]))</text>
+      <text class="lbl-mono" x="40" y="138" font-size="11">runtime-config.ts</text>
+      <text class="lbl-sm" x="180" y="138" font-size="11">/config.json fetcher · I1 initializer · falls back to environment.ts</text>
+      <text class="lbl-mono" x="40" y="156" font-size="11">primeng.config.ts</text>
+      <text class="lbl-sm" x="180" y="156" font-size="11">PrimeUix theme + ripple/zIndex defaults · cssLayer order: theme,base,primeng,utilities</text>
+
+      <!-- core/ -->
+      <rect class="browser" x="20" y="186" width="1460" height="280" rx="6"/>
+      <text class="lbl" x="40" y="210" font-size="15">core/ — Cross-cutting singletons (one instance app-wide)</text>
+      <text class="lbl-mono" x="40" y="230" font-size="11">core/auth/</text>
+      <text class="lbl-sm" x="200" y="230" font-size="11">AuthService (signal façade) · AuthStore (NGRX signalStore) · SessionMonitorService</text>
+      <text class="lbl-mono" x="40" y="248" font-size="11">core/interceptors/</text>
+      <text class="lbl-sm" x="200" y="248" font-size="11">8 functional: correlation → security → cache → dedup → loading → logging → retry → error</text>
+      <text class="lbl-mono" x="40" y="266" font-size="11">core/guards/</text>
+      <text class="lbl-sm" x="200" y="266" font-size="11">authGuard · permissionGuard(...AND) · anyPermissionGuard(...OR) · roleGuard · unsavedChangesGuard</text>
+      <text class="lbl-mono" x="40" y="284" font-size="11">core/routing/</text>
+      <text class="lbl-sm" x="200" y="284" font-size="11">CustomPreloader — data.preload + navigator.connection.saveData aware</text>
+      <text class="lbl-mono" x="40" y="302" font-size="11">core/store/base/</text>
+      <text class="lbl-sm" x="200" y="302" font-size="11">BaseEntityStore primitives + signalStoreFeature catalog (withPersistence, withCacheInvalidation)</text>
+      <text class="lbl-mono" x="40" y="320" font-size="11">core/store/</text>
+      <text class="lbl-sm" x="200" y="320" font-size="11">cache-invalidation-bus.service — global bus so feature stores can react to cross-feature mutations</text>
+      <text class="lbl-mono" x="40" y="338" font-size="11">core/http/</text>
+      <text class="lbl-sm" x="200" y="338" font-size="11">BaseApiService — basePath + ttl/skipCache helpers · keeps feature *.api.ts files terse</text>
+      <text class="lbl-mono" x="40" y="356" font-size="11">core/forms/</text>
+      <text class="lbl-sm" x="200" y="356" font-size="11">Reactive-forms helpers, validators, ServerErrorMapperService (RFC 7807 → FormGroup.setErrors)</text>
+      <text class="lbl-mono" x="40" y="374" font-size="11">core/services/</text>
+      <text class="lbl-sm" x="200" y="374" font-size="11">Logger (PII-scrub) · Notification · LoadingService · CorrelationContextService · FocusManagement · Csp · DomainStore · NavbarConfigService · StatusBannerService</text>
+      <text class="lbl-mono" x="40" y="392" font-size="11">core/models/</text>
+      <text class="lbl-sm" x="200" y="392" font-size="11">RouteMetadata · CurrentUser · ApiError · EffectivePermissions · feature DTO interfaces</text>
+      <text class="lbl-sm" x="40" y="424" font-size="11" font-style="italic" fill="#475569">No imports of features/* OR layouts/* — core is the foundation</text>
+
+      <!-- features/ -->
+      <rect class="browser" x="20" y="476" width="720" height="200" rx="6"/>
+      <text class="lbl" x="40" y="500" font-size="15">features/ — Domain slices (lazy-loaded per route)</text>
+      <text class="lbl-mono" x="40" y="520" font-size="11">dashboard/</text>
+      <text class="lbl-sm" x="180" y="520" font-size="11">DashboardComponent — preload: true</text>
+      <text class="lbl-mono" x="40" y="538" font-size="11">auth/</text>
+      <text class="lbl-sm" x="180" y="538" font-size="11">LoginComponent (public) — top-level navigation to /api/auth/login</text>
+      <text class="lbl-mono" x="40" y="556" font-size="11">users/</text>
+      <text class="lbl-sm" x="180" y="556" font-size="11">USERS_ROUTES + UsersStore (route-scoped)</text>
+      <text class="lbl-mono" x="40" y="574" font-size="11">error-pages/</text>
+      <text class="lbl-sm" x="180" y="574" font-size="11">forbidden · server-error · offline · maintenance · not-found</text>
+      <text class="lbl-sm" x="40" y="608" font-size="11" font-style="italic" fill="#dc2626">Sibling features cannot import each other — extract shared to core/ or shared/</text>
+      <text class="lbl-sm" x="40" y="626" font-size="11" font-style="italic">UsersStore · OrdersStore · etc — feature-scoped via routes file (lifecycle = nav in/out)</text>
+
+      <!-- layouts/ -->
+      <rect class="browser" x="760" y="476" width="720" height="200" rx="6"/>
+      <text class="lbl" x="780" y="500" font-size="15">layouts/ — Chrome shells (one per route subtree)</text>
+      <text class="lbl-mono" x="780" y="520" font-size="11">app-shell/</text>
+      <text class="lbl-sm" x="920" y="520" font-size="11">AppShellComponent — protected, navbar+footer+banners+sub-nav</text>
+      <text class="lbl-mono" x="780" y="538" font-size="11">auth-layout/</text>
+      <text class="lbl-sm" x="920" y="538" font-size="11">centered card · /auth/* subtree</text>
+      <text class="lbl-mono" x="780" y="556" font-size="11">error-layout/</text>
+      <text class="lbl-sm" x="920" y="556" font-size="11">fullscreen minimal chrome · /error/* subtree</text>
+      <text class="lbl-sm" x="780" y="588" font-size="11" font-style="italic">Two 404s: one inside shell (chrome stays), one top-level (no chrome)</text>
+
+      <!-- shared/ -->
+      <rect class="browser" x="20" y="686" width="1460" height="140" rx="6"/>
+      <text class="lbl" x="40" y="710" font-size="15">shared/ — Reusable, generic, no domain knowledge</text>
+      <text class="lbl-mono" x="40" y="730" font-size="11">shared/components/dph/</text>
+      <text class="lbl-sm" x="240" y="730" font-size="11">data-table · cell-renderer · column-chooser · column-filter · live-data-table — universal kit</text>
+      <text class="lbl-mono" x="40" y="748" font-size="11">shared/components/</text>
+      <text class="lbl-sm" x="240" y="748" font-size="11">page-header · status-badge · status-banner · empty-state · error-state · global-progress-bar · skeleton-card · session-expiring-dialog</text>
+      <text class="lbl-mono" x="40" y="766" font-size="11">shared/layout/</text>
+      <text class="lbl-sm" x="240" y="766" font-size="11">platform-navbar · platform-footer · sub-nav-orchestrator · domain factories · NAVBAR_CONFIG_PROVIDER (Static + Backend)</text>
+      <text class="lbl-mono" x="40" y="784" font-size="11">shared/directives/, pipes/</text>
+      <text class="lbl-sm" x="40" y="816" font-size="11" font-style="italic" fill="#dc2626">Cannot import from features/, layouts/, core/ — pure presentation</text>
+
+      <!-- App entry -->
+      <rect class="warn" x="20" y="836" width="1460" height="120" rx="6"/>
+      <text class="lbl" x="40" y="858" font-size="14">app.ts (root) + app.routes.ts (routing)</text>
+      <text class="lbl-sm" x="40" y="876" font-size="11">App initializer chain: I1 loadRuntimeConfig → I2 AuthService.refreshSession (BLOCKS bootstrap) → I3 CspViolationReporter → I4 FocusManagement</text>
+      <text class="lbl-sm" x="40" y="894" font-size="11">AppComponent: spinner gate while isLoading() · &lt;router-outlet/&gt; renders when bootstrap resolves</text>
+      <text class="lbl-sm" x="40" y="912" font-size="11">app.routes.ts: 3 subtrees (auth, app-shell, error) + 2 catch-all 404 (one shell-level, one top-level)</text>
+      <text class="lbl-sm" x="40" y="930" font-size="11" font-style="italic">Provide ZonelessChangeDetection · provideRouter(routes, withPreloading(CustomPreloader), withViewTransitions, withInMemoryScrolling)</text>
+    </g>
+
+    <!-- Right column: interceptors + routing tree + chrome -->
+    <g transform="translate(1570, 80)">
+      <!-- 8 Interceptors -->
+      <rect class="accent" x="0" y="0" width="1670" height="320" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">8 Functional HTTP Interceptors (order matters!) — app.config.ts:132</text>
+
+      <g transform="translate(20, 50)">
+        <rect class="browser-d" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">1</text>
+        <text class="lbl" x="40" y="22" font-size="13">correlation</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">Mints X-Correlation-ID</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">crypto.randomUUID()</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">pushes onto Context svc</text>
+      </g>
+      <g transform="translate(225, 50)">
+        <rect class="browser-d" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">2</text>
+        <text class="lbl" x="40" y="22" font-size="13">security</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">/api/* only</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">+X-XSRF-TOKEN</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">+X-Requested-With</text>
+      </g>
+      <g transform="translate(430, 50)">
+        <rect class="bff" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">3</text>
+        <text class="lbl" x="40" y="22" font-size="13">cache</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">opt-IN: X-Cache-TTL</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">GET only · 200-cap LRU</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">X-Skip-Cache forces fresh</text>
+      </g>
+      <g transform="translate(635, 50)">
+        <rect class="bff" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">4</text>
+        <text class="lbl" x="40" y="22" font-size="13">dedup</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">single-flight via share()</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">same key as cache</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">X-Skip-Dedup opts out</text>
+      </g>
+      <g transform="translate(840, 50)">
+        <rect class="accent" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">5</text>
+        <text class="lbl" x="40" y="22" font-size="13">loading</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">LoadingService.inc/dec</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">wraps retries too</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">X-Skip-Loading opts out</text>
+      </g>
+      <g transform="translate(1045, 50)">
+        <rect class="accent" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">6</text>
+        <text class="lbl" x="40" y="22" font-size="13">logging</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">http.request/response/error</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">durationMs (perf.now)</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">PII-scrubbed</text>
+      </g>
+      <g transform="translate(1250, 50)">
+        <rect class="danger" x="0" y="0" width="200" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">7</text>
+        <text class="lbl" x="40" y="22" font-size="13">retry</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">5xx + GET/HEAD/OPTIONS</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">exp backoff ±25% jitter</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">X-Skip-Retry opts out</text>
+      </g>
+      <g transform="translate(1455, 50)">
+        <rect class="danger" x="0" y="0" width="195" height="80" rx="6"/>
+        <text class="num" x="14" y="22" font-size="14">8</text>
+        <text class="lbl" x="40" y="22" font-size="13">error</text>
+        <text class="lbl-sm" x="14" y="42" font-size="10">normalize → ApiError</text>
+        <text class="lbl-sm" x="14" y="56" font-size="10">toast + nav (RFC 7807)</text>
+        <text class="lbl-sm" x="14" y="70" font-size="10">"Stores own inline"</text>
+      </g>
+
+      <text class="lbl-sm" x="20" y="160" font-size="11" font-style="italic">Cardinal rule: interceptors own toasts; stores own inline errors (capture into store.error signal). No double-toasting.</text>
+
+      <text class="lbl-sm" x="20" y="190" font-size="11">Chain rationale: stamp correlation FIRST → security headers BEFORE cache key → cache hits short-circuit dedup/loading/logging/retry/error</text>
+      <text class="lbl-sm" x="20" y="210" font-size="11">→ loading wraps retries (so spinner shows for full duration) → logging duration matches user-perceived → retry above error (success retry never reaches errorInterceptor)</text>
+      <text class="lbl-sm" x="20" y="230" font-size="11">→ error normalizes any failure shape (HttpErrorResponse, ProblemDetails, legacy {message}) into ApiError {message,statusCode,code?,errors?,correlationId?,timestamp}</text>
+
+      <text class="lbl-sm" x="20" y="270" font-size="11" font-style="italic">XSRF doubly wired: Angular's withXsrfConfiguration (mutating same-origin) + securityInterceptor (every /api/*) — belt and braces</text>
+      <text class="lbl-sm" x="20" y="290" font-size="11" font-style="italic">All opt-out headers (X-Cache-TTL, X-Skip-Cache, X-Skip-Dedup, X-Skip-Loading, X-Skip-Retry, X-Skip-Error-Handling) are STRIPPED before forwarding — servers never see them</text>
+    </g>
+
+    <!-- Routing tree -->
+    <g transform="translate(1570, 420)">
+      <rect class="browser" x="0" y="0" width="820" height="540" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">Route tree (app.routes.ts) — 3 subtrees + 2 404s</text>
+
+      <!-- /auth -->
+      <rect class="browser" x="20" y="60" width="780" height="80" rx="6"/>
+      <text class="lbl" x="40" y="84" font-size="14">/auth — AuthLayoutComponent (public)</text>
+      <text class="lbl-mono" x="40" y="104" font-size="11">/auth/login</text>
+      <text class="lbl-sm" x="180" y="104" font-size="11">LoginComponent — clicks /api/auth/login (top-level nav, NOT XHR)</text>
+      <text class="lbl-mono" x="40" y="120" font-size="11">/auth → /auth/login</text>
+
+      <!-- / shell -->
+      <rect class="browser" x="20" y="150" width="780" height="220" rx="6"/>
+      <text class="lbl" x="40" y="174" font-size="14">/ — AppShellComponent · canActivate: [authGuard]</text>
+      <text class="lbl-mono" x="40" y="194" font-size="11">/dashboard</text>
+      <text class="lbl-sm" x="180" y="194" font-size="11">title · pageHeader · preload:true · showInNav:true · icon pi-home</text>
+      <text class="lbl-mono" x="40" y="210" font-size="11">/users</text>
+      <text class="lbl-sm" x="180" y="210" font-size="11">loadChildren USERS_ROUTES · UsersStore route-scoped · showInNav:true</text>
+      <text class="lbl-mono" x="40" y="226" font-size="11">/ → /dashboard</text>
+      <text class="lbl-mono" x="40" y="246" font-size="11">/** (in shell)</text>
+      <text class="lbl-sm" x="180" y="246" font-size="11">404 inside shell — keeps chrome visible · pageHeader for breathing room</text>
+
+      <text class="lbl-sm" x="40" y="280" font-size="11" font-style="italic">RouteMetadata in data: { label, icon, breadcrumb, showInNav, requiredPermissions, featureFlag, preload, pageHeader }</text>
+      <text class="lbl-sm" x="40" y="300" font-size="11" font-style="italic">→ Five consumers from one declaration: navbar, breadcrumb, page header, preloader, document title</text>
+      <text class="lbl-sm" x="40" y="320" font-size="11" font-style="italic">Guards stack as AND: canActivate: [authGuard, permissionGuard('users:read'), anyPermissionGuard('a','b')]</text>
+      <text class="lbl-sm" x="40" y="340" font-size="11" font-style="italic">Custom preloader: only data.preload===true AND navigator.connection.saveData!==true → background load</text>
+
+      <!-- /error -->
+      <rect class="browser" x="20" y="380" width="780" height="80" rx="6"/>
+      <text class="lbl" x="40" y="404" font-size="14">/error — ErrorLayoutComponent (public)</text>
+      <text class="lbl-mono" x="40" y="424" font-size="11">/error/forbidden, /server-error, /offline, /maintenance</text>
+      <text class="lbl-sm" x="40" y="442" font-size="11" font-style="italic">Reachable mid-flow even when auth is broken — minimal chrome</text>
+
+      <!-- top-level 404 -->
+      <rect class="danger" x="20" y="470" width="780" height="50" rx="6"/>
+      <text class="lbl" x="40" y="494" font-size="14">/** (top-level catch-all)</text>
+      <text class="lbl-sm" x="40" y="512" font-size="11">NotFoundComponent · drops chrome (URL didn't match any subtree at all)</text>
+    </g>
+
+    <!-- App-shell anatomy -->
+    <g transform="translate(2410, 420)">
+      <rect class="bff" x="0" y="0" width="830" height="540" rx="10"/>
+      <text class="lbl" x="20" y="32" font-size="18">App-shell anatomy (AppShellComponent)</text>
+
+      <rect class="browser" x="20" y="60" width="790" height="40" rx="6"/>
+      <text class="lbl-sm" x="40" y="86">1. GlobalProgressBarComponent — top edge, binds to LoadingService.counter</text>
+
+      <rect class="bff" x="20" y="108" width="790" height="80" rx="6"/>
+      <text class="lbl" x="40" y="130" font-size="14">2. PlatformNavbarComponent — config-driven, multi-domain</text>
+      <text class="lbl-sm" x="40" y="150" font-size="11">NavbarConfigService.navbar() ← NAVBAR_CONFIG_PROVIDER (Static or Backend) ← DomainStore.currentDomain</text>
+      <text class="lbl-sm" x="40" y="166" font-size="11">RBAC defense in depth: server authoritative, NavMenu re-filters every render, hides disallowed items</text>
+      <text class="lbl-sm" x="40" y="182" font-size="11" font-style="italic">Tone-aware via [data-tone] CSS — same component swaps to palmetto for Healthcare, indigo for Finance</text>
+
+      <rect class="bff" x="20" y="196" width="790" height="60" rx="6"/>
+      <text class="lbl" x="40" y="218" font-size="14">3. SubNavOrchestratorComponent — page header + breadcrumbs + tabs</text>
+      <text class="lbl-sm" x="40" y="238" font-size="11">Reads route.snapshot.data.pageHeader → renders title, subtitle, icon, primaryAction button</text>
+      <text class="lbl-sm" x="40" y="252" font-size="11">Single (action) emitter → Shell.onPageHeaderAction → onNavAction dispatcher (one switch, one place)</text>
+
+      <rect class="warn" x="20" y="264" width="790" height="60" rx="6"/>
+      <text class="lbl" x="40" y="286" font-size="14">4. &lt;main&gt; · &lt;router-outlet/&gt; · max-w-[var(--ep-content-max)]</text>
+      <text class="lbl-sm" x="40" y="306" font-size="11">role=main, id=main-content, tabindex=-1 (focus target after navigation), overflow-x:clip</text>
+      <text class="lbl-sm" x="40" y="320" font-size="11" font-style="italic">FocusManagementService moves focus on NavigationEnd (WCAG 2.4.3)</text>
+
+      <rect class="bff" x="20" y="332" width="790" height="50" rx="6"/>
+      <text class="lbl" x="40" y="354" font-size="14">5. PlatformFooterV2Component — config-driven 4-col responsive</text>
+      <text class="lbl-sm" x="40" y="374" font-size="11">NavbarConfigService.footer() — palmetto top border (brand) — links: brand, product, resources, legal</text>
+
+      <rect class="accent" x="20" y="390" width="790" height="80" rx="6"/>
+      <text class="lbl" x="40" y="412" font-size="14">6. Overlays</text>
+      <text class="lbl-sm" x="40" y="432" font-size="11">&lt;p-toast position="top-right" preventOpenDuplicates&gt; — driven by NotificationService → MessageService</text>
+      <text class="lbl-sm" x="40" y="448" font-size="11">&lt;p-confirmdialog&gt; — app-wide via ConfirmationService</text>
+      <text class="lbl-sm" x="40" y="464" font-size="11">@defer SessionExpiringDialog — lazy, only when session.expiringSoon() signal fires</text>
+
+      <text class="lbl-sm" x="20" y="498" font-size="11" font-style="italic">Status banners (5 severities, ARIA polite/assertive) hosted by StatusBannerHostComponent — slots between sub-nav and main</text>
+      <text class="lbl-sm" x="20" y="516" font-size="11" font-style="italic">Adding a new domain: new factory in shared/layout/domains/ + register in DOMAIN_CHROME_REGISTRY (no shell/navbar/footer code changes)</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 5 — TOKEN REFRESH + LOGOUT (left) + ERROR MODEL (right) -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 4830)">
+    <rect class="panel" x="0" y="0" width="1620" height="900" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="1620" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="1620" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">05</text>
+    <text class="num" x="60" y="32" font-size="22">TOKEN REFRESH + LOGOUT — OnValidatePrincipal hook · failure modes · single sign-out</text>
+
+    <!-- Timeline -->
+    <g transform="translate(40, 80)">
+      <text class="lbl" x="0" y="20" font-size="16">Three timescales (none aligned)</text>
+
+      <!-- Cookie ticket bar -->
+      <rect fill="#dbeafe" stroke="#1e40af" stroke-width="2" x="0" y="40" width="1540" height="36" rx="4"/>
+      <text class="lbl-sm" x="14" y="62">Cookie ticket — ep.bff.session — sliding 8h</text>
+
+      <!-- Access tokens -->
+      <rect class="bff" x="0" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="10" y="106">Token #1 (60 min)</text>
+      <rect class="bff" x="195" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="205" y="106">Token #2 (60 min)</text>
+      <rect class="bff" x="390" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="400" y="106">Token #3 (60 min)</text>
+      <rect class="bff" x="585" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="595" y="106">Token #4 (60 min)</text>
+      <rect class="bff" x="780" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="790" y="106">Token #5 (60 min)</text>
+      <rect class="bff" x="975" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="985" y="106">Token #6 (60 min)</text>
+      <rect class="bff" x="1170" y="86" width="190" height="36" rx="4"/>
+      <text class="lbl-sm" x="1180" y="106">Token #7 (60 min)</text>
+      <rect class="bff" x="1365" y="86" width="175" height="36" rx="4"/>
+      <text class="lbl-sm" x="1375" y="106">Token #8 (60 min)</text>
+
+      <!-- Refresh markers -->
+      <g>
+        <circle cx="180" cy="142" r="6" fill="#a16207"/>
+        <text class="lbl-sm" x="180" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <circle cx="375" cy="142" r="6" fill="#a16207"/>
+        <text class="lbl-sm" x="375" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <circle cx="570" cy="142" r="6" fill="#a16207"/>
+        <text class="lbl-sm" x="570" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <circle cx="765" cy="142" r="6" fill="#a16207"/>
+        <circle cx="960" cy="142" r="6" fill="#a16207"/>
+        <circle cx="1155" cy="142" r="6" fill="#a16207"/>
+        <circle cx="1350" cy="142" r="6" fill="#a16207"/>
+        <text class="lbl-sm" x="765" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <text class="lbl-sm" x="960" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <text class="lbl-sm" x="1155" y="166" text-anchor="middle" font-size="10">refresh</text>
+        <text class="lbl-sm" x="1350" y="166" text-anchor="middle" font-size="10">refresh</text>
+      </g>
+
+      <text class="lbl-sm" x="0" y="200" font-style="italic">RefreshThreshold = 5 min — generous so Entra round-trip + proxy hop + slow API don't expire mid-flight</text>
+    </g>
+
+    <!-- Refresh skip-fast vs in-window flow -->
+    <g transform="translate(40, 290)">
+      <text class="lbl" x="0" y="20" font-size="16">OnValidatePrincipal flow (TokenRefreshService.ValidateAsync)</text>
+
+      <rect class="bff" x="0" y="40" width="220" height="80" rx="6"/>
+      <text class="lbl-sm" x="14" y="62">Read access_token, refresh_token,</text>
+      <text class="lbl-sm" x="14" y="78">expires_at from ctx.Properties</text>
+      <text class="lbl-sm" x="14" y="98" font-style="italic">~10μs · zero I/O</text>
+
+      <line x1="220" y1="80" x2="260" y2="80" class="pipe" marker-end="url(#arr)"/>
+
+      <rect class="warn" x="260" y="40" width="220" height="80" rx="6"/>
+      <text class="lbl-sm" x="274" y="62">Tokens missing OR malformed</text>
+      <text class="lbl-sm" x="274" y="78">expires_at unparseable?</text>
+      <text class="lbl-sm" x="274" y="98">→ RejectPrincipal · 401</text>
+
+      <rect class="bff" x="500" y="40" width="220" height="80" rx="6"/>
+      <text class="lbl" x="510" y="62" font-size="13">Skip-fast (>5 min)</text>
+      <text class="lbl-sm" x="510" y="80">LogRefreshSkip · no-op</text>
+      <text class="lbl-sm" x="510" y="98" font-style="italic">~3 lines, no I/O</text>
+
+      <line x1="720" y1="80" x2="760" y2="80" class="pipe" marker-end="url(#arr)"/>
+
+      <rect class="warn" x="760" y="40" width="220" height="80" rx="6"/>
+      <text class="lbl" x="774" y="62" font-size="13">In window (≤5 min)</text>
+      <text class="lbl-sm" x="774" y="80">POST Entra /token grant=refresh_token</text>
+      <text class="lbl-sm" x="774" y="98">~50ms typical</text>
+
+      <line x1="980" y1="80" x2="1020" y2="80" class="pipe" marker-end="url(#arr)"/>
+
+      <rect class="bff" x="1020" y="40" width="240" height="80" rx="6"/>
+      <text class="lbl" x="1034" y="62" font-size="13">Success</text>
+      <text class="lbl-sm" x="1034" y="80">StoreTokens · ShouldRenew=true</text>
+      <text class="lbl-sm" x="1034" y="98">SessionsRefreshed.Add(1)</text>
+
+      <rect class="danger" x="1280" y="40" width="240" height="80" rx="6"/>
+      <text class="lbl" x="1294" y="62" font-size="13">Failure (4xx/5xx/network)</text>
+      <text class="lbl-sm" x="1294" y="80">RejectPrincipal · 401</text>
+      <text class="lbl-sm" x="1294" y="98">RefreshFailed{reason} +1</text>
+    </g>
+
+    <!-- Logout sequence -->
+    <g transform="translate(40, 460)">
+      <text class="lbl" x="0" y="20" font-size="16">Logout sequence (POST · single sign-out)</text>
+
+      <text class="lbl-sm" x="0" y="44" font-size="11">1. User submits form → POST /api/auth/logout?returnUrl=/</text>
+      <text class="lbl-sm" x="0" y="60" font-size="11">2. AuthController.Logout → SanitizeReturnUrl → SignOut(props, CookieScheme, OidcScheme)</text>
+      <text class="lbl-sm" x="0" y="76" font-size="11">3. CookieScheme.OnSigningOut → SessionLifetimeSeconds.Record(seconds, reason="signout")</text>
+      <text class="lbl-sm" x="0" y="92" font-size="11">4. CookieScheme clears ep.bff.session (Set-Cookie ...; Max-Age=0)</text>
+      <text class="lbl-sm" x="0" y="108" font-size="11">5. OidcScheme.OnRedirectToIdentityProviderForSignOut → read id_token from ticket → IdTokenHint</text>
+      <text class="lbl-sm" x="0" y="124" font-size="11">6. 302 → login.microsoftonline.com/.../logout?id_token_hint=...&amp;post_logout_redirect_uri=https://app/signout-callback-oidc</text>
+      <text class="lbl-sm" x="0" y="140" font-size="11">7. Entra terminates session (no account picker thanks to id_token_hint) → 302 /signout-callback-oidc</text>
+      <text class="lbl-sm" x="0" y="156" font-size="11">8. OidcScheme handles callback (no-op) → 302 to validated returnUrl (default /)</text>
+      <text class="lbl-sm" x="0" y="172" font-size="11">9. SPA loads / anonymous → /api/auth/session returns Anonymous → router redirects to /auth/login</text>
+      <text class="lbl-sm" x="0" y="188" font-size="11" font-style="italic" fill="#dc2626">10. BroadcastChannel('ep:auth') sends 'logout' → other tabs in same browser navigate to /auth/login</text>
+    </g>
+
+    <!-- Failure modes table -->
+    <g transform="translate(40, 680)">
+      <text class="lbl" x="0" y="20" font-size="16">Refresh failure modes</text>
+
+      <rect fill="#fee2e2" stroke="#991b1b" x="0" y="36" width="1540" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="56" font-weight="700">Failure</text>
+      <text class="lbl-sm" x="320" y="56" font-weight="700">User sees</text>
+      <text class="lbl-sm" x="700" y="56" font-weight="700">Logs</text>
+      <text class="lbl-sm" x="1080" y="56" font-weight="700">Recovery</text>
+
+      <text class="lbl-sm" x="14" y="86" font-size="11">Cookie ticket malformed (key rotation w/o ring)</text>
+      <text class="lbl-sm" x="320" y="86" font-size="11">401 first XHR · sticky toast</text>
+      <text class="lbl-sm" x="700" y="86" font-size="11">Token.Refresh.MissingStashedTokens</text>
+      <text class="lbl-sm" x="1080" y="86" font-size="11">SPA → /auth/login · fresh OIDC</text>
+
+      <text class="lbl-sm" x="14" y="108" font-size="11">Refresh token revoked at Entra</text>
+      <text class="lbl-sm" x="320" y="108" font-size="11">401 · sticky "Session expired"</text>
+      <text class="lbl-sm" x="700" y="108" font-size="11">Token.Refresh.Failed status=400</text>
+      <text class="lbl-sm" x="1080" y="108" font-size="11">Re-auth via OIDC</text>
+
+      <text class="lbl-sm" x="14" y="130" font-size="11">Network blip to Entra</text>
+      <text class="lbl-sm" x="320" y="130" font-size="11">401 (current — conservative)</text>
+      <text class="lbl-sm" x="700" y="130" font-size="11">Token.Refresh.Exception</text>
+      <text class="lbl-sm" x="1080" y="130" font-size="11">Future: Polly retry</text>
+
+      <text class="lbl-sm" x="14" y="152" font-size="11">Cookie key not in pod's ring</text>
+      <text class="lbl-sm" x="320" y="152" font-size="11">Silent sign-out (looks like idle)</text>
+      <text class="lbl-sm" x="700" y="152" font-size="11">(no log; auth stack drops ticket)</text>
+      <text class="lbl-sm" x="1080" y="152" font-size="11">Share key ring via Key Vault</text>
+
+      <text class="lbl-sm" x="14" y="174" font-size="11">Tab open past SessionLifetime</text>
+      <text class="lbl-sm" x="320" y="174" font-size="11">First action → 401</text>
+      <text class="lbl-sm" x="700" y="174" font-size="11">cookie absent</text>
+      <text class="lbl-sm" x="1080" y="174" font-size="11">Fresh OIDC flow</text>
+    </g>
+  </g>
+
+  <!-- Error model -->
+  <g transform="translate(1700, 4830)">
+    <rect class="panel" x="0" y="0" width="1640" height="900" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="1640" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="1640" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">06</text>
+    <text class="num" x="60" y="32" font-size="22">ERROR MODEL — every failure → ApiError → toast + nav + inline form errors</text>
+
+    <!-- Error funnel -->
+    <g transform="translate(40, 80)">
+      <text class="lbl" x="0" y="20" font-size="16">All failure shapes → one ApiError</text>
+
+      <!-- Sources -->
+      <g transform="translate(0, 40)">
+        <rect class="warn" x="0" y="0" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="24" text-anchor="middle">Network status=0</text>
+        <rect class="danger" x="0" y="48" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="72" text-anchor="middle">401 cookie dead</text>
+        <rect class="danger" x="0" y="96" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="120" text-anchor="middle">403 forbidden</text>
+        <rect class="warn" x="0" y="144" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="168" text-anchor="middle">404</text>
+        <rect class="warn" x="0" y="192" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="216" text-anchor="middle">409 conflict</text>
+        <rect class="bff" x="0" y="240" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="264" text-anchor="middle">422 RFC 7807</text>
+        <rect class="danger" x="0" y="288" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="312" text-anchor="middle">5xx</text>
+        <rect class="warn" x="0" y="336" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="360" text-anchor="middle">other 4xx</text>
+      </g>
+
+      <!-- Funnel arrows -->
+      <g>
+        <line x1="180" y1="60" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="108" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="156" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="204" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="252" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="300" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="348" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+        <line x1="180" y1="396" x2="320" y2="200" class="pipe" marker-end="url(#arr)"/>
+      </g>
+
+      <!-- Funnel -->
+      <rect class="accent" x="320" y="160" width="280" height="100" rx="6"/>
+      <text class="lbl" x="460" y="186" text-anchor="middle">errorInterceptor.normalize</text>
+      <text class="lbl-sm" x="460" y="204" text-anchor="middle">→ ApiError uniform shape</text>
+      <text class="lbl-mono" x="334" y="226" font-size="10">{ message, statusCode, code?,</text>
+      <text class="lbl-mono" x="334" y="240" font-size="10">  errors?, correlationId?, timestamp }</text>
+
+      <!-- Sinks -->
+      <g transform="translate(640, 40)">
+        <rect class="bff" x="0" y="0" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="24" text-anchor="middle">NotificationService toasts</text>
+        <rect class="bff" x="0" y="48" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="72" text-anchor="middle">Router.navigate</text>
+        <rect class="bff" x="0" y="96" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="120" text-anchor="middle">store.error signal (inline)</text>
+        <rect class="bff" x="0" y="144" width="180" height="40" rx="4"/>
+        <text class="lbl-sm" x="90" y="168" text-anchor="middle">ServerErrorMapper (form)</text>
+      </g>
+
+      <line x1="600" y1="200" x2="640" y2="60" class="pipe" marker-end="url(#arr)"/>
+      <line x1="600" y1="200" x2="640" y2="108" class="pipe" marker-end="url(#arr)"/>
+      <line x1="600" y1="200" x2="640" y2="156" class="pipe" marker-end="url(#arr)"/>
+      <line x1="600" y1="200" x2="640" y2="204" class="pipe" marker-end="url(#arr)"/>
+    </g>
+
+    <!-- Status policy -->
+    <g transform="translate(40, 510)">
+      <text class="lbl" x="0" y="20" font-size="16">Per-status policy</text>
+
+      <rect fill="#fef9c3" stroke="#a16207" x="0" y="36" width="1560" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="56" font-weight="700">Status</text>
+      <text class="lbl-sm" x="200" y="56" font-weight="700">Toast</text>
+      <text class="lbl-sm" x="500" y="56" font-weight="700">Navigate</text>
+      <text class="lbl-sm" x="900" y="56" font-weight="700">Form errors</text>
+      <text class="lbl-sm" x="1180" y="56" font-weight="700">Notes</text>
+
+      <text class="lbl-sm" x="14" y="86" font-size="11">0 (network)</text>
+      <text class="lbl-sm" x="200" y="86" font-size="11">"Unable to reach the server"</text>
+      <text class="lbl-sm" x="500" y="86" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="86" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="86" font-size="11">Future /error/offline route</text>
+
+      <text class="lbl-sm" x="14" y="108" font-size="11">401</text>
+      <text class="lbl-sm" x="200" y="108" font-size="11">sticky "Session expired"</text>
+      <text class="lbl-sm" x="500" y="108" font-size="11">/auth/login?returnUrl=...</text>
+      <text class="lbl-sm" x="900" y="108" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="108" font-size="11">BFF refresh failed</text>
+
+      <text class="lbl-sm" x="14" y="130" font-size="11">403</text>
+      <text class="lbl-sm" x="200" y="130" font-size="11">"Access denied"</text>
+      <text class="lbl-sm" x="500" y="130" font-size="11">/error/forbidden</text>
+      <text class="lbl-sm" x="900" y="130" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="130" font-size="11">Guard miss OR API reject</text>
+
+      <text class="lbl-sm" x="14" y="152" font-size="11">404</text>
+      <text class="lbl-sm" x="200" y="152" font-size="11">(none)</text>
+      <text class="lbl-sm" x="500" y="152" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="152" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="152" font-size="11">Feature renders empty state</text>
+
+      <text class="lbl-sm" x="14" y="174" font-size="11">409</text>
+      <text class="lbl-sm" x="200" y="174" font-size="11">"Record changed"</text>
+      <text class="lbl-sm" x="500" y="174" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="174" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="174" font-size="11">Optimistic-concurrency rollback</text>
+
+      <text class="lbl-sm" x="14" y="196" font-size="11">422</text>
+      <text class="lbl-sm" x="200" y="196" font-size="11">(none)</text>
+      <text class="lbl-sm" x="500" y="196" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="196" font-size="11">per-field via mapper</text>
+      <text class="lbl-sm" x="1180" y="196" font-size="11">Form is the single render</text>
+
+      <text class="lbl-sm" x="14" y="218" font-size="11">5xx</text>
+      <text class="lbl-sm" x="200" y="218" font-size="11">"Server error"</text>
+      <text class="lbl-sm" x="500" y="218" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="218" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="218" font-size="11">retryInterceptor exhausted</text>
+
+      <text class="lbl-sm" x="14" y="240" font-size="11">other 4xx</text>
+      <text class="lbl-sm" x="200" y="240" font-size="11">"Request failed (status)"</text>
+      <text class="lbl-sm" x="500" y="240" font-size="11">(none)</text>
+      <text class="lbl-sm" x="900" y="240" font-size="11">(none)</text>
+      <text class="lbl-sm" x="1180" y="240" font-size="11">Server message echoed</text>
+
+      <rect class="bff" x="0" y="280" width="1560" height="40" rx="6"/>
+      <text class="lbl-sm" x="14" y="306" font-size="12" font-weight="700" font-style="italic">Cardinal rule that prevents double-toasting: interceptors own toasts, stores own inline errors via store.error signal</text>
+    </g>
+
+    <!-- Correlation thread -->
+    <g transform="translate(40, 770)">
+      <rect class="warn" x="0" y="0" width="1560" height="80" rx="6"/>
+      <text class="lbl" x="14" y="22" font-size="14">Correlation thread — one ID, one query, one user's session</text>
+      <text class="lbl-sm" x="14" y="42" font-size="11">SPA correlationInterceptor (#1) mints crypto.randomUUID() · pushes onto CorrelationContextService · stamps X-Correlation-ID</text>
+      <text class="lbl-sm" x="14" y="58" font-size="11">BFF CorrelationIdMiddleware reads/echoes header · LogContext.PushProperty("CorrelationId", id) · Serilog scope</text>
+      <text class="lbl-sm" x="14" y="74" font-size="11">ProxyController stamps explicit header on outbound to API · sub claim from User.FindFirst("sub") joins user identity to logs · DB query tags carry id (dev only)</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 7 — SECURITY DEFENSE LAYERS -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 5750)">
+    <rect class="panel" x="0" y="0" width="1620" height="780" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="1620" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="1620" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">07</text>
+    <text class="num" x="60" y="32" font-size="22">SECURITY DEFENSE LAYERS — five concentric layers; attacker must defeat all</text>
+
+    <g transform="translate(60, 90)">
+      <!-- Concentric -->
+      <ellipse cx="700" cy="320" rx="700" ry="320" fill="#fef9c3" stroke="#a16207" stroke-width="1.5"/>
+      <ellipse cx="700" cy="320" rx="580" ry="265" fill="#fde68a" stroke="#a16207" stroke-width="1.5"/>
+      <ellipse cx="700" cy="320" rx="450" ry="210" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+      <ellipse cx="700" cy="320" rx="320" ry="155" fill="#fee2e2" stroke="#991b1b" stroke-width="1.5"/>
+      <ellipse cx="700" cy="320" rx="190" ry="100" fill="#fecaca" stroke="#7f1d1d" stroke-width="1.5"/>
+
+      <!-- Center: real harm -->
+      <ellipse cx="700" cy="320" rx="80" ry="50" fill="#7f1d1d"/>
+      <text class="lbl" x="700" y="316" text-anchor="middle" fill="#fff" font-size="14">Real harm</text>
+      <text class="lbl-sm" x="700" y="335" text-anchor="middle" fill="#fee2e2" font-size="10">data exfil · destruction</text>
+
+      <!-- Layer labels -->
+      <text class="lbl" x="700" y="40" text-anchor="middle" font-size="14" fill="#78350f">Layer 1 — Edge (LB · WAF · TLS · HSTS · CSP · X-Frame-Options)</text>
+      <text class="lbl" x="700" y="100" text-anchor="middle" font-size="13" fill="#92400e">Layer 2 — Edge rate limit (per-session 120/m, per-IP 600/m, OIDC exempt)</text>
+      <text class="lbl" x="700" y="155" text-anchor="middle" font-size="13" fill="#92400e">Layer 3 — Authentication (OIDC code+PKCE, HttpOnly cookie, SameSite=Strict)</text>
+      <text class="lbl" x="700" y="210" text-anchor="middle" font-size="13" fill="#7f1d1d">Layer 4 — Antiforgery (XSRF double-submit, [AutoValidateAntiforgeryToken])</text>
+      <text class="lbl" x="700" y="265" text-anchor="middle" font-size="13" fill="#7f1d1d">Layer 5 — Authorization (AuthStore + permissionGuard, API authoritative 403)</text>
+
+      <!-- Attacker -->
+      <circle cx="40" cy="320" r="40" fill="#1e293b"/>
+      <text class="lbl" x="40" y="324" text-anchor="middle" fill="#fff" font-size="12">Attacker</text>
+      <line x1="80" y1="320" x2="510" y2="320" class="pipe" stroke="#dc2626" stroke-width="3" marker-end="url(#arrRed)"/>
+
+      <!-- threat callouts -->
+      <text class="lbl-sm" x="40" y="490" font-size="11" font-weight="700">Threat model — defends against:</text>
+      <text class="lbl-sm" x="40" y="510" font-size="11">• XSS in SPA → cannot read ep.bff.session (HttpOnly) or any token</text>
+      <text class="lbl-sm" x="40" y="528" font-size="11">• CSRF from evil.com → cannot read XSRF-TOKEN (same-origin), so cannot forge X-XSRF-TOKEN</text>
+      <text class="lbl-sm" x="40" y="546" font-size="11">• Token theft via leaked logs → tokens never logged; PII scrubbed by LoggerService</text>
+      <text class="lbl-sm" x="40" y="564" font-size="11">• Compromised BFF host → ClientSecret in Key Vault via managed identity; rotation kills sessions</text>
+      <text class="lbl-sm" x="40" y="582" font-size="11">• Compromised DB → access tokens not in DB (in cookie tickets), so DB compromise yields no tokens</text>
+      <text class="lbl-sm" x="40" y="600" font-size="11">• Open-redirect on login/logout → Url.IsLocalUrl() rejects absolute / protocol-relative URLs</text>
+
+      <text class="lbl-sm" x="800" y="490" font-size="11" font-weight="700">Browser invariants:</text>
+      <text class="lbl-sm" x="800" y="510" font-size="11">• Browser NEVER sees a Bearer token (verified in auth.service.ts — no token in SessionInfo)</text>
+      <text class="lbl-sm" x="800" y="528" font-size="11">• JS NEVER reads ep.bff.session (HttpOnly enforced in PlatformAuthenticationSetup.cs)</text>
+      <text class="lbl-sm" x="800" y="546" font-size="11">• XSRF-TOKEN IS readable by JS (that's the point — double-submit pattern)</text>
+      <text class="lbl-sm" x="800" y="564" font-size="11">• Refresh tokens NEVER leave the BFF — TokenRefreshService calls Entra server-side via named HTTP client</text>
+      <text class="lbl-sm" x="800" y="582" font-size="11">• ClientSecret NEVER in any file — env var or Key Vault via managed identity</text>
+      <text class="lbl-sm" x="800" y="600" font-size="11">• Tokens NEVER in localStorage / sessionStorage — only in cookie ticket (encrypted, HttpOnly)</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 8 — TECH STACK MATRIX -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(1700, 5750)">
+    <rect class="panel" x="0" y="0" width="1640" height="780" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="1640" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="1640" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">08</text>
+    <text class="num" x="60" y="32" font-size="22">TECH STACK — versions and the *why* (from package.json + .csproj as of 2026-04-28)</text>
+
+    <!-- SPA -->
+    <g transform="translate(40, 80)">
+      <text class="lbl" x="0" y="20" font-size="16" fill="#1e3a8a">SPA · Angular ClientApp · Node ≥22 · npm 11.8 (pinned)</text>
+
+      <rect fill="#dbeafe" stroke="#1e40af" x="0" y="36" width="780" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="56" font-weight="700">Tech</text>
+      <text class="lbl-sm" x="270" y="56" font-weight="700">Version</text>
+      <text class="lbl-sm" x="380" y="56" font-weight="700">Why</text>
+
+      <text class="lbl-sm" x="14" y="86" font-size="11">Angular</text>
+      <text class="lbl-sm" x="270" y="86" font-size="11">21.2</text>
+      <text class="lbl-sm" x="380" y="86" font-size="11">Standalone, signals, zoneless, view transitions</text>
+
+      <text class="lbl-sm" x="14" y="106" font-size="11">TypeScript</text>
+      <text class="lbl-sm" x="270" y="106" font-size="11">~5.9 (tilde)</text>
+      <text class="lbl-sm" x="380" y="106" font-size="11">Strict mode end-to-end</text>
+
+      <text class="lbl-sm" x="14" y="126" font-size="11">RxJS</text>
+      <text class="lbl-sm" x="270" y="126" font-size="11">~7.8 (tilde)</text>
+      <text class="lbl-sm" x="380" y="126" font-size="11">Required by Angular; we lean on signals</text>
+
+      <text class="lbl-sm" x="14" y="146" font-size="11">@ngrx/signals</text>
+      <text class="lbl-sm" x="270" y="146" font-size="11">21.0</text>
+      <text class="lbl-sm" x="380" y="146" font-size="11">signalStore — no reducers/actions/effects</text>
+
+      <text class="lbl-sm" x="14" y="166" font-size="11">@ngrx/operators</text>
+      <text class="lbl-sm" x="270" y="166" font-size="11">21.0</text>
+      <text class="lbl-sm" x="380" y="166" font-size="11">tapResponse for rxMethod composition</text>
+
+      <text class="lbl-sm" x="14" y="186" font-size="11">@angular-architects/ngrx-toolkit</text>
+      <text class="lbl-sm" x="270" y="186" font-size="11">21.0</text>
+      <text class="lbl-sm" x="380" y="186" font-size="11">withDevtools — time-travel</text>
+
+      <text class="lbl-sm" x="14" y="206" font-size="11">PrimeNG</text>
+      <text class="lbl-sm" x="270" y="206" font-size="11">21.1</text>
+      <text class="lbl-sm" x="380" y="206" font-size="11">~70 components, pt API for overrides</text>
+
+      <text class="lbl-sm" x="14" y="226" font-size="11">@primeuix/themes</text>
+      <text class="lbl-sm" x="270" y="226" font-size="11">2.0</text>
+      <text class="lbl-sm" x="380" y="226" font-size="11">v2 track (replaces deprecated @primeng/themes)</text>
+
+      <text class="lbl-sm" x="14" y="246" font-size="11">primeicons</text>
+      <text class="lbl-sm" x="270" y="246" font-size="11">7.0</text>
+      <text class="lbl-sm" x="380" y="246" font-size="11">Icon font</text>
+
+      <text class="lbl-sm" x="14" y="266" font-size="11">Tailwind CSS</text>
+      <text class="lbl-sm" x="270" y="266" font-size="11">4.2</text>
+      <text class="lbl-sm" x="380" y="266" font-size="11">cssLayer composes under PrimeNG; @theme tokens</text>
+
+      <text class="lbl-sm" x="14" y="286" font-size="11">Zod</text>
+      <text class="lbl-sm" x="270" y="286" font-size="11">4.3</text>
+      <text class="lbl-sm" x="380" y="286" font-size="11">Runtime validation of /config.json + DTOs</text>
+
+      <text class="lbl-sm" x="14" y="306" font-size="11">date-fns</text>
+      <text class="lbl-sm" x="270" y="306" font-size="11">4.1</text>
+      <text class="lbl-sm" x="380" y="306" font-size="11">Tree-shakeable date math</text>
+
+      <text class="lbl-sm" x="14" y="326" font-size="11">Chart.js</text>
+      <text class="lbl-sm" x="270" y="326" font-size="11">4.5</text>
+      <text class="lbl-sm" x="380" y="326" font-size="11">Dashboard charts, PrimeNG-compatible wrapper</text>
+
+      <text class="lbl-sm" x="14" y="346" font-size="11">focus-trap</text>
+      <text class="lbl-sm" x="270" y="346" font-size="11">8.0</text>
+      <text class="lbl-sm" x="380" y="346" font-size="11">Modal focus management</text>
+
+      <text class="lbl-sm" x="14" y="376" font-size="11" font-weight="700">DEV TOOLING</text>
+
+      <text class="lbl-sm" x="14" y="396" font-size="11">ESLint + typescript-eslint</text>
+      <text class="lbl-sm" x="270" y="396" font-size="11">9.39 / 8.58</text>
+      <text class="lbl-sm" x="380" y="396" font-size="11">Lint with TS awareness</text>
+
+      <text class="lbl-sm" x="14" y="414" font-size="11">@angular-eslint/*</text>
+      <text class="lbl-sm" x="270" y="414" font-size="11">21.3</text>
+      <text class="lbl-sm" x="380" y="414" font-size="11">Angular template + TS rules</text>
+
+      <text class="lbl-sm" x="14" y="432" font-size="11">Prettier</text>
+      <text class="lbl-sm" x="270" y="432" font-size="11">3.8</text>
+      <text class="lbl-sm" x="380" y="432" font-size="11">Format</text>
+
+      <text class="lbl-sm" x="14" y="450" font-size="11">dependency-cruiser</text>
+      <text class="lbl-sm" x="270" y="450" font-size="11">17.3</text>
+      <text class="lbl-sm" x="380" y="450" font-size="11">Architecture lint — one-way import rule</text>
+
+      <text class="lbl-sm" x="14" y="468" font-size="11">Vitest + @vitest/coverage-v8</text>
+      <text class="lbl-sm" x="270" y="468" font-size="11">4.0 / 4.1</text>
+      <text class="lbl-sm" x="380" y="468" font-size="11">Unit tests (replaces Karma+Jasmine)</text>
+
+      <text class="lbl-sm" x="14" y="486" font-size="11">jsdom</text>
+      <text class="lbl-sm" x="270" y="486" font-size="11">28.0</text>
+      <text class="lbl-sm" x="380" y="486" font-size="11">Headless DOM</text>
+
+      <text class="lbl-sm" x="14" y="504" font-size="11">Playwright + @axe-core</text>
+      <text class="lbl-sm" x="270" y="504" font-size="11">1.59 / 4.11</text>
+      <text class="lbl-sm" x="380" y="504" font-size="11">E2E + a11y assertions</text>
+
+      <text class="lbl-sm" x="14" y="522" font-size="11">secretlint</text>
+      <text class="lbl-sm" x="270" y="522" font-size="11">12.1</text>
+      <text class="lbl-sm" x="380" y="522" font-size="11">Pre-commit + CI secret scanning</text>
+
+      <text class="lbl-sm" x="14" y="540" font-size="11">husky + lint-staged</text>
+      <text class="lbl-sm" x="270" y="540" font-size="11">9.1 / 16.4</text>
+      <text class="lbl-sm" x="380" y="540" font-size="11">Pre-commit hook execution</text>
+
+      <text class="lbl-sm" x="14" y="558" font-size="11">@commitlint/*</text>
+      <text class="lbl-sm" x="270" y="558" font-size="11">19.8</text>
+      <text class="lbl-sm" x="380" y="558" font-size="11">Conventional Commits</text>
+
+      <text class="lbl-sm" x="14" y="576" font-size="11">source-map-explorer</text>
+      <text class="lbl-sm" x="270" y="576" font-size="11">2.5</text>
+      <text class="lbl-sm" x="380" y="576" font-size="11">Bundle analysis</text>
+
+      <text class="lbl-sm" x="14" y="594" font-size="11">eslint-plugin-security</text>
+      <text class="lbl-sm" x="270" y="594" font-size="11">3.0</text>
+      <text class="lbl-sm" x="380" y="594" font-size="11">Security-pattern rules</text>
+    </g>
+
+    <!-- BFF -->
+    <g transform="translate(840, 80)">
+      <text class="lbl" x="0" y="20" font-size="16" fill="#14532d">BFF · .NET 10 · Kestrel · ASP.NET Core 10</text>
+
+      <rect fill="#dcfce7" stroke="#166534" x="0" y="36" width="760" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="56" font-weight="700">Tech</text>
+      <text class="lbl-sm" x="270" y="56" font-weight="700">Source</text>
+      <text class="lbl-sm" x="380" y="56" font-weight="700">Why</text>
+
+      <text class="lbl-sm" x="14" y="86" font-size="11">.NET</text>
+      <text class="lbl-sm" x="270" y="86" font-size="11">10.0 LTS-track</text>
+      <text class="lbl-sm" x="380" y="86" font-size="11">Latest LTS line; analyzer baseline</text>
+
+      <text class="lbl-sm" x="14" y="106" font-size="11">ASP.NET Core</text>
+      <text class="lbl-sm" x="270" y="106" font-size="11">10</text>
+      <text class="lbl-sm" x="380" y="106" font-size="11">Kestrel + minimal-API + MVC</text>
+
+      <text class="lbl-sm" x="14" y="126" font-size="11">M.AspNetCore.Authentication.OpenIdConnect</text>
+      <text class="lbl-sm" x="270" y="126" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="126" font-size="11">OIDC handler in PlatformAuthenticationSetup</text>
+
+      <text class="lbl-sm" x="14" y="146" font-size="11">M.AspNetCore.Authentication.Cookies</text>
+      <text class="lbl-sm" x="270" y="146" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="146" font-size="11">Cookie scheme 'ep.bff' with SaveTokens=true</text>
+
+      <text class="lbl-sm" x="14" y="166" font-size="11">M.AspNetCore.RateLimiting</text>
+      <text class="lbl-sm" x="270" y="166" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="166" font-size="11">Token-bucket partitioned chain</text>
+
+      <text class="lbl-sm" x="14" y="186" font-size="11">M.AspNetCore.Antiforgery</text>
+      <text class="lbl-sm" x="270" y="186" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="186" font-size="11">[AutoValidateAntiforgeryToken] + IAntiforgery</text>
+
+      <text class="lbl-sm" x="14" y="206" font-size="11">M.Extensions.Diagnostics.HealthChecks</text>
+      <text class="lbl-sm" x="270" y="206" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="206" font-size="11">Tag-based liveness/readiness split</text>
+
+      <text class="lbl-sm" x="14" y="226" font-size="11">M.Extensions.Caching.Memory</text>
+      <text class="lbl-sm" x="270" y="226" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="226" font-size="11">GraphUserProfileService 5-min profile cache</text>
+
+      <text class="lbl-sm" x="14" y="246" font-size="11">M.AspNetCore.DataProtection</text>
+      <text class="lbl-sm" x="270" y="246" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="246" font-size="11">Encrypts cookie ticket; ring shared via Key Vault</text>
+
+      <text class="lbl-sm" x="14" y="266" font-size="11">Serilog.AspNetCore</text>
+      <text class="lbl-sm" x="270" y="266" font-size="11">^4 (package)</text>
+      <text class="lbl-sm" x="380" y="266" font-size="11">UseSerilog; LogContext per-request scope</text>
+
+      <text class="lbl-sm" x="14" y="286" font-size="11">OpenTelemetry (Meter, ActivitySource)</text>
+      <text class="lbl-sm" x="270" y="286" font-size="11">framework + pkgs</text>
+      <text class="lbl-sm" x="380" y="286" font-size="11">SessionMetrics + correlation; OTLP exporter</text>
+
+      <text class="lbl-sm" x="14" y="306" font-size="11">IHttpClientFactory</text>
+      <text class="lbl-sm" x="270" y="306" font-size="11">framework</text>
+      <text class="lbl-sm" x="380" y="306" font-size="11">4 named clients (no `new HttpClient()` anywhere)</text>
+
+      <text class="lbl-sm" x="14" y="326" font-size="11">LoggerMessage source generators</text>
+      <text class="lbl-sm" x="270" y="326" font-size="11">CA1848</text>
+      <text class="lbl-sm" x="380" y="326" font-size="11">Zero-allocation structured logging</text>
+
+      <!-- Project refs -->
+      <text class="lbl-sm" x="14" y="356" font-size="11" font-weight="700">PROJECT REFERENCES</text>
+
+      <text class="lbl-sm" x="14" y="376" font-size="11">Enterprise.Platform.Infrastructure</text>
+      <text class="lbl-sm" x="270" y="376" font-size="11">project</text>
+      <text class="lbl-sm" x="380" y="376" font-size="11">StructuredLoggingSetup, OTel registration</text>
+
+      <text class="lbl-sm" x="14" y="396" font-size="11">Enterprise.Platform.Contracts</text>
+      <text class="lbl-sm" x="270" y="396" font-size="11">project</text>
+      <text class="lbl-sm" x="380" y="396" font-size="11">CorsSettings, ProxySettings DTOs</text>
+
+      <text class="lbl-sm" x="14" y="416" font-size="11">Enterprise.Platform.Shared</text>
+      <text class="lbl-sm" x="270" y="416" font-size="11">project</text>
+      <text class="lbl-sm" x="380" y="416" font-size="11">HttpHeaderNames cross-cutting constants</text>
+
+      <!-- External -->
+      <text class="lbl-sm" x="14" y="446" font-size="11" font-weight="700">EXTERNAL CLOUD</text>
+
+      <text class="lbl-sm" x="14" y="466" font-size="11">Microsoft Entra ID v2</text>
+      <text class="lbl-sm" x="270" y="466" font-size="11">login.microsoftonline.com</text>
+      <text class="lbl-sm" x="380" y="466" font-size="11">OIDC IdP — login + refresh + logout</text>
+
+      <text class="lbl-sm" x="14" y="486" font-size="11">Microsoft Graph</text>
+      <text class="lbl-sm" x="270" y="486" font-size="11">graph.microsoft.com</text>
+      <text class="lbl-sm" x="380" y="486" font-size="11">/me profile (admin-consented User.Read)</text>
+
+      <text class="lbl-sm" x="14" y="506" font-size="11">Azure Key Vault</text>
+      <text class="lbl-sm" x="270" y="506" font-size="11">Azure</text>
+      <text class="lbl-sm" x="380" y="506" font-size="11">ClientSecret + DataProtection key ring</text>
+
+      <text class="lbl-sm" x="14" y="526" font-size="11">Azure Front Door / L7 LB</text>
+      <text class="lbl-sm" x="270" y="526" font-size="11">Azure</text>
+      <text class="lbl-sm" x="380" y="526" font-size="11">TLS terminate, WAF, edge caching</text>
+
+      <text class="lbl-sm" x="14" y="546" font-size="11">App Insights / OTLP collector</text>
+      <text class="lbl-sm" x="270" y="546" font-size="11">vendor-neutral</text>
+      <text class="lbl-sm" x="380" y="546" font-size="11">Logs/metrics/traces sink (degrades silently)</text>
+
+      <!-- BFF stays stateless -->
+      <rect class="warn" x="0" y="566" width="760" height="36" rx="4"/>
+      <text class="lbl-sm" x="14" y="588" font-size="11" font-style="italic">BFF has NO DB dependency — stateless across pods (with shared key ring) — all persistence in API tier</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PANEL 9 — TRADEOFFS + HARDENING -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(60, 6550)">
+    <rect class="panel" x="0" y="0" width="3280" height="780" filter="url(#ds)"/>
+    <rect class="panel-band" x="0" y="0" width="3280" height="46" rx="14" ry="14"/>
+    <rect class="panel-band" x="0" y="20" width="3280" height="26"/>
+    <text class="num" x="22" y="32" font-size="22">09</text>
+    <text class="num" x="60" y="32" font-size="22">TRADEOFFS — load-bearing decisions, with the alternative we considered</text>
+
+    <g transform="translate(40, 80)">
+      <!-- Auth tradeoffs -->
+      <text class="lbl" x="0" y="20" font-size="16" fill="#1e3a8a">Auth · Session</text>
+
+      <rect fill="#dcfce7" stroke="#166534" x="0" y="36" width="1580" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="56" font-weight="700">Picked</text>
+      <text class="lbl-sm" x="500" y="56" font-weight="700">Alternative considered</text>
+      <text class="lbl-sm" x="980" y="56" font-weight="700">Why</text>
+
+      <text class="lbl-sm" x="14" y="86" font-size="11">BFF cookie + server token swap</text>
+      <text class="lbl-sm" x="500" y="86" font-size="11">MSAL-in-browser</text>
+      <text class="lbl-sm" x="980" y="86" font-size="11">Token-out-of-browser; works on Safari ITP; simpler logout</text>
+
+      <text class="lbl-sm" x="14" y="106" font-size="11">OnValidatePrincipal hook</text>
+      <text class="lbl-sm" x="500" y="106" font-size="11">Background timer</text>
+      <text class="lbl-sm" x="980" y="106" font-size="11">Refresh per-request, no idle work, multi-pod safe</text>
+
+      <text class="lbl-sm" x="14" y="126" font-size="11">Azure Key Vault data-protection ring</text>
+      <text class="lbl-sm" x="500" y="126" font-size="11">Sticky sessions on LB</text>
+      <text class="lbl-sm" x="980" y="126" font-size="11">Stateless pods → easier scale-out + deploys</text>
+
+      <text class="lbl-sm" x="14" y="146" font-size="11">Front-channel logout + BroadcastChannel</text>
+      <text class="lbl-sm" x="500" y="146" font-size="11">Back-channel logout</text>
+      <text class="lbl-sm" x="980" y="146" font-size="11">Simpler; broadcast handles multi-tab</text>
+
+      <text class="lbl-sm" x="14" y="166" font-size="11">Block bootstrap on /api/auth/session</text>
+      <text class="lbl-sm" x="500" y="166" font-size="11">Render then redirect</text>
+      <text class="lbl-sm" x="980" y="166" font-size="11">No flash of protected content</text>
+
+      <text class="lbl-sm" x="14" y="186" font-size="11">prompt allowlist (login, select_account)</text>
+      <text class="lbl-sm" x="500" y="186" font-size="11">Pass through any prompt</text>
+      <text class="lbl-sm" x="980" y="186" font-size="11">Defense vs OIDC parameter injection</text>
+
+      <text class="lbl-sm" x="14" y="206" font-size="11">id_token_hint on logout</text>
+      <text class="lbl-sm" x="500" y="206" font-size="11">No hint</text>
+      <text class="lbl-sm" x="980" y="206" font-size="11">Avoids account picker on sign-out</text>
+
+      <!-- HTTP -->
+      <text class="lbl" x="0" y="240" font-size="16" fill="#14532d">HTTP · Proxy</text>
+
+      <rect fill="#dcfce7" stroke="#166534" x="0" y="256" width="1580" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="276" font-weight="700">Picked</text>
+      <text class="lbl-sm" x="500" y="276" font-weight="700">Alternative considered</text>
+      <text class="lbl-sm" x="980" y="276" font-weight="700">Why</text>
+
+      <text class="lbl-sm" x="14" y="306" font-size="11">Hand-rolled ProxyController (~200 LoC)</text>
+      <text class="lbl-sm" x="500" y="306" font-size="11">YARP</text>
+      <text class="lbl-sm" x="980" y="306" font-size="11">Footprint; explicit auth swap is more readable while foundation forms</text>
+
+      <text class="lbl-sm" x="14" y="326" font-size="11">Double-submit cookie antiforgery</text>
+      <text class="lbl-sm" x="500" y="326" font-size="11">Synchronizer-token-only</text>
+      <text class="lbl-sm" x="980" y="326" font-size="11">Plays well with stateless ProxyController</text>
+
+      <text class="lbl-sm" x="14" y="346" font-size="11">SPA-side retry interceptor</text>
+      <text class="lbl-sm" x="500" y="346" font-size="11">Server-side or both</text>
+      <text class="lbl-sm" x="980" y="346" font-size="11">Closest to user; one source of truth</text>
+
+      <text class="lbl-sm" x="14" y="366" font-size="11">Opt-IN cache (X-Cache-TTL)</text>
+      <text class="lbl-sm" x="500" y="366" font-size="11">Cache-by-default</text>
+      <text class="lbl-sm" x="980" y="366" font-size="11">Every cached endpoint is a deliberate decision</text>
+
+      <text class="lbl-sm" x="14" y="386" font-size="11">withXsrfConfiguration + securityInterceptor (both)</text>
+      <text class="lbl-sm" x="500" y="386" font-size="11">Just one</text>
+      <text class="lbl-sm" x="980" y="386" font-size="11">Belt and braces — built-in covers mutating, custom covers all /api/*</text>
+
+      <!-- Front-end -->
+      <text class="lbl" x="0" y="420" font-size="16" fill="#86198f">Front-end</text>
+
+      <rect fill="#fae8ff" stroke="#86198f" x="0" y="436" width="1580" height="32" rx="4"/>
+      <text class="lbl-sm" x="14" y="456" font-weight="700">Picked</text>
+      <text class="lbl-sm" x="500" y="456" font-weight="700">Alternative considered</text>
+      <text class="lbl-sm" x="980" y="456" font-weight="700">Why</text>
+
+      <text class="lbl-sm" x="14" y="486" font-size="11">NGRX Signals stores</text>
+      <text class="lbl-sm" x="500" y="486" font-size="11">Classic NgRx · Akita · plain services</text>
+      <text class="lbl-sm" x="980" y="486" font-size="11">Signals + types + small surface; no reducer boilerplate</text>
+
+      <text class="lbl-sm" x="14" y="506" font-size="11">PrimeNG + Tailwind v4 cssLayer</text>
+      <text class="lbl-sm" x="500" y="506" font-size="11">Material · Bootstrap · purchased</text>
+      <text class="lbl-sm" x="980" y="506" font-size="11">Component breadth + token-driven theming; 17:1 in evaluation</text>
+
+      <text class="lbl-sm" x="14" y="526" font-size="11">@primeuix/themes v2</text>
+      <text class="lbl-sm" x="500" y="526" font-size="11">@primeng/themes (deprecated)</text>
+      <text class="lbl-sm" x="980" y="526" font-size="11">New canonical engine; primeng package stays v21</text>
+
+      <text class="lbl-sm" x="14" y="546" font-size="11">Functional guards</text>
+      <text class="lbl-sm" x="500" y="546" font-size="11">Class-based</text>
+      <text class="lbl-sm" x="980" y="546" font-size="11">Lighter, composable; standard since Ng 16</text>
+
+      <text class="lbl-sm" x="14" y="566" font-size="11">Custom preloader (data.preload + saveData)</text>
+      <text class="lbl-sm" x="500" y="566" font-size="11">PreloadAllModules</text>
+      <text class="lbl-sm" x="980" y="566" font-size="11">Bandwidth-aware, opt-in</text>
+
+      <text class="lbl-sm" x="14" y="586" font-size="11">Removed Storybook</text>
+      <text class="lbl-sm" x="500" y="586" font-size="11">Kept</text>
+      <text class="lbl-sm" x="980" y="586" font-size="11">UI Kit demo route covers ground; 554 transitive deps gone</text>
+
+      <text class="lbl-sm" x="14" y="606" font-size="11">Vitest</text>
+      <text class="lbl-sm" x="500" y="606" font-size="11">Karma+Jasmine</text>
+      <text class="lbl-sm" x="980" y="606" font-size="11">Karma deprecated by Angular; Vitest is ~10× faster cold</text>
+
+      <text class="lbl-sm" x="14" y="626" font-size="11">dependency-cruiser for arch lint</text>
+      <text class="lbl-sm" x="500" y="626" font-size="11">ESLint module rules only</text>
+      <text class="lbl-sm" x="980" y="626" font-size="11">Walks lazy chunks; ESLint sees one file at a time</text>
+
+      <text class="lbl-sm" x="14" y="646" font-size="11">Header-delivered CSP with per-request nonce</text>
+      <text class="lbl-sm" x="500" y="646" font-size="11">&lt;meta&gt; CSP</text>
+      <text class="lbl-sm" x="980" y="646" font-size="11">frame-ancestors works only as header; nonce ready for inline scripts</text>
+
+      <text class="lbl-sm" x="14" y="666" font-size="11">Mermaid in markdown for docs</text>
+      <text class="lbl-sm" x="500" y="666" font-size="11">draw.io PNGs</text>
+      <text class="lbl-sm" x="980" y="666" font-size="11">Diff-able, no binary churn, GitHub-renderable</text>
+    </g>
+
+    <!-- Right column: Hardening backlog -->
+    <g transform="translate(1660, 80)">
+      <text class="lbl" x="0" y="20" font-size="16" fill="#a16207">Hardening backlog · future-state</text>
+
+      <rect fill="#fef9c3" stroke="#a16207" x="0" y="36" width="1580" height="600" rx="6"/>
+
+      <text class="lbl" x="20" y="64" font-size="14" fill="#78350f">Resilience</text>
+      <text class="lbl-sm" x="40" y="84" font-size="11">• Polly retry on TokenRefreshService HTTP client (avoid 401 on transient Entra blip)</text>
+      <text class="lbl-sm" x="40" y="100" font-size="11">• OTEL-web initialization in SPA (W3C traceparent ↔ X-Correlation-ID 1:1 alignment)</text>
+      <text class="lbl-sm" x="40" y="116" font-size="11">• Back-channel logout from Entra (multi-region SSO termination)</text>
+      <text class="lbl-sm" x="40" y="132" font-size="11">• Health-check authentication (readiness gating with auth)</text>
+
+      <text class="lbl" x="20" y="160" font-size="14" fill="#78350f">Security</text>
+      <text class="lbl-sm" x="40" y="180" font-size="11">• PrimeNG CSP nonce mode → drop style-src 'unsafe-inline'</text>
+      <text class="lbl-sm" x="40" y="196" font-size="11">• Self-host fonts → drop fonts.gstatic.com / fonts.googleapis.com from CSP</text>
+      <text class="lbl-sm" x="40" y="212" font-size="11">• MFA step-up on sensitive ops via prompt=login (step-up authentication)</text>
+      <text class="lbl-sm" x="40" y="228" font-size="11">• Session expiry warning dialog (SessionMonitorService UI is the missing piece)</text>
+
+      <text class="lbl" x="20" y="256" font-size="14" fill="#78350f">Performance</text>
+      <text class="lbl-sm" x="40" y="276" font-size="11">• HTTP/3 at edge LB</text>
+      <text class="lbl-sm" x="40" y="292" font-size="11">• Service worker for offline-first (planned /error/offline route)</text>
+      <text class="lbl-sm" x="40" y="308" font-size="11">• Route-level data prefetch via resolvers</text>
+      <text class="lbl-sm" x="40" y="324" font-size="11">• Mark /users with preload:true (next-likely from /dashboard)</text>
+
+      <text class="lbl" x="20" y="352" font-size="14" fill="#78350f">DX</text>
+      <text class="lbl-sm" x="40" y="372" font-size="11">• OpenAPI types codegen for /api/* clients (eliminate hand-typed DTOs)</text>
+      <text class="lbl-sm" x="40" y="388" font-size="11">• Storybook reintroduction (if UI Kit grows past current ~14 categories)</text>
+      <text class="lbl-sm" x="40" y="404" font-size="11">• Vitest reporter with stack-frame links</text>
+      <text class="lbl-sm" x="40" y="420" font-size="11">• Per-feature Plop generators (scaffold UsersStore + UsersApi + USERS_ROUTES with one prompt)</text>
+
+      <text class="lbl" x="20" y="448" font-size="14" fill="#78350f">Ops</text>
+      <text class="lbl-sm" x="40" y="468" font-size="11">• Synthetic monitoring against /api/auth/session (1m heartbeat from external prober)</text>
+      <text class="lbl-sm" x="40" y="484" font-size="11">• Per-route latency histograms (apdex per top-level route)</text>
+      <text class="lbl-sm" x="40" y="500" font-size="11">• SLO dashboards (apdex, error budget) — App Insights workbook</text>
+      <text class="lbl-sm" x="40" y="516" font-size="11">• Bundle-size budget gates wired into CI (npm run bundle:check already exists)</text>
+
+      <text class="lbl" x="20" y="544" font-size="14" fill="#78350f">Process / governance</text>
+      <text class="lbl-sm" x="40" y="564" font-size="11">• ADRs (Architecture Decision Records) for every "Picked vs Alternative" — currently in deck only</text>
+      <text class="lbl-sm" x="40" y="580" font-size="11">• Threat-modeling session (STRIDE) per major feature surface</text>
+      <text class="lbl-sm" x="40" y="596" font-size="11">• Disaster-recovery runbook for cookie-key compromise · Entra outage · cache stampede</text>
+      <text class="lbl-sm" x="40" y="612" font-size="11">• Quarterly dependency hygiene review (track in Docs/Implementation/Compliance-TODO.md)</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- FOOTER -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(0, 7350)">
+    <rect x="0" y="0" width="3400" height="100" fill="#0f172a"/>
+    <text class="title" x="60" y="50" font-size="22" fill="#fff">Enterprise Platform · UI + BFF Architecture Megamap</text>
+    <text class="subtitle" x="60" y="78" font-size="14">Companion to docs/Architecture/Demo/ (12 markdown docs · ~50 Mermaid diagrams · 0 PNGs)</text>
+    <text class="subtitle" x="3340" y="50" font-size="14" text-anchor="end">Generated 2026-04-28 · feature/db-first-pivot · Open in browser, Inkscape, or Illustrator</text>
+    <text class="subtitle" x="3340" y="78" font-size="14" text-anchor="end">Print: A0 (33"×46") or any 2:1.4 aspect · viewBox 0 0 3400 9000</text>
+  </g>
+
+</svg>
