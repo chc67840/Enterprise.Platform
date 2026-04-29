@@ -23,7 +23,7 @@
  *   1. Every feature route is lazy-loaded via `loadComponent` / `loadChildren`.
  *   2. Protected routes live under `/` with `canActivate: [authGuard]` at the
  *      layout level — children inherit.
- *   3. Compound guards stack: `[authGuard, permissionGuard('users:read')]`.
+ *   3. Compound guards stack: `[authGuard, permissionGuard('users.read')]`.
  *   4. The 404 catch-all is the LAST route.
  *   5. Route metadata (label, icon, requiredPermissions, featureFlag) lives
  *      in each route's `data: { ... } satisfies RouteMetadata`. Sidebar nav

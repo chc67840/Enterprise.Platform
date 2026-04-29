@@ -3,7 +3,7 @@
  *
  * WHY
  *   Routes need fine-grained access control expressed in human-readable
- *   permission strings (`users:read`, `reports:export`). This guard checks
+ *   permission strings (`users.read`, `reports.export`). This guard checks
  *   the hydrated permission set in `AuthStore` — NOT the raw id-token roles.
  *
  *   The distinction matters: id-token `roles` are coarse labels assigned in
@@ -30,9 +30,9 @@
  *
  * HOW TO USE
  *   ```ts
- *   canActivate: [authGuard, permissionGuard('users:read')]
- *   canActivate: [authGuard, permissionGuard('users:update', 'users:delete')]  // AND
- *   canActivate: [authGuard, anyPermissionGuard('reports:read', 'reports:export')]  // OR
+ *   canActivate: [authGuard, permissionGuard('users.read')]
+ *   canActivate: [authGuard, permissionGuard('users.update', 'users.delete')]  // AND
+ *   canActivate: [authGuard, anyPermissionGuard('reports.read', 'reports.export')]  // OR
  *   ```
  */
 import { inject } from '@angular/core';

@@ -21,11 +21,11 @@
  *       label: 'Users',
  *       icon: 'pi-users',
  *       breadcrumb: 'Users',
- *       requiredPermissions: ['users:read'],
+ *       requiredPermissions: ['users.read'],
  *       featureFlag: 'users.enabled',
  *       showInNav: true,
  *     } satisfies RouteMetadata,
- *     canActivate: [authGuard, permissionGuard('users:read')],
+ *     canActivate: [authGuard, permissionGuard('users.read')],
  *     loadChildren: () => import('./features/users/users.routes').then(m => m.USERS_ROUTES),
  *   }
  *   ```

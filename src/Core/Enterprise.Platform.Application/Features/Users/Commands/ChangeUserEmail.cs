@@ -47,9 +47,38 @@ public sealed class ChangeUserEmailHandler(IUserRepository repository) : IComman
     private readonly IUserRepository _repository = repository ?? throw new ArgumentNullException(nameof(repository));
 
     /// <inheritdoc />
-    public Task<Result> HandleAsync(ChangeUserEmailCommand command, CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// <para>
+    /// <b>Pre-flight uniqueness check.</b> Mirrors the
+    /// <see cref="CreateUserHandler"/> pattern — looks up the email and rejects
+    /// when it's already owned by a *different* user. When the same address is
+    /// re-submitted (e.g. accidental save), the lookup matches the target user
+    /// and we fall through to the domain method, which is itself idempotent for
+    /// same-email writes (see <c>User.ChangeEmail</c>).
+    /// </para>
+    /// <para>
+    /// <b>Race-window contract.</b> Between this lookup and the
+    /// <c>SaveChangesAsync</c> commit owned by <c>TransactionBehavior</c>,
+    /// another transaction could grab the same email. The DB's unique index on
+    /// <c>User.Email</c> remains the ultimate source of truth; an index
+    /// violation in the race window bubbles as 409 via
+    /// <c>GlobalExceptionMiddleware</c>. This pre-flight exists so the *common*
+    /// case surfaces a friendly conflict before EF flushes.
+    /// </para>
+    /// </remarks>
+    public async Task<Result> HandleAsync(ChangeUserEmailCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return _repository.ChangeEmailAsync(command.UserId, command.NewEmail, cancellationToken);
+
+        var canonicalEmail = command.NewEmail.Trim().ToLowerInvariant();
+
+        var existing = await _repository.GetByEmailAsync(canonicalEmail, cancellationToken).ConfigureAwait(false);
+        if (existing is not null && existing.Id != command.UserId)
+        {
+            return Result.Failure(
+                Error.Conflict($"A user with email '{canonicalEmail}' already exists."));
+        }
+
+        return await _repository.ChangeEmailAsync(command.UserId, command.NewEmail, cancellationToken).ConfigureAwait(false);
     }
 }

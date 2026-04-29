@@ -6,9 +6,11 @@
  * import from here so a typo in either side is caught at build time, not at
  * "why doesn't my menu item show up" debugging time.
  *
- * Naming convention: `<aggregate>:<action>` lower-case, colon-separated. Mirrors
- * the backend `[Authorize(Policy = "users:read")]` strings emitted by the API's
- * `IPermissionPolicyProvider` (see `Enterprise.Platform.Api/Authorization/`).
+ * Naming convention: `<aggregate>.<action>` lower-case, dot-separated. Mirrors
+ * the backend `[Authorize(Policy = "perm:users.read")]` strings synthesised by
+ * `RbacPolicyProvider` (`PermissionPolicyPrefix = "perm:"`); the constants
+ * themselves come from `Enterprise.Platform.Application.Features.Users.UserPermissions`
+ * — both sides treat the wire format as a single source of truth.
  *
  * Action vocabulary:
  *   - `read`        — list + detail view
@@ -24,11 +26,11 @@
  */
 
 export const USER_PERMISSIONS = {
-  READ: 'users:read',
-  CREATE: 'users:create',
-  WRITE: 'users:write',
-  DEACTIVATE: 'users:deactivate',
-  ACTIVATE: 'users:activate',
+  READ: 'users.read',
+  CREATE: 'users.create',
+  WRITE: 'users.write',
+  DEACTIVATE: 'users.deactivate',
+  ACTIVATE: 'users.activate',
 } as const;
 
 export type UserPermissionKey = (typeof USER_PERMISSIONS)[keyof typeof USER_PERMISSIONS];

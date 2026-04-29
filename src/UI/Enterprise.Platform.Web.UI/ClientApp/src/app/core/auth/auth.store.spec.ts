@@ -68,13 +68,13 @@ describe('AuthStore', () => {
   it('hydrate patches roles / permissions / bypass on 200', () => {
     hydrateWith({
       roles: ['admin', 'manager'],
-      permissions: ['users:read', 'users:update'],
+      permissions: ['users.read', 'users.update'],
       bypass: false,
       ttlSeconds: 60,
     });
 
     expect(store.roles()).toEqual(['admin', 'manager']);
-    expect(store.permissions()).toEqual(['users:read', 'users:update']);
+    expect(store.permissions()).toEqual(['users.read', 'users.update']);
     expect(store.bypass()).toBe(false);
     expect(store.loading()).toBe(false);
     expect(store.error()).toBeNull();
@@ -99,7 +99,7 @@ describe('AuthStore', () => {
   it('hydrate error preserves prior state + captures the error message', () => {
     hydrateWith({
       roles: ['admin'],
-      permissions: ['users:read'],
+      permissions: ['users.read'],
       bypass: false,
       ttlSeconds: 60,
     });
@@ -112,29 +112,29 @@ describe('AuthStore', () => {
 
     // Roles / permissions persist from the successful hydrate.
     expect(store.roles()).toEqual(['admin']);
-    expect(store.permissions()).toEqual(['users:read']);
+    expect(store.permissions()).toEqual(['users.read']);
     expect(store.error()).toBeTruthy();
   });
 
   it('hasAnyPermission is OR-semantics and case-insensitive', () => {
     hydrateWith({
       roles: [],
-      permissions: ['Users:Read'],
+      permissions: ['Users.Read'],
       bypass: false,
     });
-    expect(store.hasAnyPermission('users:read')).toBe(true);
-    expect(store.hasAnyPermission('USERS:READ', 'misses')).toBe(true);
+    expect(store.hasAnyPermission('users.read')).toBe(true);
+    expect(store.hasAnyPermission('USERS.READ', 'misses')).toBe(true);
     expect(store.hasAnyPermission('misses:only')).toBe(false);
   });
 
   it('hasAllPermissions is AND-semantics and case-insensitive', () => {
     hydrateWith({
       roles: [],
-      permissions: ['users:read', 'users:update'],
+      permissions: ['users.read', 'users.update'],
       bypass: false,
     });
-    expect(store.hasAllPermissions('USERS:READ', 'users:update')).toBe(true);
-    expect(store.hasAllPermissions('users:read', 'users:delete')).toBe(false);
+    expect(store.hasAllPermissions('USERS.READ', 'users.update')).toBe(true);
+    expect(store.hasAllPermissions('users.read', 'users.delete')).toBe(false);
   });
 
   it('bypass: true short-circuits permission checks', () => {
@@ -172,7 +172,7 @@ describe('AuthStore', () => {
   it('reset clears state', () => {
     hydrateWith({
       roles: ['admin'],
-      permissions: ['users:read'],
+      permissions: ['users.read'],
       bypass: false,
     });
     store.reset();

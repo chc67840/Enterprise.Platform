@@ -4,7 +4,7 @@
  * WHY
  *   Route guards hide entire pages. But inside a page you often want to hide
  *   individual buttons / sections / cells based on the user's permissions —
- *   e.g. "Delete" button only for users with `users:delete`.
+ *   e.g. "Delete" button only for users with `users.delete`.
  *
  *   This directive is the template-level equivalent of `permissionGuard`: it
  *   mounts (renders) its host element iff `AuthStore.hasAnyPermission(...)`
@@ -13,12 +13,12 @@
  * USAGE
  *   ```html
  *   <!-- Single permission -->
- *   <button *appHasPermission="'users:delete'" (click)="delete(user)">
+ *   <button *appHasPermission="'users.delete'" (click)="delete(user)">
  *     Delete
  *   </button>
  *
  *   <!-- Array → OR semantics (any one match renders) -->
- *   <div *appHasPermission="['reports:read', 'reports:export']">
+ *   <div *appHasPermission="['reports.read', 'reports.export']">
  *     Reports panel
  *   </div>
  *   ```

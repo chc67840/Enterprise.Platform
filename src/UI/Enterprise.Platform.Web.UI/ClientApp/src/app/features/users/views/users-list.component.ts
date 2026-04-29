@@ -19,7 +19,7 @@
  *     each row opens the detail page (mirrors clicking the link).
  *   - Permission-aware "New user" affordance — the page-header's
  *     `requiredPermissions` filter hides the CTA for users without
- *     `users:create`; this component listens for the dispatched action and
+ *     `users.create`; this component listens for the dispatched action and
  *     navigates only if `AuthStore.hasAllPermissions` agrees (defense-in-
  *     depth — UI hide + click-time check).
  */

@@ -18,7 +18,7 @@
  * WHY FUNCTIONAL (not class-based)
  *   Angular 16+ functional guards are lighter: no decorator, no `providedIn`,
  *   DI via `inject()`. They compose neatly in route configs:
- *     `canActivate: [authGuard, permissionGuard('users:read')]`
+ *     `canActivate: [authGuard, permissionGuard('users.read')]`
  *
  * HOW TO USE
  *   ```ts

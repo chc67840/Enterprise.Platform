@@ -10,10 +10,10 @@
  * Route metadata (`data: RouteMetadata`) drives the sidebar / breadcrumbs.
  *
  * Guards:
- *   - `permissionGuard('users:read')` on list + detail (hidden from nav too if
+ *   - `permissionGuard('users.read')` on list + detail (hidden from nav too if
  *     the user lacks the permission — the navbar config provider filters server-
  *     side; this guard is the defense-in-depth client-side check).
- *   - `permissionGuard('users:create')` on /new (the "New user" CTA in the page
+ *   - `permissionGuard('users.create')` on /new (the "New user" CTA in the page
  *     header is also gated by the same key in the list component template).
  *
  * The `authGuard` covering all protected routes is applied by the parent
@@ -75,7 +75,7 @@ export const USERS_ROUTES: Routes = [
               icon: 'pi pi-plus',
               actionKey: 'users.create',
               // Permission key is consumed by the page-header component to
-              // hide the CTA when the user lacks `users:create`.
+              // hide the CTA when the user lacks `users.create`.
               requiredPermissions: [USER_PERMISSIONS.CREATE],
             },
           },

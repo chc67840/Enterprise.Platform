@@ -19,8 +19,8 @@
  *     paint waits for the input binding (NG0950 prevention; the original
  *     queueMicrotask version raced the parent's input binding under
  *     fast renders).
- *   - Permission-aware buttons — `users:write` for rename/email,
- *     `users:deactivate` and `users:activate` for the activation toggle.
+ *   - Permission-aware buttons — `users.write` for rename/email,
+ *     `users.deactivate` and `users.activate` for the activation toggle.
  *     Without the right permission the entire panel is hidden (defense-in-
  *     depth; the route guard plus the API server-side check are the
  *     primary enforcement).
