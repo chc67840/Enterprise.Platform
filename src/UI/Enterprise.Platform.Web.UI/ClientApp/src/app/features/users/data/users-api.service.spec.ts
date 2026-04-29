@@ -168,4 +168,31 @@ describe('UsersApiService', () => {
     req.flush(null, { status: 204, statusText: 'No Content' });
     httpMock.verify();
   });
+
+  it('mutating verbs add X-Skip-Error-Handling when suppressGlobalError is set', () => {
+    api.create(
+      { email: 'x@example.test', firstName: 'X', lastName: 'Y', externalIdentityId: null },
+      { suppressGlobalError: true },
+    ).subscribe();
+    const req = httpMock.expectOne(`${BASE}/users`);
+    expect(req.request.headers.get('X-Skip-Error-Handling')).toBe('true');
+    req.flush(sampleUser);
+    httpMock.verify();
+  });
+
+  it('getById passes X-Skip-Error-Handling when suppressGlobalError is set', () => {
+    api.getById(sampleUser.id, { suppressGlobalError: true }).subscribe();
+    const req = httpMock.expectOne(`${BASE}/users/${sampleUser.id}`);
+    expect(req.request.headers.get('X-Skip-Error-Handling')).toBe('true');
+    req.flush(sampleUser);
+    httpMock.verify();
+  });
+
+  it('getById omits X-Skip-Error-Handling by default', () => {
+    api.getById(sampleUser.id).subscribe();
+    const req = httpMock.expectOne(`${BASE}/users/${sampleUser.id}`);
+    expect(req.request.headers.has('X-Skip-Error-Handling')).toBe(false);
+    req.flush(sampleUser);
+    httpMock.verify();
+  });
 });

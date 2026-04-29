@@ -26,11 +26,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
   output,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TooltipModule } from 'primeng/tooltip';
+
+import { AuthStore } from '@core/auth/auth.store';
 
 import type { PageHeaderAction, PageHeaderConfig } from './sub-nav.types';
 
@@ -88,7 +91,7 @@ import type { PageHeaderAction, PageHeaderConfig } from './sub-nav.types';
 
           @if (hasActions()) {
             <div class="ep-page-header__actions">
-              @for (a of (cfg.secondaryActions ?? []); track a.actionKey) {
+              @for (a of visibleSecondaryActions(); track a.actionKey) {
                 <button
                   [type]="a.type ?? 'button'"
                   class="ep-page-header__btn ep-page-header__btn--secondary"
@@ -100,7 +103,7 @@ import type { PageHeaderAction, PageHeaderConfig } from './sub-nav.types';
                   <span>{{ a.label }}</span>
                 </button>
               }
-              @if (cfg.primaryAction; as p) {
+              @if (visiblePrimaryAction(); as p) {
                 <button
                   [type]="p.type ?? 'button'"
                   class="ep-page-header__btn ep-page-header__btn--primary"
@@ -126,6 +129,8 @@ import type { PageHeaderAction, PageHeaderConfig } from './sub-nav.types';
   styleUrl: './page-header.component.scss',
 })
 export class PageHeaderComponent {
+  private readonly auth = inject(AuthStore);
+
   readonly config = input.required<PageHeaderConfig>();
 
   /**
@@ -134,9 +139,29 @@ export class PageHeaderComponent {
    */
   readonly action = output<string>();
 
+  /**
+   * RBAC filter — returns the action only if the current user has every
+   * permission listed in `requiredPermissions`. Hide-not-disable: a user
+   * who lacks the permission shouldn't even discover the action exists.
+   */
+  private readonly isVisible = (a: PageHeaderAction): boolean => {
+    const required = a.requiredPermissions;
+    if (!required || required.length === 0) return true;
+    return this.auth.hasAllPermissions(...required);
+  };
+
+  protected readonly visiblePrimaryAction = computed<PageHeaderAction | undefined>(() => {
+    const p = this.config().primaryAction;
+    return p && this.isVisible(p) ? p : undefined;
+  });
+
+  protected readonly visibleSecondaryActions = computed<readonly PageHeaderAction[]>(() => {
+    const list = this.config().secondaryActions ?? [];
+    return list.filter((a) => this.isVisible(a));
+  });
+
   protected readonly hasActions = computed(() => {
-    const cfg = this.config();
-    return !!cfg.primaryAction || (cfg.secondaryActions?.length ?? 0) > 0;
+    return !!this.visiblePrimaryAction() || this.visibleSecondaryActions().length > 0;
   });
 
   protected onActionClick(a: PageHeaderAction): void {
