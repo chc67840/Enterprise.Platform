@@ -5,9 +5,13 @@
  * native HTML5 players, fallback to icon + download link.
  */
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 
 import type { FileItem } from './dph.types';
+
+const ALLOWED_PDF_SCHEMES = ['http:', 'https:', 'blob:'] as const;
+const ALLOWED_PDF_DATA_PREFIX = 'data:application/pdf';
 
 @Component({
   selector: 'dph-file-preview',
@@ -22,7 +26,14 @@ import type { FileItem } from './dph.types';
             <img [src]="f.url || f.previewUrl" [alt]="f.name" class="dph-fp__media" />
           }
           @case ('pdf') {
-            <iframe [src]="safeUrl(f.url || '')" [title]="f.name" class="dph-fp__iframe"></iframe>
+            @if (pdfSrc(); as src) {
+              <iframe [src]="src" [title]="f.name" class="dph-fp__iframe"></iframe>
+            } @else {
+              <div class="dph-fp__fallback">
+                <i class="pi pi-file" aria-hidden="true"></i>
+                <p>{{ f.name }}</p>
+              </div>
+            }
           }
           @case ('video') {
             <video [src]="f.url" controls class="dph-fp__media"></video>
@@ -46,6 +57,8 @@ import type { FileItem } from './dph.types';
   styleUrl: './file-preview.component.scss',
 })
 export class FilePreviewComponent {
+  private readonly sanitizer = inject(DomSanitizer);
+
   readonly file = input<FileItem | null>(null);
 
   protected readonly kind = computed<'image' | 'pdf' | 'video' | 'audio' | 'other'>(() => {
@@ -58,8 +71,26 @@ export class FilePreviewComponent {
     return 'other';
   });
 
-  /** No DomSanitizer dependency — iframes only accept trusted URLs anyway; cast to bypass strict typing. */
-  protected safeUrl(url: string): string {
-    return url;
+  /**
+   * Iframe `[src]` is a resource-URL context — Angular rejects raw strings
+   * (NG0904). We only bypass after allow-listing the scheme so a hostile
+   * `javascript:` / `vbscript:` URL planted in `FileItem.url` cannot reach
+   * the DOM.
+   */
+  protected readonly pdfSrc = computed<SafeResourceUrl | null>(() => {
+    const url = this.file()?.url;
+    if (!url) return null;
+    if (!this.isSafePdfUrl(url)) return null;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  });
+
+  private isSafePdfUrl(url: string): boolean {
+    if (url.startsWith(ALLOWED_PDF_DATA_PREFIX)) return true;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      return (ALLOWED_PDF_SCHEMES as readonly string[]).includes(parsed.protocol);
+    } catch {
+      return false;
+    }
   }
 }

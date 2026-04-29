@@ -11,8 +11,9 @@ Page components live in `views/`. One file per route. Standalone, OnPush, signal
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [/* PrimeNG modules + shared components used in the template */],
   template: `...`,
-  // styles inline in template literal — see UI-Standards-Triage.md decision
-  styles: [`...`],
+  // Sibling SCSS file via styleUrl — the inline `styles: []` pattern was
+  // retired in the 2026-04-29 SCSS migration; see Demo/scss-migration-audit.md.
+  styleUrl: './users-list.component.scss',
 })
 export class UsersListComponent {
   // 1. INJECTIONS

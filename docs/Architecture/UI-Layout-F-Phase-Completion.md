@@ -138,7 +138,7 @@ chrome-refactor lessons; re-applied here.
 | Item | Why deferred | Where to land |
 |---|---|---|
 | Command palette (Cmd-K) | Spec lists `commandPaletteMode: true` on `globalSearch`; the renderer emits a `NavActionEvent` with `actionKey: 'search.commandPalette'` and the host stubs the dispatch. The actual palette UI is its own feature. | New `core/services/command-palette.service.ts` + a deferred-loaded component |
-| Mobile-first SCSS file split | Used inline `styles: [...]` for now (consistent with the rest of the codebase + Phase E chrome). Spec said `.scss` files; behaviour identical. | Refactor when the next major design pass calls for it |
+| Mobile-first SCSS file split | ~~Used inline `styles: [...]`~~ **Done 2026-04-29.** All F-phase components migrated to sibling `*.component.scss` via `styleUrl` as part of the codebase-wide SCSS migration. See `Demo/scss-migration-audit.md`. | — |
 | Storybook stories | Storybook removed in Phase 5 (memory `reference_storybook_removed.md`). Reintroduction is a separate decision. | If reintroduced, add `*.stories.ts` per component |
 | Unit tests for the new widgets | Type contract + builds pass; runtime tests would be high-value but high-line. | Add as time permits — pattern: TestBed + `provideHttpClient(withInterceptors([]))` mirrors the existing `users-api.service.spec.ts` |
 | Per-tenant compliance disclaimer text | Lives in the static factory today. | Make the disclaimer a `Signal<string>` driven by tenant when the BFF tenant-config endpoint ships |

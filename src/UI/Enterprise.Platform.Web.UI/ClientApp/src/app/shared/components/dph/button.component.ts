@@ -6,7 +6,7 @@
  * raised + rounded all supported via direct attributes (no PrimeNG required).
  *
  * Why not just use <p-button>? PrimeNG's button is solid but its theming
- * surface clashes with our Tailwind v4 + tokens.css pattern; loading state
+ * surface clashes with our Tailwind v4 + _tokens.scss pattern; loading state
  * has its own quirks; icon-only accessibility needs explicit aria-label.
  * Wrapping standardizes all of those.
  *

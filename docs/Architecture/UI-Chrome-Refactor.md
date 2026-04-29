@@ -227,7 +227,7 @@ Visual smoke (Chrome / Edge / Firefox):
 
 | Item | Why deferred | Where to land |
 |---|---|---|
-| Mobile (< 768 px) hamburger collapse | PrimeNG Menubar handles this natively but the styling polish wasn't tuned this round | `platform-top-nav.component.ts` styles block — add a `:host ::ng-deep .p-menubar-mobile` ruleset |
+| Mobile (< 768 px) hamburger collapse | PrimeNG Menubar handles this natively but the styling polish wasn't tuned this round | `platform-navbar.component.scss` (sibling SCSS, post-2026-04-29 migration) — add a `.p-menubar-mobile` ruleset, OR lift to `_primeng-overrides.scss` if styling spans multiple components |
 | Status-banner unit tests | API service + mapper tests cover the larger-surface code; banner host is mostly markup | `tests/...status-banner*.spec.ts` — assert role attr per severity, dismiss flow |
 | Maintenance-banner provider example | The infrastructure is in place; an example wiring (e.g. `MaintenanceWindowService` that polls `/api/v1/system/maintenance` and pushes a banner) is left to the team to author per concrete use case | New service under `core/services/` when the first real feed lands |
 | Storybook stories for the four new components | Storybook was removed in Phase 5 follow-up; reintroduction is a separate decision | If reintroduced, stories under `*.stories.ts` next to each component |

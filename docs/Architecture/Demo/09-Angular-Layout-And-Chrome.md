@@ -270,7 +270,7 @@ flowchart LR
   Mob --> Tab --> Desk
 ```
 
-**Where the breakpoints are defined:** `shared/styles/tokens.css` exposes `--ep-bp-*` custom properties. Tailwind config picks them up via `@theme`. Components use Tailwind responsive classes (`md:flex-row`, `lg:hidden`).
+**Where the breakpoints are defined:** `src/styles/_tokens.scss` exposes `--ep-bp-*` custom properties. `src/styles/tailwind.css` picks them up via `@theme inline`. Components use Tailwind responsive classes (`md:flex-row`, `lg:hidden`); component-internal media queries use the `m.mobile / m.tablet / m.tablet-down / m.desktop / m.wide` mixins from `_mixins.scss`.
 
 ---
 

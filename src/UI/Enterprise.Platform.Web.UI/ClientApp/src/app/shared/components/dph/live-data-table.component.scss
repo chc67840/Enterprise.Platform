@@ -1,7 +1,8 @@
+@use 'mixins' as m;
+
 :host { display: block; }
 .dph-live {
-  display: flex;
-  flex-direction: column;
+  @include m.flex-column;
   border: 1px solid var(--ep-color-neutral-200);
   border-radius: var(--ep-radius-md);
   background: #fff;
@@ -57,10 +58,13 @@
   0%   { background: var(--ep-color-jessamine-100); }
   100% { background: transparent; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .dph-live__row--new { animation: none; background: var(--ep-color-jessamine-50); }
+.dph-live__row--new {
+  @include m.reduced-motion {
+    animation: none;
+    background: var(--ep-color-jessamine-50);
+  }
 }
-.dph-live__td { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dph-live__td { @include m.truncate; min-width: 0; }
 .dph-live__footer {
   display: flex;
   align-items: center;

@@ -1,11 +1,12 @@
+@use 'mixins' as m;
+
 :host { display: inline-flex; }
-.dph-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+.dph-sr-only { @include m.sr-only; }
 
 .dph-avatar {
+  @include m.flex-center;
   position: relative;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;

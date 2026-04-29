@@ -38,7 +38,7 @@ only — it's a universal "stop" signal.
 Everything resolves through CSS custom properties. Components reference
 tokens (`var(--ep-color-primary-700)`) or Tailwind utilities
 (`class="bg-primary-700"`) — never raw hex. A tenant rebrand or single-step
-re-anchor is a one-line edit in `tokens.css`.
+re-anchor is a one-line edit in `_tokens.scss`.
 
 ---
 
@@ -245,7 +245,7 @@ needs neutral-900 text on backgrounds at 500 or lighter.
 
 ## 6 · Tailwind utilities exposed
 
-The `@theme inline` block in `src/styles.css` exposes every token as a
+The `@theme inline` block in `src/styles/tailwind.css` exposes every token as a
 Tailwind utility. Use these in templates instead of inline `style="…"`.
 
 ```html
@@ -282,7 +282,7 @@ token-driven:
 
 ## 7 · Brand gradients
 
-Five preset gradients live in `tokens.css` for hero / marketing surfaces.
+Five preset gradients live in `_tokens.scss` for hero / marketing surfaces.
 Use `background: var(--ep-gradient-…)` on a wrapper element.
 
 | Token | Direction | From → To | Use for |
@@ -334,8 +334,8 @@ other file just consumes the tokens.
 
 | # | File | What it owns |
 |---|---|---|
-| 1 | `src/styles/tokens.css` | All `--ep-color-*` scales, semantic aliases, gradients, dark-theme overrides |
-| 2 | `src/styles.css` | Bridges every token to a Tailwind utility (`@theme inline`) |
+| 1 | `src/styles/_tokens.scss` | All `--ep-color-*` scales, semantic aliases, gradients, dark-theme overrides |
+| 2 | `src/styles/tailwind.css` | Bridges every token to a Tailwind utility (`@theme inline`) |
 | 3 | `src/index.html` | `<meta name="theme-color">` for mobile browser chrome / PWA splash |
 | 4 | `src/app/config/primeng.config.ts` | Maps PrimeNG `primary` palette + light/dark colour scheme to `--ep-color-primary-*` (already token-driven; no edit usually needed) |
 | 5 | (per tenant) tenant overlay CSS | Optional — re-declares `--ep-color-*` tokens inside a tenant-class scope |
@@ -346,7 +346,7 @@ other file just consumes the tokens.
 
 ### 10.1 Change the primary brand colour (e.g. swap indigo for teal)
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Replace the eleven `--ep-color-primary-*` values with the new scale.
 3. Update `--ep-shadow-focus` to a translucent tint of the new 700 hex.
 4. Open `src/index.html` and update `<meta name="theme-color">` to the
@@ -357,7 +357,7 @@ other file just consumes the tokens.
 
 ### 10.2 Remap a semantic ("success" should use emerald, not palmetto)
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Edit one alias:
    ```css
    --ep-color-success:    var(--ep-color-emerald-600);
@@ -370,7 +370,7 @@ other file just consumes the tokens.
 
 ### 10.3 Add a new gradient
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Append:
    ```css
    --ep-gradient-brand-storm: linear-gradient(
@@ -394,9 +394,13 @@ other file just consumes the tokens.
      /* Optionally re-anchor palmetto / jessamine / neutral too */
    }
    ```
-2. Import in `styles.css` after `tokens.css`:
-   ```css
-   @import './styles/tenants/acme.css';
+2. List the tenant CSS in `angular.json` `styles[]` after the global entries (or `@import` it from `tailwind.css` so PostCSS handles it — keep it out of the Sass entry):
+   ```jsonc
+   "styles": [
+     "src/styles/styles.scss",
+     "src/styles/tailwind.css",
+     "src/styles/tenants/acme.css"
+   ]
    ```
 3. The shell sets `class="tenant-acme"` on `<html>` based on
    `TenantService`. Every Tailwind utility, PrimeNG component, and focus
@@ -404,7 +408,7 @@ other file just consumes the tokens.
 
 ### 10.5 Add a brand-new colour role (e.g. "Caution" — distinct from warning)
 
-1. Open `src/styles/tokens.css` and add a scale block:
+1. Open `src/styles/_tokens.scss` and add a scale block:
    ```css
    --ep-color-caution-50:  #FFF7E8;
    --ep-color-caution-500: #FF9933;
@@ -416,7 +420,7 @@ other file just consumes the tokens.
    --ep-color-caution:    var(--ep-color-caution-600);
    --ep-color-caution-bg: var(--ep-color-caution-100);
    ```
-3. Open `src/styles.css` and add to `@theme inline`:
+3. Open `src/styles/tailwind.css` and add to `@theme inline`:
    ```css
    --color-caution-50: var(--ep-color-caution-50);
    /* … remaining steps … */

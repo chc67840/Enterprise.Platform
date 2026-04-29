@@ -1,9 +1,23 @@
 # Phase 0 — CSS → SCSS Migration Audit
 
-> **Status:** Phase 0 (audit only) — no file changes have been made.
-> **Generated:** 2026-04-28 · `feature/db-first-pivot`
+> **Status:** **DONE — superseded.** The migration this audit scoped is complete; see "Outcome" below.
+> **Generated:** 2026-04-28 · **Completed:** 2026-04-29 · `feature/db-first-pivot`
 > **Scope:** `src/UI/Enterprise.Platform.Web.UI/ClientApp/`
 > **Decisions in effect** (from chat): Strategy **B** (extract inline `styles:` to `*.component.scss`) · Phased rollout · `::ng-deep` policy (b) (PrimeNG-targeting → global, rest stays) · tsconfig untouched · No `pt` API conversion · Playwright screenshots for chrome + dashboard + login.
+
+---
+
+## Outcome (2026-04-29)
+
+All four phases shipped on `feature/db-first-pivot`:
+
+- **Phase 1 — Global rename**: `tokens.css` → `_tokens.scss`, `fonts.css` → `_typography.scss`, `animations.css` → `_animations.scss`, `styles.css` → `styles.scss`. Added `_reset.scss` (chrome guards) and `_mixins.scss`.
+- **Phase 2 — Tailwind isolation**: `@import 'tailwindcss'` and the `@theme inline { ... }` block moved to a sibling **`tailwind.css`** because Sass 1.99 deprecates bare `@import` (hard error in Sass 3.0). `angular.json` `styles[]` lists both files; PostCSS still processes `.css` files via `@tailwindcss/postcss` plugin.
+- **Phase 3 — Component migration**: All 41 in-scope components moved from inline `styles: [`...`]` to sibling `.component.scss` via `styleUrl`. ~33 PrimeNG-targeting `::ng-deep .p-*` blocks lifted to `_primeng-overrides.scss`. `anyComponentStyle` budget bumped 4kB/8kB → 8kB/12kB (CLI never counted the inline bytes — see `feedback_anyComponentStyle_budget_inline_blind` memory).
+- **Phase 4 — Verification**: Production + dev build green, vitest 128/128, Playwright visual baselines for `/auth/login` + root redirect committed.
+- **Phase 5 — Mixin extension** (2026-04-29): `_mixins.scss` extended from 5 → 14 mixins (`truncate`, `line-clamp`, `flex-center`, `flex-between`, `flex-column`, `sr-only`, `reduced-motion`, `wide`, `tablet`); 9 component partials (`avatar`, `button`, `breadcrumb`, `cell-renderer`, `data-table`, `file-list`, `live-data-table`, `nav-menu`, `steps`) refactored to use them.
+
+The remainder of this document is the original audit — kept for the rationale trail and decision history.
 
 ---
 

@@ -11,7 +11,7 @@
  *   - **Aura preset, blue primary** — Aura is PrimeNG's flagship theme; we
  *     extend it via `definePreset(...)` so the primary palette tracks our
  *     `--ep-color-primary-*` tokens. Single source of truth for brand colour:
- *     change `tokens.css` and BOTH Tailwind utilities and PrimeNG components
+ *     change `_tokens.scss` and BOTH Tailwind utilities and PrimeNG components
  *     (buttons, focus rings, active menu items, badges) flip together.
  *   - **`.dark` selector** — matches our `ThemeService` toggle; one DOM
  *     hook for every themed element.
@@ -46,7 +46,7 @@ import type { PrimeNGConfigType } from 'primeng/config';
  * Brand-tinted Aura preset.
  *
  * `primary.*` is bound to our `--ep-color-primary-*` tokens (blue palette
- * in `tokens.css`). PrimeNG resolves these to the live CSS-var values, so
+ * in `_tokens.scss`). PrimeNG resolves these to the live CSS-var values, so
  * any future per-tenant re-brand only needs to swap the token values — no
  * theme rebuild, no component updates.
  *

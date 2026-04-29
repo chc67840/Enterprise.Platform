@@ -35,7 +35,7 @@ Five weight tokens — `regular (400)`, `medium (500)`, `semibold (600)`,
 Loading: **Noto Sans** comes from Google Fonts (free; CDN). **Arno Pro**
 and **Bicycletter** are commercial — drop WOFF2 files into
 `ClientApp/public/fonts/` and uncomment the matching `@font-face` in
-`src/styles/fonts.css`. Until then, the fallbacks above carry the role
+`src/styles/_typography.scss`. Until then, the fallbacks above carry the role
 correctly.
 
 ---
@@ -111,7 +111,7 @@ specialise:
 ## 3 · Token system
 
 Every typography decision is a CSS custom property in
-`src/styles/tokens.css`. The component layer references the token, never
+`src/styles/_tokens.scss`. The component layer references the token, never
 the literal family/weight string.
 
 ### 3.1 Family tokens
@@ -154,9 +154,11 @@ the literal family/weight string.
 ### 3.4 How tokens reach the screen
 
 ```
-  styles/tokens.css   styles/fonts.css   index.html (Noto Sans link)
+  styles/_tokens.scss   styles/_typography.scss   index.html (Noto Sans link)
         │                   │                       │
-        └─── styles.css ────┘                       │
+        └── styles/styles.scss (@use) ──┘            │
+              ▲                                     │
+              │  styles/tailwind.css                 │
               │                                     │
               │  @theme inline {                    │
               │    --font-primary: var(--ep-font-primary);
@@ -191,9 +193,9 @@ other file just consumes the tokens.
 
 | # | File | What it owns |
 |---|---|---|
-| 1 | `src/styles/tokens.css` | Family + weight + size tokens |
-| 2 | `src/styles/fonts.css` | `@font-face` declarations for self-hosted faces |
-| 3 | `src/styles.css` | Bridges tokens to Tailwind utilities (`@theme inline`) |
+| 1 | `src/styles/_tokens.scss` | Family + weight + size tokens |
+| 2 | `src/styles/_typography.scss` | `@font-face` declarations for self-hosted faces |
+| 3 | `src/styles/tailwind.css` | Bridges tokens to Tailwind utilities (`@theme inline`) |
 | 4 | `src/index.html` | Loads remote (CDN) font CSS |
 | 5 | `Enterprise.Platform.Web.UI/Middleware/SecurityHeadersMiddleware.cs` | CSP `style-src` / `font-src` directives |
 
@@ -203,7 +205,7 @@ other file just consumes the tokens.
 
 ### 5.1 Change the primary family from Noto Sans to a different sans-serif
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Edit one line:
    ```css
    --ep-font-primary: 'Inter', system-ui, …, sans-serif;
@@ -219,7 +221,7 @@ other file just consumes the tokens.
 
 ### 5.2 Change a single weight remap (e.g. "bold" should render heavier)
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Edit one line:
    ```css
    --ep-font-weight-bold: 800;   /* was 700 */
@@ -229,7 +231,7 @@ other file just consumes the tokens.
 
 ### 5.3 Add a new substitute typeface to a fallback chain
 
-1. Open `src/styles/tokens.css`.
+1. Open `src/styles/_tokens.scss`.
 2. Insert into the appropriate `--ep-font-*` value:
    ```css
    --ep-font-secondary: 'Arno Pro', 'Spectral', Georgia, …, serif;
@@ -242,7 +244,7 @@ other file just consumes the tokens.
 1. Download Noto Sans WOFF2 files (variable-axis preferred — one file
    covers all weights). Drop them into
    `ClientApp/public/fonts/noto-sans/`.
-2. Open `src/styles/fonts.css` and uncomment the **Noto Sans** `@font-face`
+2. Open `src/styles/_typography.scss` and uncomment the **Noto Sans** `@font-face`
    blocks at the top.
 3. Open `src/index.html` and **delete** the three `<link>` tags for Google
    Fonts (preconnect + stylesheet).
@@ -261,7 +263,7 @@ other file just consumes the tokens.
    Italic, Bold, Bold Italic).
 3. Drop into `ClientApp/public/fonts/arno-pro/` with the names
    documented in `public/fonts/README.md`.
-4. Open `src/styles/fonts.css` and uncomment the **Arno Pro** `@font-face`
+4. Open `src/styles/_typography.scss` and uncomment the **Arno Pro** `@font-face`
    blocks.
 5. `npm run build`. Hard-reload. Inspect any element using
    `class="font-secondary font-bold"` — DevTools → Computed → "Rendered
@@ -271,7 +273,7 @@ other file just consumes the tokens.
 
 Same as Arno Pro, two cuts (Bold 700, Black 900). Drop files into
 `public/fonts/bicycletter/` and uncomment the relevant block in
-`fonts.css`.
+`_typography.scss`.
 
 ### 5.7 Tenant-specific brand override
 
@@ -280,7 +282,7 @@ re-binds the family tokens. Tailwind utilities + PrimeNG components
 follow automatically.
 
 ```css
-/* In a tenant overlay stylesheet, loaded after styles.css */
+/* In a tenant overlay stylesheet, loaded after styles.scss + tailwind.css */
 .tenant-acme {
   --ep-font-primary:   'Acme Grotesk', system-ui, …;
   --ep-font-secondary: 'Acme Display', Georgia, …;
@@ -324,7 +326,7 @@ Loaded via `<link>` in `src/index.html`:
 
 ### 6.2 Arno Pro / Bicycletter — self-hosted (when licensed)
 
-Declared in `src/styles/fonts.css`. `font-display: swap` + `local()`
+Declared in `src/styles/_typography.scss`. `font-display: swap` + `local()`
 optimisation:
 
 ```css

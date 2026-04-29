@@ -1,3 +1,5 @@
+@use 'mixins' as m;
+
 :host { display: block; }
 
 .ep-bc {
@@ -24,6 +26,7 @@
 }
 
 .ep-bc__link {
+  @include m.truncate;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -32,21 +35,16 @@
   color: var(--ep-color-neutral-600);
   text-decoration: none;
   max-width: 18rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: color 120ms ease, background-color 120ms ease;
 }
 .ep-bc__link:hover {
   color: var(--ep-color-primary-700);
   background-color: var(--ep-color-primary-50);
 }
-.ep-bc__link:focus-visible {
-  outline: 2px solid var(--ep-color-jessamine-500);
-  outline-offset: 2px;
-}
+.ep-bc__link:focus-visible { @include m.focus-ring; }
 
 .ep-bc__current {
+  @include m.truncate;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -54,9 +52,6 @@
   font-weight: 600;
   color: var(--ep-color-neutral-900);
   max-width: 22rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .ep-bc__ellipsis {

@@ -1,10 +1,12 @@
+@use 'mixins' as m;
+
 :host { display: inline-block; max-width: 100%; }
-.dph-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.dph-sr-only { @include m.sr-only; }
 
 .dph-cell__avatar { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .dph-cell__avatar img { width: 1.75rem; height: 1.75rem; border-radius: 9999px; object-fit: cover; }
 .dph-cell__avatar > span { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 9999px; color: #fff; font-size: 0.6875rem; font-weight: 700; }
-.dph-cell__avatar-label { font-size: 0.8125rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dph-cell__avatar-label { @include m.truncate; font-size: 0.8125rem; min-width: 0; }
 
 .dph-cell__avatar-group { display: inline-flex; }
 .dph-cell__avatar-mini { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 9999px; color: #fff; font-size: 0.625rem; font-weight: 700; border: 2px solid #fff; margin-left: -0.375rem; }

@@ -1,12 +1,21 @@
-# `src/styles/` — Global SCSS partials
+# `src/styles/` — Global stylesheets
 
-The single global stylesheet emitted at build time is composed here. Each file
-is a Sass partial (leading `_` means "do not compile alone") consumed by the
-master entry `styles.scss` via `@use`.
+Two global stylesheets are emitted at build time, listed in `angular.json`
+`styles[]` in this order:
+
+1. `styles.scss` — Sass entry (partials + primeicons font CSS)
+2. `tailwind.css` — Tailwind v4 directive + `@theme inline` token bridge
+
+The split exists because Sass 1.99+ deprecates the bare `@import 'tailwindcss'`
+form (becomes a hard error in Sass 3.0). Keeping Tailwind out of the Sass
+pipeline routes its directive through PostCSS only — `@tailwindcss/postcss`
+processes any `.css` file in the bundle (configured globally in
+`.postcssrc.json`).
 
 ```
 src/styles/
-├── styles.scss               ← master entry · referenced by angular.json styles[]
+├── styles.scss               ← Sass entry · referenced first by angular.json styles[]
+├── tailwind.css              ← Tailwind v4 entry · referenced second by styles[]
 ├── _tokens.scss              ← --ep-* CSS custom properties (colors, radii,
 │                                spacing, shadows, z-index, transitions,
 │                                layout dims, typography) on :root +
@@ -26,9 +35,10 @@ src/styles/
 └── README.md
 ```
 
-## Composition order in `styles.scss`
+## Composition order
 
 ```scss
+// styles.scss (Sass entry)
 @use 'tokens';            // 1. CSS custom properties (must be first — others reference)
 @use 'typography';        // 2. @font-face
 @use 'animations';        // 3. keyframes + reduced-motion safeguard
@@ -36,10 +46,18 @@ src/styles/
 @use 'primeng-overrides'; // 5. global PrimeNG overrides
 
 @import 'primeicons/primeicons.css';   // PrimeIcons font + .pi-* glyph classes
-@import 'tailwindcss';                  // Tailwind v4 — generates theme/base/utilities layers
-
-@theme inline { ... }     // Tailwind v4 directive — aliases --ep-* → theme scale
 ```
+
+```css
+/* tailwind.css (plain CSS, processed by @tailwindcss/postcss only) */
+@import 'tailwindcss';                  /* generates theme/base/utilities layers */
+
+@theme inline { ... }                   /* aliases --ep-* → theme scale */
+```
+
+The `--ep-*` custom properties declared by `_tokens.scss` apply to `:root`,
+so they're visible to `tailwind.css`'s `@theme inline` block — both files
+share the same global token namespace.
 
 ## How components use these partials
 

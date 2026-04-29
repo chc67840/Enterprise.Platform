@@ -1,3 +1,5 @@
+@use 'mixins' as m;
+
 :host { display: block; }
 
 /* ── COMMON markers ───────────────────────────────────────── */
@@ -35,7 +37,7 @@
   animation: dph-step-spin 0.7s linear infinite;
 }
 @keyframes dph-step-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .dph-steps__spin { animation: none; } }
+.dph-steps__spin { @include m.reduced-motion { animation: none; } }
 
 /* ── HORIZONTAL ───────────────────────────────────────────── */
 .dph-steps[data-variant='horizontal'] {
@@ -52,7 +54,7 @@
   touch-action: manipulation; min-height: 2.75rem; flex: 1; min-width: 0;
 }
 .dph-steps__btn[disabled] { cursor: default; }
-.dph-steps__btn:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; border-radius: var(--ep-radius-sm); }
+.dph-steps__btn:focus-visible { @include m.focus-ring; border-radius: var(--ep-radius-sm); }
 .dph-steps[data-variant='horizontal'] .dph-steps__item[data-state='active'] .dph-steps__btn { color: var(--ep-color-neutral-900); font-weight: 600; }
 .dph-steps[data-variant='horizontal'] .dph-steps__item[data-state='complete'] .dph-steps__btn { color: var(--ep-color-neutral-700); }
 .dph-steps[data-variant='horizontal'] .dph-steps__item[data-state='error'] .dph-steps__btn { color: var(--ep-color-danger-700); }
@@ -115,7 +117,7 @@
   background: rgba(255,255,255,0.25); border-radius: 9999px; font-size: 0.625rem; font-weight: 700;
 }
 .dph-steps__pill[data-state='pending'] .dph-steps__pill-num { background: var(--ep-color-neutral-200); color: var(--ep-color-neutral-700); }
-.dph-steps__pill-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dph-steps__pill-label { @include m.truncate; min-width: 0; }
 
 /* ── PROGRESS BAR with notches ────────────────────────────── */
 .dph-steps__pbar { padding: 1rem 0.5rem 0.25rem; }

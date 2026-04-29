@@ -182,7 +182,8 @@
       "Read(//tmp/**)",
       "Bash(xargs wc *)",
       "Bash(git stash *)",
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(xargs -0 grep -L 'styleUrl\\\\|styles:\\\\s*\\\\[')"
     ]
   }
 }

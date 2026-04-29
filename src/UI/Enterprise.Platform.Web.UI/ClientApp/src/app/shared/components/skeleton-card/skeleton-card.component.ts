@@ -27,7 +27,7 @@
  *   loading announcement comes from the GlobalProgressBar / LoadingOverlay.
  *
  * MOTION
- *   Uses the `ep-shimmer` keyframes from `animations.css`. The
+ *   Uses the `ep-shimmer` keyframes from `_animations.scss`. The
  *   `prefers-reduced-motion: reduce` safeguard there turns the shimmer into
  *   a static gradient.
  */

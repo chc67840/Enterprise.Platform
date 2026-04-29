@@ -21,7 +21,7 @@
  *   </dph-panel>
  */
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 
 import type { PanelConfig } from './dph.types';
 
@@ -119,7 +119,7 @@ export class PanelComponent {
   );
 
   constructor() {
-    queueMicrotask(() => this.collapsed.set(!!this.config().defaultCollapsed));
+    afterNextRender(() => this.collapsed.set(!!this.config().defaultCollapsed));
   }
 
   protected toggle(): void {

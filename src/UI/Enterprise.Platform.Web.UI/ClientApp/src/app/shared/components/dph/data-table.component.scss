@@ -1,6 +1,8 @@
+@use 'mixins' as m;
+
 :host { display: block; }
 
-.dph-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.dph-sr-only { @include m.sr-only; }
 
 .dph-table-host { position: relative; }
 
@@ -46,7 +48,7 @@
 }
 .dph-table-toolbar__icon-btn:hover { background: var(--ep-color-neutral-50); }
 .dph-table-toolbar__icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.dph-table-toolbar__icon-btn:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
+.dph-table-toolbar__icon-btn:focus-visible { @include m.focus-ring; }
 .dph-table-toolbar__density {
   display: inline-flex;
   border: 1px solid var(--ep-color-neutral-300);
@@ -144,7 +146,7 @@
   border-radius: var(--ep-radius-sm);
 }
 .dph-table__expand:hover { background: var(--ep-color-neutral-100); color: var(--ep-color-neutral-900); }
-.dph-table__expand:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
+.dph-table__expand:focus-visible { @include m.focus-ring; }
 .dph-table__expand-row > td { background: var(--ep-color-neutral-50); padding: 0.75rem 1rem !important; }
 .dph-table__nested { padding: 0.5rem 0; }
 
@@ -167,7 +169,7 @@
   touch-action: manipulation;
 }
 .dph-table__action:hover { background-color: var(--ep-color-neutral-100); color: var(--ep-color-neutral-900); }
-.dph-table__action:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
+.dph-table__action:focus-visible { @include m.focus-ring; }
 .dph-table__action[disabled] { opacity: 0.4; cursor: not-allowed; }
 .dph-table__action[data-severity='danger'] { color: var(--ep-color-danger-600); }
 .dph-table__action[data-severity='success'] { color: var(--ep-color-palmetto-700); }
@@ -221,7 +223,7 @@
 }
 .dph-skeleton-bar--right { float: right; width: 50%; }
 @keyframes dph-skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .dph-skeleton-bar { animation: none; } }
+.dph-skeleton-bar { @include m.reduced-motion { animation: none; } }
 
 .dph-table__loading-overlay {
   position: absolute;
@@ -241,7 +243,7 @@
   animation: dph-spin 0.7s linear infinite;
 }
 @keyframes dph-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .dph-table__spinner { animation: none; } }
+.dph-table__spinner { @include m.reduced-motion { animation: none; } }
 
 .dph-table-error {
   display: flex;
@@ -287,7 +289,7 @@
 .dph-table-cards__row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.8125rem; }
 .dph-table-cards__row + .dph-table-cards__row { border-top: 1px solid var(--ep-color-neutral-100); }
 .dph-table-cards__label { color: var(--ep-color-neutral-500); font-weight: 500; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.dph-table-cards__value { color: var(--ep-color-neutral-900); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dph-table-cards__value { @include m.truncate; color: var(--ep-color-neutral-900); text-align: right; min-width: 0; }
 .dph-table-cards__actions { display: flex; gap: 0.25rem; justify-content: flex-end; padding-top: 0.5rem; border-top: 1px solid var(--ep-color-neutral-100); }
 
 /* ── MOBILE — local rules. PrimeNG inner-structure overrides

@@ -14,7 +14,7 @@
  *
  * ANIMATION
  *   Indeterminate sweeping bar — `ep-progress-indeterminate` keyframes in
- *   `animations.css`. The bar element itself is `aria-hidden` because SR
+ *   `_animations.scss`. The bar element itself is `aria-hidden` because SR
  *   users should not be told about every network request; instead we emit
  *   a single polite live-region message when the state toggles.
  */
@@ -30,7 +30,7 @@ import { LoadingService } from '@core/services/loading.service';
     @if (loading.isLoading()) {
       <!--
         Fixed strip at the very top of the viewport. The sweeping highlight is
-        animated via keyframes in animations.css. Reduced-motion users see a
+        animated via keyframes in _animations.scss. Reduced-motion users see a
         static bar (no sweep) thanks to the global @media override.
       -->
       <div

@@ -6,11 +6,12 @@
  * typography scale, breakpoints.
  *
  * HOW IT'S CONSUMED
- *   1. Raw CSS — any component style can reference a token via `var(--ep-*)`.
- *   2. Tailwind v4 — the root `styles.css` imports this file BEFORE
- *      `@tailwindcss` so the `@theme inline` block in `styles.css` can
- *      reference the same custom properties as token aliases. The upshot:
- *      `class="bg-primary-500 rounded-xl"` and
+ *   1. Raw CSS — any component SCSS can reference a token via `var(--ep-*)`.
+ *   2. Tailwind v4 — `src/styles/tailwind.css` (sibling plain-CSS file listed
+ *      in `angular.json` `styles[]`) declares `@import 'tailwindcss'` followed
+ *      by an `@theme inline { ... }` block that aliases these `--ep-*`
+ *      properties into Tailwind's theme scale. Both files share the global
+ *      `:root` namespace, so `class="bg-primary-500 rounded-xl"` and
  *      `style="background:var(--ep-color-primary-500); border-radius:var(--ep-radius-xl)"`
  *      resolve to the same values, forever in sync.
  *   3. PrimeNG — `config/theme.config.ts` maps component tokens to these
@@ -245,7 +246,7 @@
    *
    *  The fallback chains are deliberately deep so the SPA renders correctly
    *  EVEN IF the licensed font files are not yet hosted (Arno Pro and
-   *  Bicycletter both require commercial licences — see fonts.css).
+   *  Bicycletter both require commercial licences — see _typography.scss).
    *
    *  To swap a family per tenant: re-declare the relevant `--ep-font-*` token
    *  inside a tenant-class scope (e.g. `.tenant-acme :root { --ep-font-primary: 'Acme Sans', …; }`).

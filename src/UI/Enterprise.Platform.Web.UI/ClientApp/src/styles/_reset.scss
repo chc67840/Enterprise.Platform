@@ -1,9 +1,11 @@
 // ─── _reset.scss ──────────────────────────────────────────────────────────
 //
 // Angular + PrimeNG-aware baseline + chrome interaction guards.
-// Migrated verbatim from the original `src/styles.css` — every rule below
-// was previously inline in the master entry. Splitting them out lets the
-// master entry focus on composition (@use partials, Tailwind, @theme).
+// Migrated verbatim from the pre-2026-04-29 master CSS entry — every rule
+// below was previously inline. Splitting them out lets the Sass entry
+// (`styles.scss`) focus on composition (`@use` partials, primeicons),
+// while the Tailwind directive + `@theme inline` block live in the
+// sibling `tailwind.css`.
 //
 // CONTENTS
 //   1. html/body dimensions + scroll model

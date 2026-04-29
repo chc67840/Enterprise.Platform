@@ -170,7 +170,13 @@ need `import { describe, it, expect } from 'vitest';` at the top.
 
 Angular's bundler pipes every `.css` file through PostCSS before bundling;
 this file tells PostCSS to run the Tailwind v4 plugin which compiles
-`@import 'tailwindcss'`, `@theme`, `@utility`, etc.
+`@import 'tailwindcss'`, `@theme`, `@utility`, etc. Importantly, the plugin
+runs only on `.css` files — Sass partials are compiled separately by
+`angular-sass` first. This is why the Tailwind directive lives in
+`src/styles/tailwind.css` (a sibling plain-CSS file listed alongside
+`src/styles/styles.scss` in `angular.json` `styles[]`) rather than inside
+the Sass entry: Sass 1.99 deprecates bare `@import` and `@import 'tailwindcss'`
+has no `@use`-compatible form. See `Demo/scss-migration-audit.md` §Outcome.
 
 **What breaks if removed:** Tailwind utility classes (`flex`, `bg-primary-600`,
 `rounded-ep-md`) emit as raw text in the CSS output. Every page renders

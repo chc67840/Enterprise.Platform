@@ -1,10 +1,11 @@
+@use 'mixins' as m;
+
 :host { display: inline-flex; }
 :host([fullwidth]) { display: flex; width: 100%; }
 
 .dph-btn {
+  @include m.flex-center;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: 0.5rem;
   position: relative;
   min-height: 2.75rem;        /* WCAG 2.5.5 — 44px touch target */
@@ -25,10 +26,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
-.dph-btn:focus-visible {
-  outline: 2px solid var(--ep-color-jessamine-500);
-  outline-offset: 2px;
-}
+.dph-btn:focus-visible { @include m.focus-ring; }
 .dph-btn[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
@@ -123,6 +121,8 @@
 .dph-btn__badge[data-severity='info'] { background-color: var(--ep-color-primary-600); }
 .dph-btn__badge[data-severity='neutral'] { background-color: var(--ep-color-neutral-500); }
 
-@media (prefers-reduced-motion: reduce) {
-  .dph-btn { transition: none; }
+.dph-btn {
+  @include m.reduced-motion {
+    transition: none;
+  }
 }
