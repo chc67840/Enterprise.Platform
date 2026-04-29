@@ -5,7 +5,7 @@
  *   The shell needs a single source of truth for "is the app in light or dark
  *   mode?" so the user-menu toggle, the OS-preference watcher, and PrimeNG's
  *   `darkModeSelector: '.dark'` all agree. Pushing this into `<html>` (the
- *   element PrimeNG observes) means the design tokens in `tokens.css` flip
+ *   element PrimeNG observes) means the design tokens in `_tokens.scss` flip
  *   atomically with the PrimeNG component palette — no half-themed flash.
  *
  * MODES

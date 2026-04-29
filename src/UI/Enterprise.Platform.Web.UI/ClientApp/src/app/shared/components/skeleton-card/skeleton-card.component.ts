@@ -27,7 +27,7 @@
  *   loading announcement comes from the GlobalProgressBar / LoadingOverlay.
  *
  * MOTION
- *   Uses the `ep-shimmer` keyframes from `animations.css`. The
+ *   Uses the `ep-shimmer` keyframes from `_animations.scss`. The
  *   `prefers-reduced-motion: reduce` safeguard there turns the shimmer into
  *   a static gradient.
  */
@@ -39,21 +39,7 @@ export type SkeletonVariant = 'card' | 'list-row' | 'table-row' | 'chart' | 'sta
   selector: 'app-skeleton-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [
-    `
-      .ep-skeleton {
-        background: linear-gradient(
-          90deg,
-          var(--ep-color-neutral-100) 0%,
-          var(--ep-color-neutral-200) 50%,
-          var(--ep-color-neutral-100) 100%
-        );
-        background-size: 200% 100%;
-        animation: ep-shimmer 1.4s ease-in-out infinite;
-        border-radius: var(--ep-radius-md);
-      }
-    `,
-  ],
+  styleUrl: './skeleton-card.component.scss',
   template: `
     <div aria-hidden="true" class="w-full">
       @switch (variant()) {

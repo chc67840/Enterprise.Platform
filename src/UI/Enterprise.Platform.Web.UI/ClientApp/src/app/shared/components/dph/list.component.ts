@@ -103,63 +103,7 @@ import type { ListConfig } from './dph.types';
       <span class="dph-list__default-text">{{ asText(item) }}</span>
     </ng-template>
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-list { background-color: transparent; }
-      .dph-list--scroll { overflow-y: auto; overscroll-behavior: contain; }
-
-      .dph-list__list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        counter-reset: dph-list-counter;
-      }
-      .dph-list[data-variant='ordered'] .dph-list__list { list-style: decimal inside; padding-left: 0.5rem; }
-
-      .dph-list__item {
-        display: flex;
-        align-items: center;
-        gap: 0.625rem;
-        padding: 0.625rem 0.75rem;
-        font-size: 0.875rem;
-        color: var(--ep-color-neutral-900);
-        min-height: 2.75rem;
-      }
-      .dph-list--compact .dph-list__item { min-height: 2.25rem; padding: 0.375rem 0.625rem; }
-      .dph-list--dividers .dph-list__item + .dph-list__item { border-top: 1px solid var(--ep-color-neutral-200); }
-      .dph-list--striped .dph-list__item:nth-child(odd) { background-color: var(--ep-color-neutral-50); }
-
-      .dph-list__item--clickable {
-        cursor: pointer;
-        touch-action: manipulation;
-        transition: background-color 120ms ease;
-      }
-      .dph-list__item--clickable:hover { background-color: var(--ep-color-primary-50); }
-      .dph-list__item--clickable:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: -2px; }
-      .dph-list__item--selected { background-color: var(--ep-color-primary-100); color: var(--ep-color-primary-900); }
-
-      .dph-list__item--checked { text-decoration: line-through; color: var(--ep-color-neutral-500); }
-
-      .dph-list__empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 2.5rem 1rem;
-        color: var(--ep-color-neutral-500);
-        text-align: center;
-      }
-      .dph-list__empty i { font-size: 2rem; color: var(--ep-color-neutral-300); }
-      .dph-list__empty p { margin: 0; font-size: 0.875rem; }
-
-      .dph-list__default-text { display: block; }
-
-      @media (prefers-reduced-motion: reduce) {
-        .dph-list__item--clickable { transition: none; }
-      }
-    `,
-  ],
+  styleUrl: './list.component.scss',
 })
 export class ListComponent<T = unknown> {
   readonly config = input.required<ListConfig<T>>();

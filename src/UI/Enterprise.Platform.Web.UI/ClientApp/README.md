@@ -54,10 +54,12 @@ ClientApp/
 │   │   ├── app.ts       # root component (AppComponent)
 │   │   └── app.routes.ts
 │   ├── environments/    # build-time config POCOs
-│   ├── styles/          # global tokens, typography, animations, overrides
+│   ├── styles/          # SCSS partials (_tokens, _typography, _animations,
+│   │                    #   _reset, _primeng-overrides, _mixins)
+│   │                    # + tailwind.css (Tailwind v4 entry, kept out of Sass)
+│   │                    # + styles.scss (master @use entry)
 │   ├── index.html
-│   ├── main.ts          # bootstrap entry
-│   └── styles.css       # global CSS entry (Tailwind v4 + PrimeNG layering)
+│   └── main.ts          # bootstrap entry
 ├── angular.json
 ├── package.json
 ├── tsconfig.json

@@ -540,28 +540,36 @@ consumed by `SidebarNavComponent`, breadcrumbs, and guards:
 ### 5.4 Design tokens + styling
 
 **Layer order** (`config/primeng.config.ts`):
-`tailwind-base  ≻  primeng  ≻  tailwind-utilities`
+`theme  ≻  base  ≻  primeng  ≻  utilities` (Tailwind v4 layer names).
 
-**Token files** (`src/styles/*.css`):
+**Stylesheet entries** (registered in `angular.json` `styles[]`):
 
 | File | Content |
 |---|---|
-| `tokens.css` | CSS custom properties — z-index scale, transitions, easing, content widths, sidebar/header dimensions, backdrop blur |
-| `typography.css` | Font stack, size scale, line-height scale |
-| `animations.css` | Keyframes — fade, slide, scale |
-| `scrollbars.css` | Webkit-scrollbar tweaks |
-| `utilities.css` | Project-specific utilities not covered by Tailwind |
-| `primeng-overrides.css` | ⚠️ ~70KB; needs pruning + re-expressing as theme preset where possible |
+| `styles/styles.scss` | Sass entry — `@use` of all partials below + `primeicons/primeicons.css` import |
+| `styles/tailwind.css` | Plain CSS — `@import 'tailwindcss';` + `@theme inline { ... }` token bridge (kept out of Sass because Sass 1.99 deprecates bare `@import`) |
+
+**Sass partials** (`src/styles/_*.scss` — composed by `styles.scss`):
+
+| Partial | Content |
+|---|---|
+| `_tokens.scss` | `--ep-*` CSS custom properties — colors (Indigo Blue / Palmetto Green / Yellow Jessamine / Opaque White scales + danger), radii, spacing, shadows, z-index, transitions, layout dims, typography. `:root` + `:root.dark` overrides. |
+| `_typography.scss` | `@font-face` declarations (placeholder pending licensed Arno Pro / Bicycletter) |
+| `_animations.scss` | `@keyframes`, `.ep-fade-in` / `.ep-scale-in` utility classes, global `prefers-reduced-motion` rule |
+| `_reset.scss` | html/body baseline, `:focus-visible` ring, `@media print` reset, chrome interaction guards (touch-action, tap-highlight) |
+| `_primeng-overrides.scss` | Layer-less `.p-*` rules — beat PrimeNG defaults without `!important` (Phase 3 lifted ~33 PrimeNG-targeting `::ng-deep` blocks here) |
+| `_mixins.scss` | 14 reusable mixins (`dark`, `mobile/tablet/tablet-down/desktop/wide`, `focus-ring`, `truncate`, `line-clamp`, `flex-center/between/column`, `sr-only`, `reduced-motion`) — components `@use 'mixins' as m;` |
 
 **PrimeNG theme** (`config/theme.config.ts`):
-- Extends Aura preset.
-- Primary palette = extended blue (50–950).
+- Extends Aura preset (`@primeuix/themes/aura`).
+- Primary palette = Indigo Blue (50–950); palmetto + jessamine accents.
 - Component-level tokens: `Card.borderRadius=xl`, `Dialog.borderRadius=xl`, `Tag/Badge/Chip.borderRadius=pill`.
 - Dark-mode selector: `.dark` on `<html>` (toggled by `ThemeService`).
 
-**Tokens export** (❌ Phase 5): tokens.css → Tailwind `theme.extend.colors` via
-`@theme` inline or generated map — one source-of-truth for palettes, spacings,
-radii.
+**Tokens export** (✅ Done, 2026-04-29): `_tokens.scss` declares `--ep-*` on
+`:root`; `tailwind.css` `@theme inline` aliases them into Tailwind's scale so
+utilities like `bg-primary-700` resolve to `var(--ep-color-primary-700)`. Single
+source of truth for palettes, spacings, radii.
 
 **Responsive matrix.** Every shared component ships a Storybook story
 rendering at `xs / sm / md / lg / xl / 2xl` breakpoints. Visual regression
@@ -610,7 +618,7 @@ Every shared component must meet:
 - **Keyboard.** All actions reachable; tab order preserves visual order; focus-trap inside modals/drawers; ESC closes dismissibles; Enter activates primary action.
 - **ARIA.** `aria-label` on icon-only buttons; `aria-live` on toast host and loading bar; `aria-describedby` wiring for form errors; `role="dialog" aria-modal="true"` on modals.
 - **Contrast.** WCAG AA minimum (4.5:1 body, 3:1 large text) — verified in Storybook axe checks.
-- **Reduced motion.** `prefers-reduced-motion` honored in `animations.css`.
+- **Reduced motion.** Global `prefers-reduced-motion` blanket rule in `_animations.scss`; component-scope overrides via `@include m.reduced-motion { ... }`.
 - **Screen-reader verification** in CI via `@axe-core/playwright` on every merged PR.
 
 ---

@@ -16,7 +16,6 @@ import {
   AvatarComponent,
   ButtonComponent,
   ContextMenuComponent,
-  DataTableComponent,
   DialogComponent,
   DrawerComponent,
   DropdownMenuComponent,
@@ -37,10 +36,7 @@ import {
   ToastService,
   TooltipDirective,
   TreeComponent,
-  type ColumnDef,
   type FileItem,
-  type RowAction,
-  type Severity,
   type TreeNode,
 } from '@shared/components/dph';
 
@@ -268,92 +264,11 @@ export class DemoFieldErrorComponent {}
 })
 export class DemoFormLayoutComponent {}
 
-// ─── DATA TABLE ──────────────────────────────────────────────────────────────
+// ─── DATA TABLE — comprehensive demo lives in its own file ──────────────────
+export { DemoDataTableComponent } from './data-table-demos';
 
-interface SampleUser extends Record<string, unknown> {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  isActive: boolean;
-  joinedAt: string;
-  salary: number;
-}
-
-@Component({
-  selector: 'app-demo-data-table',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DataTableComponent],
-  template: `
-    <div class="dph-section">
-      <h3>Standard table — sortable columns, row actions, pagination</h3>
-      <dph-data-table
-        [config]="config"
-        [data]="rows"
-        (rowClick)="onRowClick($event.row)"
-        (actionClick)="onActionClick($event)"
-      />
-    </div>
-
-    <div class="dph-section">
-      <h3>Loading state — skeleton rows</h3>
-      <dph-data-table [config]="config" [data]="rows" [loading]="true" />
-    </div>
-
-    <div class="dph-section">
-      <h3>Empty state</h3>
-      <dph-data-table [config]="emptyConfig" [data]="emptyRows" />
-    </div>
-  `,
-  styles: [SECTION_STYLES],
-})
-export class DemoDataTableComponent {
-  protected readonly rows: readonly SampleUser[] = [
-    { id: 1, name: 'Jane Doe', email: 'jane@acme.com', role: 'Admin', isActive: true, joinedAt: '2025-03-12', salary: 85000 },
-    { id: 2, name: 'John Smith', email: 'john@acme.com', role: 'Developer', isActive: true, joinedAt: '2024-11-05', salary: 72500 },
-    { id: 3, name: 'Alice Wong', email: 'alice@acme.com', role: 'Designer', isActive: false, joinedAt: '2023-07-22', salary: 78000 },
-    { id: 4, name: 'Bob Brown', email: 'bob@acme.com', role: 'Manager', isActive: true, joinedAt: '2024-06-19', salary: 95000 },
-    { id: 5, name: 'Carla Diaz', email: 'carla@acme.com', role: 'Developer', isActive: true, joinedAt: '2025-01-03', salary: 69000 },
-  ];
-  protected readonly emptyRows: readonly SampleUser[] = [];
-
-  protected readonly config = {
-    idField: 'id',
-    striped: true,
-    sortable: true,
-    pagination: true,
-    pageSizes: [5, 10, 25],
-    defaultPageSize: 5,
-    skeletonRows: 5,
-    emptyMessage: 'No users found.',
-    emptyIcon: 'pi pi-users',
-    columns: [
-      { field: 'name', header: 'Name', sortable: true },
-      { field: 'email', header: 'Email', sortable: true },
-      { field: 'role', header: 'Role', sortable: true },
-      { field: 'isActive', header: 'Active', type: 'boolean' as const, align: 'center' as const, width: '80px' },
-      { field: 'joinedAt', header: 'Joined', type: 'date' as const, sortable: true },
-      { field: 'salary', header: 'Salary', type: 'currency' as const, align: 'right' as const, sortable: true },
-    ] satisfies ColumnDef<SampleUser>[],
-    rowActions: [
-      { key: 'edit', label: 'Edit', icon: 'pi pi-pencil' },
-      { key: 'delete', label: 'Delete', icon: 'pi pi-trash', severity: 'danger' as const },
-    ] satisfies RowAction<SampleUser>[],
-  };
-
-  protected readonly emptyConfig = {
-    ...this.config,
-    emptyMessage: 'Nothing here yet — add a user to get started.',
-  };
-
-  protected onRowClick(row: SampleUser): void {
-    console.info('row click', row);
-  }
-  protected onActionClick(e: { action: string; row: SampleUser }): void {
-    console.info('action', e);
-  }
-}
+// ─── STEPS — comprehensive demo lives in its own file ───────────────────────
+export { DemoStepsComponent } from './steps-demos';
 
 // ─── LIST ────────────────────────────────────────────────────────────────────
 
@@ -611,7 +526,7 @@ export class DemoMediaComponent {
 
     <div class="dph-section">
       <h3>Steps — wizard progress</h3>
-      <dph-steps [config]="{ activeIndex: stepIdx(), steps: wizardSteps }" (stepClick)="stepIdx.set($event)" />
+      <dph-steps [config]="{ activeIndex: stepIdx(), steps: wizardSteps }" (stepClick)="stepIdx.set($event.index)" />
       <div class="dph-row" style="margin-top: 1rem;">
         <dph-button label="Previous" variant="ghost" [disabled]="stepIdx() === 0" (clicked)="stepIdx.set(stepIdx() - 1)" />
         <dph-button label="Next" [disabled]="stepIdx() >= wizardSteps.length - 1" (clicked)="stepIdx.set(stepIdx() + 1)" />
@@ -635,9 +550,9 @@ export class DemoMenuComponent {
     { id: 'delete', label: 'Delete', icon: 'pi pi-trash', command: () => console.info('delete') },
   ];
   protected readonly wizardSteps = [
-    { label: 'Account', icon: 'pi pi-user', description: 'Basic info' },
-    { label: 'Preferences', icon: 'pi pi-cog', description: 'Tune your settings' },
-    { label: 'Review', icon: 'pi pi-check', description: 'Confirm and finish' },
+    { key: 'account', label: 'Account', icon: 'pi pi-user', description: 'Basic info' },
+    { key: 'prefs', label: 'Preferences', icon: 'pi pi-cog', description: 'Tune your settings' },
+    { key: 'review', label: 'Review', icon: 'pi pi-check', description: 'Confirm and finish' },
   ];
 }
 

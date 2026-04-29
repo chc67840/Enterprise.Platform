@@ -1,0 +1,233 @@
+@use 'mixins' as m;
+
+:host {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.ep-nav-menu {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ep-nav-menu__list {
+  display: flex;
+  align-items: stretch;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;          /* Firefox */
+}
+.ep-nav-menu__list::-webkit-scrollbar { display: none; }   /* WebKit */
+.ep-nav-menu--vertical .ep-nav-menu__list {
+  flex-direction: column;
+  gap: 0;
+  overflow-x: visible;
+  overflow-y: auto;
+}
+
+.ep-nav-menu__li { position: relative; display: flex; flex-shrink: 0; }
+
+/*
+ * Padding tightened from 0.875rem → 0.625rem so 5–7 items fit on a
+ * 1280-wide laptop without the centre menu pushing into the right zone.
+ */
+.ep-nav-menu__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+}
+.ep-nav-menu__link--disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.ep-nav-menu__chevron { opacity: 0.7; }
+.ep-nav-menu__label { line-height: 1; }
+
+/* tone: dark */
+.ep-nav-menu--dark .ep-nav-menu__link { color: rgba(255, 255, 255, 0.92); }
+.ep-nav-menu--dark .ep-nav-menu__link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.ep-nav-menu--dark .ep-nav-menu__item--active {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: inset 0 -2px 0 0 var(--ep-color-jessamine-500);
+}
+.ep-nav-menu--dark .ep-nav-menu__link:focus-visible { @include m.focus-ring; }
+
+/*
+ * tone: light (mobile drawer)
+ * - Persistent 4px LEFT border (transparent when inactive, jessamine
+ *   when active) so the active state never changes element width →
+ *   no layout shift on routerLink swap.
+ * - 56px min-height = WCAG 2.5.5 generous touch target.
+ * - color stays neutral-800 even when active (no font-weight change,
+ *   no width change) — the accent border + tinted background carry
+ *   the "this is the current page" signal.
+ */
+.ep-nav-menu--light .ep-nav-menu__link {
+  color: var(--ep-color-neutral-800);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  border-left: 4px solid transparent;
+  border-radius: 0;
+  justify-content: flex-start;
+}
+.ep-nav-menu--light .ep-nav-menu__link:hover { background-color: var(--ep-color-primary-50); }
+.ep-nav-menu--light .ep-nav-menu__item--active {
+  background-color: color-mix(in srgb, var(--ep-color-jessamine-500) 12%, transparent);
+  color: var(--ep-color-primary-800);
+  border-left-color: var(--ep-color-jessamine-500);
+}
+
+/* variant: tabs */
+.ep-nav-menu--tabs .ep-nav-menu__item--active {
+  background-color: transparent;
+  box-shadow: inset 0 -3px 0 0 var(--ep-color-jessamine-500);
+}
+
+/* variant: icon */
+.ep-nav-menu--icon .ep-nav-menu__link {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  justify-content: center;
+  font-size: 1.125rem;
+}
+
+/* badges */
+.ep-nav-menu__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ep-nav-menu__badge[data-variant='info'] { background-color: var(--ep-color-primary-500); color: #fff; }
+.ep-nav-menu__badge[data-variant='success'] { background-color: var(--ep-color-palmetto-500); color: #fff; }
+.ep-nav-menu__badge[data-variant='warning'] { background-color: var(--ep-color-jessamine-500); color: var(--ep-color-primary-900); }
+.ep-nav-menu__badge[data-variant='danger'] { background-color: var(--ep-color-danger-600, #dc2626); color: #fff; }
+.ep-nav-menu__badge[data-variant='secondary'] { background-color: var(--ep-color-neutral-300); color: var(--ep-color-neutral-800); }
+
+// DEBT: .ep-nav-menu__dropdown / .ep-nav-menu__mega target popover content that
+// PrimeNG renders into <body>. They were `:host ::ng-deep .ep-nav-menu__*` previously,
+// but the keyword is irrelevant under viewEncapsulation:'None'. Selectors are
+// component-prefixed so collision is unlikely; revisit if encapsulation default changes.
+.ep-nav-menu__dropdown { min-width: 14rem; padding: 0.25rem; }
+.ep-nav-menu__dropdown-list { list-style: none; padding: 0; margin: 0; }
+.ep-nav-menu__dropdown-heading {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ep-color-neutral-500);
+}
+.ep-nav-menu__dropdown-divider {
+  height: 1px;
+  background-color: var(--ep-color-neutral-200);
+  margin: 0.25rem 0;
+}
+.ep-nav-menu__dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  color: var(--ep-color-neutral-800);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.ep-nav-menu__dropdown-link:hover {
+  background-color: var(--ep-color-primary-50);
+  color: var(--ep-color-primary-800);
+}
+.ep-nav-menu__dropdown-link--active {
+  background-color: var(--ep-color-primary-100);
+  color: var(--ep-color-primary-900);
+}
+.ep-nav-menu__dropdown-link:focus-visible {
+  outline: 2px solid var(--ep-color-primary-500);
+  outline-offset: -2px;
+}
+
+// DEBT: same as above for the mega panel.
+.ep-nav-menu__mega {
+  min-width: clamp(28rem, 48vw, 42rem);
+  padding: 1rem 1.25rem;
+}
+.ep-nav-menu__sections {
+  --section-count: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+  gap: 1.25rem;
+}
+@media (max-width: 768px) { .ep-nav-menu__sections { grid-template-columns: 1fr; } }
+.ep-nav-menu__section-heading {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ep-color-neutral-500);
+}
+.ep-nav-menu__section-sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-600);
+}
+.ep-nav-menu__section-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.125rem; }
+.ep-nav-menu__leaf {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.375rem;
+  color: var(--ep-color-neutral-800);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.ep-nav-menu__leaf:hover { background-color: var(--ep-color-primary-50); }
+.ep-nav-menu__leaf--active { background-color: var(--ep-color-primary-100); color: var(--ep-color-primary-900); }
+.ep-nav-menu__leaf:focus-visible {
+  outline: 2px solid var(--ep-color-primary-500);
+  outline-offset: -2px;
+}
+.ep-nav-menu__leaf > i { color: var(--ep-color-primary-700); margin-top: 0.125rem; }
+.ep-nav-menu__leaf-label { display: block; font-weight: 500; line-height: 1.2; }
+.ep-nav-menu__leaf-desc {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-600);
+}
+
+.ep-nav-menu__link,
+.ep-nav-menu__dropdown-link,
+.ep-nav-menu__leaf {
+  @include m.reduced-motion {
+    transition: none;
+  }
+}

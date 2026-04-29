@@ -39,14 +39,7 @@ import type { DrawerConfig } from './dph.types';
       <ng-content />
     </p-drawer>
   `,
-  styles: [
-    `
-      :host { display: contents; }
-      :host ::ng-deep .dph-drawer .p-drawer-content {
-        overscroll-behavior: contain;
-      }
-    `,
-  ],
+  styleUrl: './drawer.component.scss',
 })
 export class DrawerComponent {
   readonly config = input.required<DrawerConfig>();

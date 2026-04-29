@@ -1,0 +1,259 @@
+// ─── _mixins.scss ──────────────────────────────────────────────────────────
+//
+// Reusable Sass mixins extracted from repeated patterns in component styles.
+// Each mixin codifies a pattern that appears 3+ times across components, or
+// is required by the SCSS architecture (the `dark` mixin).
+//
+// USAGE PATTERN
+//   At the top of a component SCSS file:
+//     @use 'mixins' as m;
+//
+//   Then reference mixins by their namespace prefix:
+//     .my-class {
+//       @include m.focus-ring;
+//
+//       @include m.dark {
+//         background-color: rgba(0, 0, 0, 0.4);
+//       }
+//
+//       @include m.desktop {
+//         padding: 1.5rem;
+//       }
+//     }
+//
+// WHY NAMESPACED (`as m`)
+//   `@use` is module-scoped — variables/mixins from a `@use`d partial don't
+//   leak globally. Prefixing keeps call sites readable and prevents
+//   collisions with future component-local mixins of the same name.
+// ──────────────────────────────────────────────────────────────────────────
+
+// ─── Dark mode ────────────────────────────────────────────────────────────
+//
+// `ThemeService` applies the `.dark` class on `<html>`. Most theming flows
+// through `_tokens.scss` `:root.dark { ... }` token swaps (surfaces, text,
+// borders, shadows). This mixin is for the rare component-scope dark
+// overrides that token swaps cannot express (e.g., a translucent overlay
+// whose alpha is intentionally darker on dark surfaces).
+//
+// SELECTOR CHOICE
+//   `:root.dark &` (not `.dark &`) — both match the same elements (since
+//   `<html>` IS `:root`), but `:root.dark` mirrors the convention used in
+//   `_tokens.scss`. Consistency makes the codebase easier to grep.
+//
+// EXAMPLE
+//   .dph-modal__backdrop {
+//     background-color: rgba(0, 0, 0, 0.45);
+//
+//     @include m.dark {
+//       background-color: rgba(0, 0, 0, 0.7);
+//     }
+//   }
+@mixin dark {
+  :root.dark & {
+    @content;
+  }
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────
+//
+// Breakpoint values match what's actually used in existing component styles
+// across this codebase (audit phase 0). They align with Tailwind v4's
+// default scale so utility classes (`md:flex-row`, `lg:hidden`) and these
+// mixins target the same widths:
+//
+//   mobile      ≤ 767px    (Tailwind default `sm:` triggers AT 640px;
+//                           we use 767px to match existing component CSS)
+//   tablet      640–1023px (between-breakpoint range — when a layout needs
+//                           a distinct "tablet only" tweak)
+//   tablet-down ≤ 1023px   (everything below desktop — for "show on touch")
+//   desktop     ≥ 1024px   (the most common breakpoint in this codebase —
+//                           chrome / navbar / data-table layout flips here)
+//   wide        ≥ 1280px   (Tailwind `xl:` — wider data tables, multi-col
+//                           dashboards)
+//
+// EXAMPLE
+//   .ep-sidebar {
+//     display: none;
+//
+//     @include m.desktop {
+//       display: block;
+//     }
+//   }
+@mixin mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: 640px) and (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin tablet-down {
+  @media (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin wide {
+  @media (min-width: 1280px) {
+    @content;
+  }
+}
+
+// ─── Reduced motion ───────────────────────────────────────────────────────
+//
+// Wraps the `prefers-reduced-motion: reduce` media query so component-local
+// motion overrides stay readable. The global blanket rule in
+// `_animations.scss` already kills `animation` / `transition` durations
+// site-wide; this mixin is for cases where a component substitutes an
+// alternative non-motion treatment (e.g., crossfade instead of slide).
+//
+// EXAMPLE
+//   .ep-toast {
+//     transform: translateY(-10px);
+//     transition: transform 200ms;
+//
+//     @include m.reduced-motion {
+//       transform: none;
+//       opacity: 0;
+//       transition: opacity 200ms;
+//     }
+//   }
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+// ─── Focus ring ───────────────────────────────────────────────────────────
+//
+// Keyboard-focus visual signal. The pattern
+//   `outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px;`
+// repeats across ~6 components (panel close, panel toggle, expand button,
+// data-table action, drawer close, etc.).
+//
+// COLOR
+//   References the `--ep-color-jessamine-*` accent token so a per-tenant
+//   rebrand of the accent palette flows through every focus ring without
+//   touching component styles.
+//
+// EXAMPLE
+//   .dph-panel__close:focus-visible {
+//     @include m.focus-ring;
+//   }
+@mixin focus-ring {
+  outline: 2px solid var(--ep-color-jessamine-500);
+  outline-offset: 2px;
+}
+
+// ─── Text truncation ──────────────────────────────────────────────────────
+//
+// Single-line ellipsis. The 3-line pattern (`overflow:hidden;
+// text-overflow:ellipsis; white-space:nowrap`) appears in ~12 components
+// (avatar initials, breadcrumb segment, button label, file-list name,
+// nav-menu item, data-table cell, etc.). Using the mixin instead of
+// open-coding it makes intent explicit and prevents the
+// `white-space:nowrap` line being dropped accidentally during edits.
+//
+// EXAMPLE
+//   .dph-button__label {
+//     @include m.truncate;
+//   }
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ─── Multi-line clamp ─────────────────────────────────────────────────────
+//
+// N-line ellipsis using the `-webkit-line-clamp` mechanism (cross-browser
+// since Firefox 68 / Safari 5). Caller passes the line count; defaults to
+// 2 (the most common usage in this codebase — toast body, notification
+// preview, dialog message).
+//
+// EXAMPLE
+//   .ep-notification__body { @include m.line-clamp(3); }
+@mixin line-clamp($lines: 2) {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  line-clamp: $lines;
+  -webkit-box-orient: vertical;
+}
+
+// ─── Flex helpers ─────────────────────────────────────────────────────────
+//
+// Three patterns appear repeatedly across the chrome and DPH components:
+//
+//   flex-center  — center both axes (icon + label, avatar bubble, badge)
+//   flex-between — title left, actions right (panel header, toolbar row,
+//                  list item, drawer header)
+//   flex-column  — stack with no gap default (form layout, file list,
+//                  notification body)
+//
+// The mixins exist to make intent legible at the call site
+// (`@include m.flex-between` reads better than three open-coded lines)
+// and to keep `align-items: center` from drifting out of sync with
+// `justify-content: space-between` when a developer edits one and forgets
+// the other.
+//
+// EXAMPLE
+//   .dph-panel__header {
+//     @include m.flex-between;
+//     padding: var(--ep-space-3) var(--ep-space-4);
+//   }
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// ─── Screen-reader only ───────────────────────────────────────────────────
+//
+// Hides content visually but leaves it discoverable to assistive tech.
+// Used for label text on icon-only buttons, inline error live-regions, and
+// "skip to content" links. Matches the WHATWG / WAI-ARIA-recommended
+// implementation (1×1 clip rect rather than `display:none`, which would
+// also hide it from screen readers).
+//
+// EXAMPLE
+//   <button>
+//     <i class="pi pi-times" aria-hidden="true"></i>
+//     <span class="sr-only">Close dialog</span>
+//   </button>
+//
+//   .dph-icon-button .sr-only {
+//     @include m.sr-only;
+//   }
+@mixin sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

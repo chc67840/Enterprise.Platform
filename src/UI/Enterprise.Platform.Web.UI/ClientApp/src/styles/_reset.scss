@@ -1,0 +1,186 @@
+// ─── _reset.scss ──────────────────────────────────────────────────────────
+//
+// Angular + PrimeNG-aware baseline + chrome interaction guards.
+// Migrated verbatim from the pre-2026-04-29 master CSS entry — every rule
+// below was previously inline. Splitting them out lets the Sass entry
+// (`styles.scss`) focus on composition (`@use` partials, primeicons),
+// while the Tailwind directive + `@theme inline` block live in the
+// sibling `tailwind.css`.
+//
+// CONTENTS
+//   1. html/body dimensions + scroll model
+//   2. :focus-visible uniform ring
+//   3. @media print reset (kills sticky/fixed chrome on print)
+//   4. Chrome interaction guards (touch-action + tap-highlight)
+//
+// SCROLL MODEL — locked-in: document scroll
+//   The window owns the scroll; the navbar uses position:sticky against the
+//   document. We DO NOT adopt the "app-scroll" pattern (body:overflow:hidden
+//   + main as scroll owner) because (a) we have no sidebar / data tables /
+//   split panes that require it, (b) it would invalidate the sticky context
+//   on the navbar, and (c) Angular Router's built-in
+//   scrollPositionRestoration only works for window scroll.
+//
+// FORBIDDEN PATTERNS UNDER THE DOCUMENT-SCROLL MODEL
+//   - position:fixed on in-page chrome that should scroll with content
+//   - height:100vh anywhere (use 100dvh — fixes iOS Safari toolbar bug)
+//   - overflow:hidden on body (kills page scroll entirely)
+//   - manual window.scrollY listeners for layout decisions (use
+//     IntersectionObserver)
+//
+// If/when the first data table with frozen headers, split pane, or
+// virtual-scroll feed lands, revisit and migrate to app-scroll surgically
+// (one feature at a time).
+// ──────────────────────────────────────────────────────────────────────────
+
+html,
+body {
+  height: 100%;
+  background: var(--ep-surface-0);
+  color: var(--ep-text-primary);
+}
+
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+
+html {
+  // Reserves the scrollbar gutter at all times so content doesn't jump
+  // horizontally when a page goes from short → long (scrollbar appears).
+  scrollbar-gutter: stable;
+  // Smooth in-page anchor scrolling — respects prefers-reduced-motion
+  // automatically per CSS spec.
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  // Primary face — Noto Sans w/ deep system fallback. Every page paints
+  // with the right typeface even before web-font swap completes.
+  font-family: var(--ep-font-primary);
+  font-size: var(--ep-text-base);
+  line-height: var(--ep-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  // Stops iOS rubber-band scroll past the document edges from bouncing the
+  // underlying chrome (status banners, sticky navbar).
+  overscroll-behavior-y: none;
+}
+
+// ─── Print media reset ────────────────────────────────────────────────────
+//
+// Without this, position:sticky / fixed elements + fixed-height containers
+// print as a single viewport-sized box, wasting pages. Applies to every
+// page; reports + audit pages depend on it.
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .ep-navbar,
+  .ep-mobile-menu,
+  .ep-mobile-backdrop,
+  .ep-footer__accent,
+  app-status-banner-host,
+  p-toast,
+  p-confirmdialog {
+    display: none !important;
+  }
+
+  .ep-navbar {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  // Long URLs after links so print is self-describing.
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+    color: #555;
+  }
+
+  a[href^='#']::after,
+  a[href^='javascript']::after {
+    content: '';
+  }
+
+  // Avoid widows / orphans inside data rows when tables eventually arrive.
+  tr,
+  li {
+    page-break-inside: avoid;
+  }
+}
+
+// ─── Uniform focus ring (`:focus-visible` across primitives) ──────────────
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ep-shadow-focus);
+  border-radius: var(--ep-radius-md);
+}
+
+// ─── CHROME INTERACTION GUARDS (production-hardened) ──────────────────────
+//
+// Targets every interactive element inside the canonical chrome surfaces
+// (.ep-navbar, .ep-mobile-menu, .ep-footer). Lives in global styles so it
+// cascades through component encapsulation boundaries — sub-components
+// (app-nav-menu, app-user-menu-button, app-notification-bell, etc.) inherit
+// automatically without each needing to re-implement the rule.
+//
+// 1. touch-action: manipulation
+//      Eliminates the 300 ms double-tap-zoom delay on iOS Safari + older
+//      Android Chrome. Without it, every tap waits up to 300 ms to see if
+//      a second tap arrives → users perceive the navbar as unresponsive
+//      and tap repeatedly, sometimes opening + immediately closing menus.
+//
+// 2. -webkit-tap-highlight-color: transparent
+//      Suppresses the gray flash overlay that mobile WebKit paints over
+//      tapped controls. Visually breaks our brand focus rings.
+//
+// 3. Children of buttons/links: pointer-events: none + user-select: none
+//      The single most impactful UX fix in any chrome refactor: when an
+//      <i>, <span>, or <svg> sits inside <button>/<a>, mobile browsers
+//      sometimes deliver the tap event to the child node rather than the
+//      button. The (click) handler is on the button → nothing fires →
+//      user taps again. This rule forces every tap on the button surface
+//      (and its painted children) to register on the button itself.
+//
+//      We intentionally exclude children that carry their OWN role/aria
+//      contract (e.g. nested action items inside a menu); those want the
+//      events.
+//
+// SCOPE
+//   Opt-in via the chrome class names so app content (forms, tables,
+//   editors) keeps its native click behaviour.
+
+.ep-navbar a,
+.ep-navbar button,
+.ep-mobile-menu a,
+.ep-mobile-menu button,
+.ep-footer a,
+.ep-footer button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ep-navbar a > i,
+.ep-navbar a > svg,
+.ep-navbar a > span:not([role]):not([aria-label]),
+.ep-navbar button > i,
+.ep-navbar button > svg,
+.ep-navbar button > span:not([role]):not([aria-label]),
+.ep-mobile-menu a > i,
+.ep-mobile-menu a > svg,
+.ep-mobile-menu button > i,
+.ep-mobile-menu button > svg,
+.ep-footer a > i,
+.ep-footer a > svg,
+.ep-footer button > i,
+.ep-footer button > svg {
+  pointer-events: none;
+  user-select: none;
+}

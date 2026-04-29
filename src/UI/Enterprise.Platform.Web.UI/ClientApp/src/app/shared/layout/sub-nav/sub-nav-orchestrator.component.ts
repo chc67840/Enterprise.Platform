@@ -68,17 +68,7 @@ import type { PageHeaderConfig } from './sub-nav.types';
       }
     </div>
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .ep-sub-nav__container {
-        max-width: var(--ep-content-max);
-        margin: 0 auto;
-        padding: 0 1rem;
-      }
-      @media (min-width: 640px) { .ep-sub-nav__container { padding: 0 1.5rem; } }
-    `,
-  ],
+  styleUrl: './sub-nav-orchestrator.component.scss',
 })
 export class SubNavOrchestratorComponent {
   private readonly router = inject(Router);

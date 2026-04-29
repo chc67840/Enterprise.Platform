@@ -1,0 +1,194 @@
+<style>
+.sq5{font-family:var(--font-sans);padding:0 0 1rem}
+.sq5-hdr{font-size:12px;font-weight:500;color:var(--color-text-secondary);padding:5px 10px;background:var(--color-background-secondary);border-left:2px solid var(--color-border-secondary);margin-bottom:14px}
+.sq5-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.sq5-tab{padding:4px 12px;font-size:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.sq5-tab.on{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500;border-color:var(--color-border-primary)}
+.sq5-panel{display:none}
+.sq5-panel.vis{display:block}
+.sq5-ask{font-size:11px;padding:3px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;margin-top:10px;margin-right:6px;display:inline-block}
+</style>
+<div class="sq5">
+<div class="sq5-hdr">Authenticated proxy request — Angular → BFF → downstream API</div>
+<div class="sq5-tabs" id="sq5nav"></div>
+<div id="sq5panels"></div>
+</div>
+<script>
+const W5 = 650;
+const PARTS5 = [
+  {l:'Component',    fill:'#E6F1FB', tc:'#0C447C'},
+  {l:'ApiService',   fill:'#E6F1FB', tc:'#0C447C'},
+  {l:'Interceptors', fill:'#EEEDFE', tc:'#3C3489'},
+  {l:'Browser fetch', fill:'#E6F1FB', tc:'#0C447C'},
+  {l:'BFF pipeline', fill:'#E1F5EE', tc:'#085041'},
+  {l:'ProxyController', fill:'#E1F5EE', tc:'#085041'},
+  {l:'Downstream API', fill:'#FAEEDA', tc:'#633806'},
+];
+const N5 = PARTS5.length;
+const CW5 = W5 / N5;
+const cx5 = i => CW5*i + CW5/2;
+
+function hdrs(h) {
+  let s = '';
+  PARTS5.forEach((p, i) => {
+    s += `<rect x="${CW5*i+1}" y="8" width="${CW5-2}" height="22" rx="3" fill="${p.fill}" stroke="none"/>`;
+    const lbl = p.l.length > 11 ? p.l.slice(0,10)+'…' : p.l;
+    s += `<text x="${cx5(i)}" y="19" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:500;fill:${p.tc};font-family:var(--font-sans)">${lbl}</text>`;
+  });
+  PARTS5.forEach((_, i) => {
+    s += `<line x1="${cx5(i)}" y1="30" x2="${cx5(i)}" y2="${h-8}" stroke="var(--color-border-tertiary)" stroke-width="0.5" stroke-dasharray="3 3"/>`;
+  });
+  return s;
+}
+
+function mkrs() {
+  return `<defs>
+    <marker id="m5f" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="1.5"/></marker>
+    <marker id="m5r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5"/></marker>
+    <marker id="m5g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5"/></marker>
+  </defs>`;
+}
+
+function arrow(x1,y,x2,ret,dash,err){
+  const col = err ? '#E24B4A' : ret ? '#888780' : '#185FA5';
+  const mk = ret ? 'm5r' : 'm5f';
+  const isL = x2<x1;
+  const lx2 = isL ? x2+5 : x2-5;
+  const d = (dash||ret) ? 'stroke-dasharray="4 3"' : '';
+  return `<line x1="${x1}" y1="${y}" x2="${lx2}" y2="${y}" stroke="${col}" stroke-width="0.75" ${d} marker-end="url(#${mk})"/>`;
+}
+
+function selfNote(at, y, txt, fill) {
+  const x = cx5(at);
+  const bg = fill || 'var(--color-background-secondary)';
+  return `<rect x="${x-CW5/2+2}" y="${y}" width="${CW5-4}" height="18" rx="3" fill="${bg}" stroke="none"/>
+<text x="${x}" y="${y+9}" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:var(--color-text-secondary);font-family:var(--font-sans)">${txt}</text>`;
+}
+
+function band(y, w, txt, fill, tc) {
+  return `<rect x="2" y="${y}" width="${w-4}" height="13" rx="2" fill="${fill}" stroke="none"/>
+<text x="${w/2}" y="${y+6.5}" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;font-weight:500;fill:${tc};font-family:var(--font-sans)">${txt}</text>`;
+}
+
+function lbl(x, y, txt, col) {
+  return `<text x="${x}" y="${y}" text-anchor="middle" style="font-size:8.5px;fill:${col||'var(--color-text-secondary)'};font-family:var(--font-sans)">${txt.length>46?txt.slice(0,45)+'…':txt}</text>`;
+}
+
+function numtxt(n, y) {
+  return n ? `<text x="0" y="${y+4}" style="font-size:8.5px;fill:var(--color-text-tertiary);font-family:var(--font-sans)">${n}</text>` : '';
+}
+
+const STAGES5 = [
+  {
+    label:'1. Angular → BFF',
+    ask:'What do all 8 interceptors do and in what order should they run on the request path vs response path?',
+    build: function() {
+      let msgs=[
+        {n:1,  f:0, t:1, l:'usersApi.getAll()'},
+        {n:2,  f:1, t:2, l:'HttpClient.get(\'/api/proxy/v1/users\')'},
+        {band:true, txt:'Interceptor chain (outbound)', fill:'#EEEDFE', tc:'#3C3489'},
+        {self:2, l:'1-corr → 2-security → 3-cache → 4-dedup → 5-loading → 6-log → 7-retry → 8-error'},
+        {n:3,  f:2, t:3, l:'clone req + X-Correlation-ID, X-XSRF-TOKEN, X-Requested-With'},
+        {n:4,  f:3, t:4, l:'GET /api/proxy/v1/users  Cookie: ep.bff.session  X-XSRF-TOKEN: …'},
+      ];
+      return msgs;
+    },
+  },
+  {
+    label:'2. BFF pipeline',
+    ask:'What headers does the BFF copy from the downstream API response and which hop-by-hop headers must be stripped?',
+    build: function() {
+      return [
+        {band:true, txt:'BFF middleware executes in registered order', fill:'#E1F5EE', tc:'#085041'},
+        {self:4, l:'SecurityHeaders → CorrelationId → ExceptionHandler → HSTS → Routing → CORS → RateLimiter → Auth → Authz'},
+        {n:5,  f:4, t:4, self:true, l:'AuthenticateAsync(ep.bff) → OnValidatePrincipal → TokenRefreshService'},
+        {n:6,  f:4, t:5, l:'route match /api/proxy/{**path}'},
+        {self:5, l:'[Authorize] satisfied — cookie principal valid'},
+        {self:5, l:'[AutoValidateAntiforgeryToken] compare XSRF-TOKEN cookie vs header'},
+        {self:5, l:'GetTokenAsync(\'access_token\') from cookie ticket'},
+        {self:5, l:'build HttpRequestMessage — copy safe headers, add Authorization: Bearer'},
+      ];
+    },
+  },
+  {
+    label:'3. Downstream + response',
+    ask:'How should ProxyController stream the response body — buffer it or use HttpContext.Response.Body directly?',
+    build: function() {
+      return [
+        {n:7,  f:5, t:6, l:'GET ApiBaseUri/v1/users'},
+        {n:8,  f:6, t:5, l:'200 [DTO[]]', ret:true, dashed:true},
+        {self:5, l:'copy status + safe response headers → stream body to client'},
+        {n:9,  f:5, t:3, l:'200 [DTO[]]', ret:true, dashed:true},
+        {band:true, txt:'Interceptor chain (inbound)', fill:'#EEEDFE', tc:'#3C3489'},
+        {self:2, l:'7-retry no-op → 6-log ("200 in 47ms") → 5-loading.dec() → 4-dedup release → 3-cache populate'},
+        {n:10, f:2, t:1, l:'HttpResponse', ret:true, dashed:true},
+        {n:11, f:1, t:0, l:'typed DTO[]', ret:true, dashed:true},
+        {self:0, l:'store.set(items) → OnPush re-render'},
+      ];
+    },
+  },
+];
+
+function buildStage(s) {
+  const items = s.build();
+  let h = 44;
+  items.forEach(m => {
+    if (m.band) h += 17;
+    else if (m.self !== undefined || ('self' in m && m.self === true)) h += 22;
+    else h += 32;
+  });
+  h += 16;
+
+  let svg = `<svg width="100%" viewBox="0 0 ${W5} ${h}" style="display:block">${mkrs()}${hdrs(h)}`;
+  let y = 42;
+
+  items.forEach(m => {
+    if (m.band) {
+      svg += band(y, W5, m.txt, m.fill, m.tc);
+      y += 17;
+    } else if (typeof m.self === 'number' || (m.self === true)) {
+      const at = typeof m.self === 'number' ? m.self : m.at;
+      svg += selfNote(at, y, m.l);
+      y += 22;
+    } else if (m.self !== undefined && m.n) {
+      svg += selfNote(m.f, y, m.l);
+      y += 22;
+    } else {
+      const x1 = cx5(m.f), x2 = cx5(m.t);
+      const mid = (x1+x2)/2;
+      svg += numtxt(m.n, y);
+      svg += lbl(mid, y+4, m.l);
+      svg += arrow(x1, y+14, x2, m.ret, m.dashed);
+      y += 32;
+    }
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+const nav = document.getElementById('sq5nav');
+const panels = document.getElementById('sq5panels');
+
+STAGES5.forEach((s, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'sq5-tab'+(i===0?' on':'');
+  btn.textContent = s.label;
+  btn.onclick = () => {
+    document.querySelectorAll('.sq5-tab').forEach((b,j) => b.className='sq5-tab'+(j===i?' on':''));
+    document.querySelectorAll('.sq5-panel').forEach((p,j) => p.className='sq5-panel'+(j===i?' vis':''));
+  };
+  nav.appendChild(btn);
+
+  const div = document.createElement('div');
+  div.className = 'sq5-panel'+(i===0?' vis':'');
+  div.innerHTML = buildStage(s);
+  if (s.ask) {
+    const ab = document.createElement('button');
+    ab.className = 'sq5-ask';
+    ab.textContent = `Ask: ${s.ask} ↗`;
+    ab.onclick = () => sendPrompt(s.ask);
+    div.appendChild(ab);
+  }
+  panels.appendChild(div);
+});
+</script>

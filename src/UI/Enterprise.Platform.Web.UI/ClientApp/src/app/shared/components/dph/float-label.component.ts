@@ -25,11 +25,7 @@ import type { FloatLabelConfig } from './dph.types';
       <label [attr.for]="config().labelId || null">{{ config().label }}</label>
     </p-floatlabel>
   `,
-  styles: [
-    `
-      :host { display: block; width: 100%; }
-    `,
-  ],
+  styleUrl: './float-label.component.scss',
 })
 export class FloatLabelComponent {
   readonly config = input.required<FloatLabelConfig>();

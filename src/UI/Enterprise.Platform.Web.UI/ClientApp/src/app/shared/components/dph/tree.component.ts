@@ -45,17 +45,7 @@ import type { TreeConfig, TreeNode } from './dph.types';
       (onNodeCollapse)="nodeCollapse.emit($any($event.node))"
     />
   `,
-  styles: [
-    `
-      :host { display: block; }
-      :host ::ng-deep .dph-tree .p-tree-filter-container { padding: 0.5rem; }
-      :host ::ng-deep .dph-tree .p-treenode-content { border-radius: var(--ep-radius-sm); }
-      :host ::ng-deep .dph-tree .p-treenode-content:focus-visible {
-        outline: 2px solid var(--ep-color-jessamine-500);
-        outline-offset: 2px;
-      }
-    `,
-  ],
+  styleUrl: './tree.component.scss',
 })
 export class TreeComponent<T = unknown> {
   readonly config = input.required<TreeConfig<T>>();

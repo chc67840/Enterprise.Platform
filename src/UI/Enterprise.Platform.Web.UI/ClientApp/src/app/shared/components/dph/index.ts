@@ -21,7 +21,14 @@ export { FormLayoutComponent } from './form-layout.component';
 export { DrawerComponent } from './drawer.component';
 
 // Phase C — data
-export { DataTableComponent } from './data-table.component';
+export { DataTableComponent, LocalDataSource } from './data-table.component';
+export { LiveDataTableComponent } from './live-data-table.component';
+export { CellRendererComponent as DphCellComponent } from './data-table/cell-renderer.component';
+export { ColumnFilterComponent as DphColumnFilterComponent } from './data-table/column-filter.component';
+export { ColumnChooserComponent as DphColumnChooserComponent } from './data-table/column-chooser.component';
+export { BulkToolbarComponent as DphBulkToolbarComponent } from './data-table/bulk-action-toolbar.component';
+export { RemoteDataSource } from './data-table/data-source';
+export type { DataTableSource } from './data-table/data-source';
 export { ListComponent } from './list.component';
 export { TreeComponent } from './tree.component';
 export { PanelComponent } from './panel.component';
@@ -32,6 +39,7 @@ export { ImageComponent } from './image.component';
 export { GalleryComponent } from './gallery.component';
 export { InlineMessageComponent } from './inline-message.component';
 export { StepsComponent } from './steps.component';
+export { WizardButtonsComponent } from './wizard-buttons.component';
 export { DropdownMenuComponent } from './dropdown-menu.component';
 export { ContextMenuComponent } from './context-menu.component';
 export { PopoverComponent } from './popover.component';
@@ -43,15 +51,24 @@ export { FilePreviewComponent } from './file-preview.component';
 // Shared types
 export type {
   AvatarConfig,
+  BulkAction,
   ButtonConfig,
+  CellOptions,
+  CellType,
   ColumnDef,
+  ColumnFilter,
   ContextMenuConfig,
+  DataSource,
   DialogConfig,
   DrawerConfig,
   DropdownMenuConfig,
   FieldErrorConfig,
   FileItem,
   FileUploadConfig,
+  FilterDef,
+  FilterOp,
+  FilterType,
+  FilterValue,
   FloatLabelConfig,
   FormLayoutConfig,
   FormSection,
@@ -62,6 +79,7 @@ export type {
   ListConfig,
   MenuItem,
   MessageDescriptor,
+  MultiSortState,
   OptionItem,
   PaginationState,
   PanelConfig,
@@ -71,9 +89,16 @@ export type {
   Size,
   SortDirection,
   SortState,
+  StepDescriptor,
+  StepState,
   StepsConfig,
+  StepsVariant,
   TableConfig,
+  TablePage,
+  TableQuery,
+  TableToolbarConfig,
   TreeConfig,
   TreeNode,
   Variant,
+  WizardButtonsConfig,
 } from './dph.types';

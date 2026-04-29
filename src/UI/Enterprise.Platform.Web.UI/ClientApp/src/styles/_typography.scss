@@ -3,9 +3,11 @@
  *
  * WHY THIS FILE EXISTS
  *   Self-hosted (and licensed-commercial) faces are declared here so the
- *   `font-family` tokens in `tokens.css` can refer to them by name. Loaded
- *   BEFORE `@theme` in `styles.css` so Tailwind's font utilities resolve to
- *   the right family names.
+ *   `font-family` tokens in `_tokens.scss` can refer to them by name. The
+ *   Sass entry `styles.scss` `@use`s this file before any `_primeng-overrides`
+ *   block; Tailwind's `@theme inline { --font-primary: var(--ep-font-primary) }`
+ *   bridge in the sibling `tailwind.css` then surfaces the families through
+ *   utilities like `class="font-primary"`.
  *
  * LOADING STRATEGY
  *   - `font-display: swap` — text paints in the fallback face IMMEDIATELY,
@@ -42,7 +44,7 @@
  *   Adobe commercial typeface. Must be licensed (Adobe Fonts / Creative
  *   Cloud kit, or perpetual desktop licence + web embedding addendum).
  *   Drop WOFF2 files into `public/fonts/arno-pro/` and uncomment the
- *   blocks below. Until then, the fallback chain in `tokens.css` (Georgia
+ *   blocks below. Until then, the fallback chain in `_tokens.scss` (Georgia
  *   → Cambria → Times) covers the secondary text role.
  *
  * BICYCLETTER

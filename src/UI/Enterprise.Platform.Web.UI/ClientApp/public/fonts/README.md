@@ -1,7 +1,7 @@
 # Self-Hosted Fonts
 
 Drop WOFF2 files for the three brand typefaces here. Engineers don't have to
-touch any build config — `src/styles/fonts.css` already declares the
+touch any build config — `src/styles/_typography.scss` already declares the
 `@font-face` blocks; uncomment the matching block once the file lands.
 
 > **Authoritative spec:** [`Docs/Architecture/UI-Typography-Strategy.md`](../../../../../../Docs/Architecture/UI-Typography-Strategy.md)
@@ -27,7 +27,7 @@ public/fonts/
 
 ## After dropping files
 
-1. Open `src/styles/fonts.css`.
+1. Open `src/styles/_typography.scss`.
 2. Uncomment the matching `@font-face` block(s).
 3. `npm run build` — confirm the CSS bundle size grew by the expected
    amount (each WOFF2 is referenced lazily so only the files used render

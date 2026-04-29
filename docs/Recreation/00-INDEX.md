@@ -31,6 +31,7 @@ carrying broken state into the next.
 | 08 | [Database + persistence (EF Core)](08-Database-And-Persistence.md) | DbContext per database, `IDbContextFactory`, configurations, interceptors, migrations, seeding, repositories, Unit of Work, outbox pattern | Never |
 | 09 | [Observability (logging, metrics, tracing)](09-Observability.md) | Serilog + `StructuredLoggingSetup`, OpenTelemetry, OTLP exporter, custom metrics, correlation ID propagation, health checks per host | Never |
 | 10 | [Verification checklist (per phase smoke)](10-Verification-Checklist.md) | Build, lint, arch:check, curl smokes, browser-based login, what "green" looks like at each stage | Never |
+| 11 | [Reuse an existing App Registration (single-reg model)](11-Reuse-Existing-App-Registration.md) | Adapter recipe when you can't create a new Entra App Registration: collapses BFF-client + API-resource into one existing registration; portal walkthrough, scope add, role assignment, troubleshooting | You can create new App Registrations on the target tenant — use 07 + `Docs/Security/bff-oidc-setup.md` instead |
 
 ## Topology recap (one paragraph)
 

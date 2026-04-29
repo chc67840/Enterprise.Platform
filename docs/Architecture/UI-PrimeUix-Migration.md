@@ -241,7 +241,7 @@ A few callouts that might surprise readers:
 | `primeng` (the components package) | Independent of the theme engine; still on v21.x |
 | `primeicons` | Icon font; orthogonal to the theme system |
 | `src/app/config/app.config.ts` | Already imports `providePrimeNG` from `primeng/config` (which is the components package) — no theme import here |
-| `src/styles.css` + `src/styles/tokens.css` | Theme tokens live in our own CSS variables; the PrimeNG preset reads `var(--ep-color-…)` at runtime via the `definePreset` call. The pipeline is unchanged. |
+| `src/styles/styles.scss` + `tailwind.css` + `_tokens.scss` | Theme tokens live in our own CSS variables; the PrimeNG preset reads `var(--ep-color-…)` at runtime via the `definePreset` call. The pipeline is unchanged. (File names migrated to SCSS on 2026-04-29 — see `Demo/scss-migration-audit.md`.) |
 | Any component that uses `pButton`, `p-menu`, `p-drawer` etc. | Components consume the theme via runtime CSS var resolution — no source change needed |
 | `tailwind` / `@tailwindcss/postcss` | Tailwind doesn't know or care about which theme engine package is wiring PrimeNG |
 | `cssLayer.order: 'theme, base, primeng, utilities'` | Layer name is `'primeng'` — just a string identifier owned by our `primeNgConfig`. No relation to the package name. |

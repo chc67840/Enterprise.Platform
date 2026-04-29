@@ -54,24 +54,20 @@ because…". Don't relitigate without new evidence.
 
 ### 1 — SCSS migration (every component → SCSS partials, mixins, `@forward`)
 
-**Rejected.** We use plain CSS + Tailwind v4 + inline CSS-in-template-literals per `Docs/Architecture/UI-Styling-Strategy.md`. Migration would:
-- Throw away the locked styling-strategy doc
-- Migrate ~30 components × ~30 minutes of mechanical work × zero behaviour change = ~15 hours sunk
-- Add SCSS preprocessing tax (build slower, CI slower)
-- Replace working tokens.css with `_tokens.scss` (identical info, different syntax)
-- Add `respond-to($bp)` mixins to wrap what Tailwind v4's `sm:`/`md:`/`lg:` already provides
+**~~Rejected~~ — Adopted 2026-04-29.** The original rationale held up to a point — Tailwind v4 covered most of what mixins would buy us — but two pressures forced the migration:
 
-**Re-evaluate when:** Tailwind v4 hits a wall we can't work around (no realistic scenario).
+1. The lifted `_primeng-overrides.scss` partial wanted Sass nesting/`@use` for legibility (~33 lifted PrimeNG-targeting blocks).
+2. Component bodies still contained ~14kB of inline CSS-in-template-literal that the `anyComponentStyle` budget couldn't see (CLI counts only `styleUrl[s]`). Visibility regression risk.
+
+The migration was scoped narrow on purpose — see `Demo/scss-migration-audit.md` §Outcome:
+- Globals renamed `tokens.css` → `_tokens.scss` (etc.) and composed via `@use`. **No `@forward` chains** — partials are flat.
+- Components moved to sibling `*.component.scss` via `styleUrl`.
+- Tailwind v4's `@import 'tailwindcss'` directive lives in a sibling `tailwind.css` (Sass 1.99 deprecates bare `@import`).
+- Mixins added only for patterns appearing 3+ times: 14 total. Tailwind responsive utilities are still the default; the Sass `mobile/tablet/desktop/wide` mixins only exist because some component-internal media queries don't naturally map to a Tailwind class context.
 
 ### 2 — Inline-style purge (move every `styles: [\`...\`]` to `styleUrls`)
 
-**Rejected.** The prompt's "no inline styles" rule was about HTML `style="..."` attributes — we already follow that (3 dynamic-value exceptions only). Moving component-scoped CSS from template literals to sibling `.css` files is stylistic preference, not correctness:
-- ~30 components → ~60 files (every component doubles)
-- Zero behaviour change, zero performance change
-- Loses single-file simplicity
-- Only real win: enables Stylelint integration (which we haven't asked for)
-
-**Re-evaluate when:** Stylelint integration becomes a concrete requirement, OR a component file crosses ~1500 lines (none today).
+**~~Rejected~~ — Adopted 2026-04-29 alongside item 1.** The original concern (~30 components → ~60 files) was real, but the budget-visibility argument flipped the calculus: keeping styles inline meant the `anyComponentStyle` budget couldn't enforce a per-file ceiling. All 41 in-scope components now use `styleUrl: './<name>.component.scss'`. Budget bumped 4kB/8kB → 8kB/12kB to accommodate the now-visible bytes; see `feedback_anyComponentStyle_budget_inline_blind` memory.
 
 ### 3 — `BaseApiService` extension pattern (every service extends it)
 

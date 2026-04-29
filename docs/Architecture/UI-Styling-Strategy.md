@@ -1,14 +1,19 @@
 # UI Styling Strategy — PrimeNG + Tailwind hybrid
 
-> **Date:** 2026-04-23
+> **Date:** 2026-04-23 · **Updated:** 2026-04-29 (CSS → SCSS migration outcome)
 > **Decision:** **Adopt PrimeNG components + Tailwind v4 utilities with cssLayer ordering.**
-> Status: **Already implemented** in `ClientApp/src/styles.css` and `ClientApp/src/app/config/primeng.config.ts`.
+> Status: **Already implemented.** SCSS migration complete (2026-04-29) — the
+> stylesheet entries below are now SCSS partials, plus a sibling `tailwind.css`
+> that isolates the Tailwind directive from the Sass pipeline (Sass 1.99
+> deprecates bare `@import` — see `Demo/scss-migration-audit.md`).
 >
 > **Companion docs.**
 > - [`UI-Architecture.md`](UI-Architecture.md) — broader UI architecture
 > - [`Architecture-Comparison-Analysis.md`](Architecture-Comparison-Analysis.md) — broader stack comparison
-> - SPA design tokens: `ClientApp/src/styles/tokens.css`
-> - SPA Tailwind theme bridge: `ClientApp/src/styles.css`
+> - [`Demo/scss-migration-audit.md`](Demo/scss-migration-audit.md) — Phase 0 audit + outcome
+> - SPA design tokens: `ClientApp/src/styles/_tokens.scss`
+> - SPA Sass entry: `ClientApp/src/styles/styles.scss` (partials + primeicons)
+> - SPA Tailwind entry: `ClientApp/src/styles/tailwind.css` (`@import 'tailwindcss'` + `@theme inline { ... }`)
 
 ## 1. The two options framed
 
@@ -140,9 +145,21 @@ on the same selector, **Tailwind wins** (without `!important`).
 
 ### 4.3 Tailwind theme bridge — `@theme inline`
 
+```scss
+/* ClientApp/src/styles/styles.scss — Sass entry */
+@use 'tokens';
+@use 'typography';
+@use 'animations';
+@use 'reset';
+@use 'primeng-overrides';
+@import 'primeicons/primeicons.css';
+```
+
 ```css
-/* ClientApp/src/styles.css */
-@import './styles/tokens.css';
+/* ClientApp/src/styles/tailwind.css — sibling plain-CSS file
+ * (kept out of the Sass pipeline because Sass 1.99 deprecates bare
+ *  `@import` and `@import 'tailwindcss'` is Tailwind v4's only entry).
+ *  Both files are listed in angular.json `styles[]`. */
 @import 'tailwindcss';
 
 @theme inline {
@@ -477,7 +494,7 @@ Set `<html dir="rtl">` based on user locale; both libraries flip together.
 
 ### 7.8 Custom focus ring
 
-Already handled in the existing `styles.css`:
+Already handled in the existing `_reset.scss` (with the `focus-ring` mixin in `_mixins.scss` for component-scope overrides):
 
 ```css
 :focus-visible {
@@ -577,10 +594,10 @@ mobile / 4G.
 
 ```bash
 # What tokens are available?
-cat ClientApp/src/styles/tokens.css | grep "^  --"
+grep "^  --" ClientApp/src/styles/_tokens.scss
 
 # What Tailwind classes do they expose?
-cat ClientApp/src/styles.css | grep "^  --color\|--radius\|--shadow"
+grep "^  --color\|--radius\|--shadow" ClientApp/src/styles/tailwind.css
 ```
 
 ## 11. Implementation conventions (locked-in)
@@ -589,14 +606,16 @@ The following are existing conventions in the SPA that should be preserved:
 
 | Concern | Convention |
 |---|---|
-| **Custom design tokens** | Define in `styles/tokens.css` with `--ep-` prefix |
-| **Tailwind theme bridge** | Map via `@theme inline` in `styles.css` (use `inline` for runtime swap) |
+| **Custom design tokens** | Define in `styles/_tokens.scss` with `--ep-` prefix |
+| **Tailwind theme bridge** | Map via `@theme inline` in `styles/tailwind.css` (use `inline` for runtime swap) |
 | **Dark mode** | `.dark` class on `<html>`; toggle via `ThemeService` |
-| **PrimeNG cssLayer** | `tailwind-base, primeng, tailwind-utilities` order — **don't change** |
+| **PrimeNG cssLayer** | `theme, base, primeng, utilities` order (Tailwind v4 layer names) — **don't change** |
 | **Per-tenant theming** | Load `/themes/{tenantId}.css` at boot, override `:root` variables only |
-| **Component-internal PrimeNG styling** | Use `pt` attribute, NOT global selectors |
+| **Component-internal PrimeNG styling** | Use `pt` attribute or `_primeng-overrides.scss` (layer-less), NOT `::ng-deep` |
+| **Component styles** | Sibling `*.component.scss` referenced via `styleUrl` (no inline `styles: []`) |
+| **Reusable mixins** | `@use 'mixins' as m;` then `@include m.<name>` — see `styles/_mixins.scss` for the canonical 14 |
 | **Animation** | PrimeNG handles component internals; Tailwind for app-level transitions |
-| **Focus ring** | Global `:focus-visible` in `styles.css` — applies to all inputs |
+| **Focus ring** | Global `:focus-visible` in `_reset.scss` — applies to all inputs; `m.focus-ring` mixin for component-scope rings |
 | **Z-index** | Configured in `primeng.config.ts` zIndex map; don't introduce arbitrary `z-` values |
 | **Spacing / sizing** | Tailwind scale (`p-4`, `gap-2`, etc.) — NOT pixels in templates |
 | **Colors in templates** | Token-bridged classes (`bg-primary-500`, `text-success`) — NOT hex literals |
@@ -605,7 +624,7 @@ The following are existing conventions in the SPA that should be preserved:
 
 - ❌ **Don't add a global stylesheet override per component** — use `pt` API
 - ❌ **Don't use `!important`** unless `cssLayer` already failed (rare)
-- ❌ **Don't use `::ng-deep`** for PrimeNG overrides — use `pt`
+- ❌ **Don't use `::ng-deep`** for PrimeNG overrides — use `pt` or layer-less rules in `_primeng-overrides.scss`. (`viewEncapsulation: 'None'` is the project default, so `::ng-deep` is inert anyway — selectors there don't penetrate anything.)
 - ❌ **Don't load PrimeNG themes from CDN** — bundled assets ride the build pipeline
 - ❌ **Don't store hex colors in components** — design tokens only
 - ❌ **Don't conditional-import a CSS framework per tenant** — use CSS variables for runtime swap
@@ -653,7 +672,7 @@ maintainability) accrues to the current architecture.
 If anyone proposes "let's just buy template X to ship faster":
 
 1. Show them this doc
-2. Point at `ClientApp/src/styles.css` — the foundation is built
+2. Point at `ClientApp/src/styles/styles.scss` + `tailwind.css` — the foundation is built
 3. Estimate the cost of unwinding tenant-specific theming from a template
    later (it's much higher than the perceived savings)
 

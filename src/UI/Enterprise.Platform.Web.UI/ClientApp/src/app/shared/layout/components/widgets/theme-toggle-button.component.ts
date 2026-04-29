@@ -36,28 +36,7 @@ import type { NavThemeToggleConfig } from '@shared/layout';
       <i [class]="icon()" aria-hidden="true"></i>
     </button>
   `,
-  styles: [
-    `
-      .ep-theme-btn {
-        display: inline-flex;
-        height: 2.75rem;
-        width: 2.75rem;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0.375rem;
-        background-color: transparent;
-        transition: background-color 120ms ease, color 120ms ease;
-      }
-      .ep-theme-btn:focus-visible {
-        outline: 2px solid var(--ep-color-jessamine-500);
-        outline-offset: 2px;
-      }
-      .ep-theme-btn[data-tone='light'] { color: var(--ep-text-secondary); }
-      .ep-theme-btn[data-tone='light']:hover { background-color: var(--ep-surface-100); color: var(--ep-text-primary); }
-      .ep-theme-btn[data-tone='dark'] { color: rgba(255, 255, 255, 0.92); }
-      .ep-theme-btn[data-tone='dark']:hover { background-color: rgba(255, 255, 255, 0.12); color: #fff; }
-    `,
-  ],
+  styleUrl: './theme-toggle-button.component.scss',
 })
 export class ThemeToggleButtonComponent {
   private readonly theme = inject(ThemeService);

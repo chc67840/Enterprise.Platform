@@ -94,65 +94,7 @@ import type {
       (onHide)="isOpen.set(false)"
     />
   `,
-  styles: [
-    `
-      .ep-user-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        min-height: 2.75rem;
-        padding: 0.25rem 0.625rem;
-        border-radius: 0.375rem;
-        background-color: transparent;
-        font-weight: 500;
-        transition: background-color 120ms ease, color 120ms ease;
-      }
-      .ep-user-btn:focus-visible {
-        outline: 2px solid var(--ep-color-jessamine-500);
-        outline-offset: 2px;
-      }
-      .ep-user-btn[data-tone='light'] { color: var(--ep-text-primary); }
-      .ep-user-btn[data-tone='light']:hover { background-color: var(--ep-surface-100); }
-      .ep-user-btn[data-tone='dark'] { color: #ffffff; }
-      .ep-user-btn[data-tone='dark']:hover { background-color: rgba(255, 255, 255, 0.12); }
-
-      :host ::ng-deep .ep-user-avatar-light {
-        background-color: var(--ep-color-primary-600) !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
-      }
-      :host ::ng-deep .ep-user-avatar-dark {
-        background-color: var(--ep-color-jessamine-500) !important;
-        color: var(--ep-color-primary-900) !important;
-        font-weight: 600 !important;
-      }
-
-      /* User-menu popup styling — header row + sign-out row treatment. */
-      :host ::ng-deep .ep-user-menu .p-menu {
-        min-width: 16rem;
-        border-radius: 0.5rem;
-        border: 1px solid var(--ep-color-neutral-200);
-        box-shadow: 0 8px 24px rgba(15, 31, 59, 0.15);
-        padding: 0.25rem;
-      }
-      :host ::ng-deep .ep-user-menu .ep-user-menu__header {
-        padding: 0.75rem 0.875rem 0.5rem;
-        border-bottom: 1px solid var(--ep-color-neutral-200);
-        margin-bottom: 0.25rem;
-        pointer-events: none;
-      }
-      :host ::ng-deep .ep-user-menu .ep-user-menu__header .p-menu-item-link {
-        background: transparent !important;
-        cursor: default !important;
-      }
-      :host ::ng-deep .ep-user-menu .ep-user-menu__logout .p-menu-item-link {
-        color: var(--ep-color-danger-700);
-      }
-      :host ::ng-deep .ep-user-menu .ep-user-menu__logout .p-menu-item-link:hover {
-        background-color: var(--ep-color-danger-50);
-      }
-    `,
-  ],
+  styleUrl: './user-menu-button.component.scss',
 })
 export class UserMenuButtonComponent {
   readonly config = input.required<NavUserMenuConfig>();

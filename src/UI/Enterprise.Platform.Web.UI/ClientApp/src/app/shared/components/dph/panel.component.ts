@@ -21,7 +21,7 @@
  *   </dph-panel>
  */
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 
 import type { PanelConfig } from './dph.types';
 
@@ -103,151 +103,7 @@ import type { PanelConfig } from './dph.types';
       }
     </section>
   `,
-  styles: [
-    `
-      :host { display: block; }
-
-      .dph-panel {
-        display: flex;
-        flex-direction: column;
-        background-color: #ffffff;
-        border: 1px solid var(--ep-color-neutral-200);
-        border-radius: var(--ep-radius-lg);
-        overflow: hidden;
-      }
-      .dph-panel[data-radius='sm'] { border-radius: var(--ep-radius-sm); }
-      .dph-panel[data-radius='md'] { border-radius: var(--ep-radius-md); }
-      .dph-panel[data-radius='xl'] { border-radius: var(--ep-radius-xl); }
-
-      .dph-panel[data-variant='elevated'] {
-        border-color: transparent;
-        box-shadow: 0 1px 2px rgba(15, 31, 59, 0.06), 0 4px 12px rgba(15, 31, 59, 0.08);
-      }
-      .dph-panel[data-variant='flat'] {
-        background-color: var(--ep-color-neutral-50);
-        border-color: transparent;
-      }
-      .dph-panel[data-variant='ghost'] {
-        background-color: transparent;
-        border-color: transparent;
-      }
-      .dph-panel[data-variant='glass'] {
-        background-color: color-mix(in srgb, #ffffff 88%, transparent);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-      }
-
-      .dph-panel__header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid var(--ep-color-neutral-200);
-      }
-      .dph-panel[data-variant='ghost'] .dph-panel__header,
-      .dph-panel[data-variant='flat'] .dph-panel__header {
-        border-bottom-color: var(--ep-color-neutral-200);
-      }
-
-      .dph-panel__header-text {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.625rem;
-        min-width: 0;
-        flex: 1;
-      }
-      .dph-panel__icon {
-        display: grid;
-        place-items: center;
-        width: 2rem;
-        height: 2rem;
-        border-radius: var(--ep-radius-md);
-        background-color: var(--ep-color-primary-50);
-        color: var(--ep-color-primary-700);
-        flex-shrink: 0;
-      }
-      .dph-panel__title {
-        margin: 0;
-        font-size: 0.9375rem;
-        font-weight: 600;
-        color: var(--ep-color-neutral-900);
-        line-height: 1.2;
-      }
-      .dph-panel__subtitle {
-        margin: 0.125rem 0 0;
-        font-size: 0.75rem;
-        color: var(--ep-color-neutral-600);
-      }
-
-      .dph-panel__header-actions {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        flex-shrink: 0;
-      }
-
-      .dph-panel__toggle,
-      .dph-panel__close {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        border-radius: var(--ep-radius-md);
-        background-color: transparent;
-        color: var(--ep-color-neutral-600);
-        border: none;
-        cursor: pointer;
-        touch-action: manipulation;
-      }
-      .dph-panel__toggle:hover,
-      .dph-panel__close:hover { background-color: var(--ep-color-neutral-100); color: var(--ep-color-neutral-900); }
-      .dph-panel__toggle:focus-visible,
-      .dph-panel__close:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
-      .dph-panel__toggle i,
-      .dph-panel__close i { pointer-events: none; }
-
-      .dph-panel__body {
-        position: relative;
-        flex: 1;
-        min-height: 0;
-      }
-      .dph-panel[data-padding='none'] .dph-panel__body { padding: 0; }
-      .dph-panel[data-padding='sm'] .dph-panel__body { padding: 0.75rem; }
-      .dph-panel[data-padding='md'] .dph-panel__body { padding: 1rem; }
-      .dph-panel[data-padding='lg'] .dph-panel__body { padding: 1.5rem; }
-      @media (max-width: 639px) {
-        .dph-panel[data-padding='lg'] .dph-panel__body { padding: 1rem; }
-      }
-
-      .dph-panel__overlay {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        background-color: rgba(255, 255, 255, 0.85);
-        color: var(--ep-color-neutral-700);
-        font-size: 0.875rem;
-      }
-
-      .dph-panel__footer {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1rem;
-        border-top: 1px solid var(--ep-color-neutral-200);
-        background-color: var(--ep-color-neutral-50);
-      }
-      .dph-panel__footer[data-align='left'] { justify-content: flex-start; }
-      .dph-panel__footer[data-align='center'] { justify-content: center; }
-      .dph-panel__footer[data-align='right'] { justify-content: flex-end; }
-      .dph-panel__footer[data-align='between'] { justify-content: space-between; }
-    `,
-  ],
+  styleUrl: './panel.component.scss',
 })
 export class PanelComponent {
   readonly config = input.required<PanelConfig>();
@@ -263,7 +119,7 @@ export class PanelComponent {
   );
 
   constructor() {
-    queueMicrotask(() => this.collapsed.set(!!this.config().defaultCollapsed));
+    afterNextRender(() => this.collapsed.set(!!this.config().defaultCollapsed));
   }
 
   protected toggle(): void {

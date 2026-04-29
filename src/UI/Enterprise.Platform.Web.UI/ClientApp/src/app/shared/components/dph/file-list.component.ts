@@ -82,69 +82,7 @@ function iconFor(mime: string): string {
       </ul>
     }
   `,
-  styles: [
-    `
-      :host { display: block; }
-      .dph-fl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.375rem; }
-      .dph-fl__row {
-        display: flex;
-        align-items: center;
-        gap: 0.625rem;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--ep-color-neutral-200);
-        border-radius: var(--ep-radius-md);
-        background-color: #ffffff;
-      }
-      .dph-fl__row[data-status='error'] { border-color: var(--ep-color-danger-300, var(--ep-color-danger-500)); background-color: var(--ep-color-danger-50); }
-      .dph-fl__row[data-status='complete'] { border-color: var(--ep-color-palmetto-200); }
-
-      .dph-fl__thumb { width: 2.5rem; height: 2.5rem; border-radius: var(--ep-radius-sm); object-fit: cover; flex-shrink: 0; }
-      .dph-fl__icon { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; font-size: 1.25rem; border-radius: var(--ep-radius-sm); background-color: var(--ep-color-neutral-100); color: var(--ep-color-neutral-700); flex-shrink: 0; }
-
-      .dph-fl__info { flex: 1; min-width: 0; }
-      .dph-fl__name { font-size: 0.875rem; font-weight: 500; color: var(--ep-color-neutral-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .dph-fl__meta { font-size: 0.75rem; color: var(--ep-color-neutral-500); display: flex; gap: 0.25rem; }
-      .dph-fl__error { color: var(--ep-color-danger-700); }
-
-      .dph-fl__progress {
-        margin-top: 0.25rem;
-        height: 4px;
-        border-radius: 9999px;
-        background-color: var(--ep-color-neutral-100);
-        overflow: hidden;
-      }
-      .dph-fl__progress > span {
-        display: block;
-        height: 100%;
-        background-color: var(--ep-color-primary-600);
-        transition: width 200ms ease;
-      }
-
-      .dph-fl__remove {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 2rem;
-        height: 2rem;
-        border-radius: var(--ep-radius-md);
-        background-color: transparent;
-        color: var(--ep-color-neutral-500);
-        border: none;
-        cursor: pointer;
-        flex-shrink: 0;
-      }
-      .dph-fl__remove:hover { background-color: var(--ep-color-neutral-100); color: var(--ep-color-danger-700); }
-      .dph-fl__remove:focus-visible { outline: 2px solid var(--ep-color-jessamine-500); outline-offset: 2px; }
-      .dph-fl__remove i { pointer-events: none; }
-
-      .dph-fl__empty {
-        margin: 0;
-        font-size: 0.8125rem;
-        color: var(--ep-color-neutral-500);
-        font-style: italic;
-      }
-    `,
-  ],
+  styleUrl: './file-list.component.scss',
 })
 export class FileListComponent {
   readonly files = input<readonly FileItem[]>([]);

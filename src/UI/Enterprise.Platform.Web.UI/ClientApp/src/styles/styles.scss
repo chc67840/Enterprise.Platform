@@ -1,0 +1,63 @@
+// ─── styles.scss — GLOBAL SASS ENTRY POINT ────────────────────────────────
+//
+// Master Sass entry. This file emits one of the two stylesheets bundled by
+// `angular.json` `styles[]`; the second is `tailwind.css`, a sibling
+// PLAIN-CSS file that owns the Tailwind v4 directive + theme bridge.
+//
+//   angular.json `styles[]` order:
+//     1. src/styles/styles.scss   ← THIS FILE — Sass partials + primeicons
+//     2. src/styles/tailwind.css  ← Tailwind import + @theme inline
+//
+// WHY TAILWIND IS NOT IN THIS FILE
+//   Sass 1.99+ deprecated the bare `@import` rule (becomes a hard error in
+//   Sass 3.0). Tailwind v4's only documented entry is `@import 'tailwindcss';`
+//   — a bare specifier that Sass would flag. Splitting Tailwind into its own
+//   `.css` sibling routes that import through PostCSS instead of Sass, which
+//   silences the deprecation cleanly without sacrificing functionality.
+//
+// COMPOSITION ORDER inside this file (load-bearing — read carefully)
+//
+//   1. `@use` partials.
+//      Sass requires every `@use` rule to come BEFORE any other rule
+//      (including `@import`). Order of `@use` here determines the order
+//      of CSS output — since each partial emits CSS rules at the call
+//      site, they appear in the compiled output in the order listed.
+//
+//        a. tokens          — `--ep-*` CSS custom properties on :root
+//                             (and :root.dark overrides). MUST be first
+//                             so subsequent partials can reference them.
+//                             ALSO read by tailwind.css's @theme inline,
+//                             which references --ep-* via var(...).
+//        b. typography      — @font-face declarations (mostly placeholder
+//                             pending licensed fonts).
+//        c. animations      — keyframes + .ep-fade-in/.ep-scale-in
+//                             utilities + global prefers-reduced-motion.
+//        d. reset           — html/body, :focus-visible, @media print,
+//                             chrome interaction guards.
+//        e. primeng-overrides — global PrimeNG `.p-*` overrides
+//                               (populated in Phase 3).
+//
+//   2. `@import 'primeicons/primeicons.css';`
+//      Plain CSS @import (explicit `.css` extension means Sass passes it
+//      through to the output rather than trying to resolve as a Sass
+//      partial). Registers `@font-face primeicons` + every `.pi-*` glyph
+//      class. Without this every `<i class="pi pi-…">` renders as an
+//      empty box.
+//
+// CASCADE NOTE
+//   Tailwind utilities (loaded from tailwind.css, listed AFTER this file
+//   in angular.json) win source-order ties against this file's emitted
+//   rules. PrimeNG components live in the named `primeng` cascade layer;
+//   our `_primeng-overrides.scss` rules are layer-LESS so they still beat
+//   PrimeNG defaults regardless of the styles[] order.
+// ──────────────────────────────────────────────────────────────────────────
+
+@use 'tokens';
+@use 'typography';
+@use 'animations';
+@use 'reset';
+@use 'primeng-overrides';
+
+// PrimeIcons font — explicit `.css` extension so Sass passes through
+// unambiguously to the CSS output.
+@import 'primeicons/primeicons.css';

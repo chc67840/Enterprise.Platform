@@ -47,31 +47,7 @@ import type { NavClockConfig } from '@shared/layout';
       }
     </span>
   `,
-  styles: [
-    `
-      .ep-clock {
-        display: none;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.25rem 0.625rem;
-        border-radius: 9999px;
-        background-color: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 0.75rem;
-        font-variant-numeric: tabular-nums;
-        pointer-events: none;
-        user-select: none;
-      }
-      .ep-clock * { pointer-events: none; user-select: none; }
-      @media (min-width: 768px) { .ep-clock { display: inline-flex; } }
-      .ep-clock__tz {
-        font-size: 0.625rem;
-        opacity: 0.7;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-    `,
-  ],
+  styleUrl: './nav-clock.component.scss',
 })
 export class NavClockComponent implements OnInit, OnDestroy {
   readonly config = input.required<NavClockConfig>();
