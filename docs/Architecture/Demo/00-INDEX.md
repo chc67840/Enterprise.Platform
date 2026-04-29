@@ -30,6 +30,7 @@ Full set: **12 docs · ~50 diagrams · ~80 tables · 0 PNGs**. Index at the bott
 | **Mermaid** | Inside every `.md` (` ```mermaid ` blocks) | Text-based, version-controlled, renders in GitHub + VS Code with no plugin install for reviewers. Sequence + flowchart + class + state. |
 | **Plain Markdown tables** | Tradeoff callouts, tech matrices | Force concise comparison; survive PDF export. |
 | **One bespoke animated SVG** *(planned, doc 02)* | Hero "follow the request" diagram | Show a token literally travelling Browser → BFF → API → Browser. CSS `@keyframes` along an SVG path. |
+| **Master poster SVG** | [`../Enterprise-Platform-Master-Architecture.svg`](../Enterprise-Platform-Master-Architecture.svg) | Hand-authored A0-landscape (3370 × 2384) one-page overview of the entire stack — solution structure, request lifecycle, auth, middleware, persistence, domain events, observability, Angular bootstrap, interceptors, UI chrome, layout system, styling pipeline, design tokens, DPH UI Kit, phase timeline, testing matrix. Open in any browser; printable to wall poster. Updated on major architectural changes. |
 
 There are **no PNG screenshots** anywhere in the deck — every diagram is text. Renaming a folder won't break a screenshot, and a 1-line edit to a Mermaid block surfaces in `git diff`.
 
