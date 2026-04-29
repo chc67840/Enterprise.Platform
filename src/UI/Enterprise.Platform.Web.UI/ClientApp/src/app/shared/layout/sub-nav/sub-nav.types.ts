@@ -46,6 +46,14 @@ export interface PageHeaderAction {
   readonly loading?: boolean;
   /** Optional native button type — defaults to 'button'. */
   readonly type?: 'button' | 'submit' | 'reset';
+  /**
+   * AND-semantics permission gate. When set, the page-header HIDES the
+   * action if `AuthStore.hasAllPermissions(...)` returns false. Hide-not-
+   * disable so a user who isn't authorized doesn't even discover the
+   * action exists (defense-in-depth — the route guard is the primary
+   * enforcement; this is the visible-UX layer).
+   */
+  readonly requiredPermissions?: readonly string[];
 }
 
 /** Page-header configuration. Either provided via route data or set dynamically via PageHeaderService. */

@@ -69,18 +69,22 @@ import { NotificationService } from '@core/services/notification.service';
 const SKIP_HEADER = 'X-Skip-Error-Handling';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
-  if (req.headers.has(SKIP_HEADER)) {
-    const cleanReq = req.clone({ headers: req.headers.delete(SKIP_HEADER) });
-    return next(cleanReq);
-  }
+  const skip = req.headers.has(SKIP_HEADER);
+  const cleanReq = skip ? req.clone({ headers: req.headers.delete(SKIP_HEADER) }) : req;
 
   const notify = inject(NotificationService);
   const router = inject(Router);
 
-  return next(req).pipe(
+  return next(cleanReq).pipe(
     catchError((err: unknown) => {
+      // Always normalize — callers downstream (stores, components) consume
+      // `ApiError` (with `statusCode`, `code`, `errors`) and not raw
+      // HttpErrorResponse. Skipping the header only suppresses toast +
+      // redirect side-effects so the caller can render its own UX.
       const normalized = normalize(err);
-      handleSideEffects(normalized, notify, router);
+      if (!skip) {
+        handleSideEffects(normalized, notify, router);
+      }
       return throwError(() => normalized);
     }),
   );

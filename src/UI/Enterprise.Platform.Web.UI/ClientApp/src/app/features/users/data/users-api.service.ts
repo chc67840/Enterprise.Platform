@@ -56,6 +56,20 @@ export interface MutationOptions {
    * successive attempts so the server still recognises the duplicate.
    */
   readonly idempotencyKey?: string;
+  /**
+   * Set true to suppress the global error-toast interceptor. Use when the
+   * caller needs to render the error inline (e.g. 409 Conflict on a duplicate
+   * email goes onto the form's email field, not into a top-right toast).
+   * Adds the `X-Skip-Error-Handling: true` header — the error interceptor
+   * strips it and bypasses notification side-effects.
+   */
+  readonly suppressGlobalError?: boolean;
+}
+
+/** Optional per-call overrides for read endpoints (subset of MutationOptions). */
+export interface ReadOptions {
+  /** See `MutationOptions.suppressGlobalError`. */
+  readonly suppressGlobalError?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -88,9 +102,11 @@ export class UsersApiService {
   }
 
   /** GET /users/{id} — single user; observer errors on 404. */
-  getById(id: string): Observable<UserDto> {
+  getById(id: string, options: ReadOptions = {}): Observable<UserDto> {
     return this.http
-      .get<unknown>(`${this.url}/${encodeURIComponent(id)}`)
+      .get<unknown>(`${this.url}/${encodeURIComponent(id)}`, {
+        headers: this.suppressionHeader(options.suppressGlobalError),
+      })
       .pipe(map((body) => userDtoSchema.parse(body)));
   }
 
@@ -99,7 +115,7 @@ export class UsersApiService {
   /** POST /users — create. Returns the freshly-created DTO (with server-assigned id). */
   create(request: CreateUserRequest, options: MutationOptions = {}): Observable<UserDto> {
     return this.http
-      .post<unknown>(this.url, request, { headers: this.idempotencyHeader(options) })
+      .post<unknown>(this.url, request, { headers: this.mutationHeaders(options) })
       .pipe(map((body) => userDtoSchema.parse(body)));
   }
 
@@ -108,7 +124,7 @@ export class UsersApiService {
     return this.http.put<void>(
       `${this.url}/${encodeURIComponent(id)}/name`,
       request,
-      { headers: this.idempotencyHeader(options) },
+      { headers: this.mutationHeaders(options) },
     );
   }
 
@@ -117,7 +133,7 @@ export class UsersApiService {
     return this.http.put<void>(
       `${this.url}/${encodeURIComponent(id)}/email`,
       request,
-      { headers: this.idempotencyHeader(options) },
+      { headers: this.mutationHeaders(options) },
     );
   }
 
@@ -126,7 +142,7 @@ export class UsersApiService {
     return this.http.post<void>(
       `${this.url}/${encodeURIComponent(id)}/activate`,
       null,
-      { headers: this.idempotencyHeader(options) },
+      { headers: this.mutationHeaders(options) },
     );
   }
 
@@ -135,19 +151,31 @@ export class UsersApiService {
     return this.http.post<void>(
       `${this.url}/${encodeURIComponent(id)}/deactivate`,
       request,
-      { headers: this.idempotencyHeader(options) },
+      { headers: this.mutationHeaders(options) },
     );
   }
 
   // ── internals ───────────────────────────────────────────────────────────
 
   /**
-   * Builds the `Idempotency-Key` header. Always emits — the backend's
-   * `IdempotencyEndpointFilter` is mandatory for mutations under
-   * `/api/v1/*` (per `MapPlatformApiV1Group()`).
+   * Builds the headers attached to every mutation:
+   *   - `Idempotency-Key` — always emitted; the backend's
+   *     `IdempotencyEndpointFilter` is mandatory for mutations under
+   *     `/api/v1/*` (per `MapPlatformApiV1Group()`).
+   *   - `X-Skip-Error-Handling` — only when `suppressGlobalError` is true; the
+   *     error interceptor strips it and bypasses toast/redirect side-effects.
    */
-  private idempotencyHeader(options: MutationOptions): HttpHeaders {
+  private mutationHeaders(options: MutationOptions): HttpHeaders {
     const key = options.idempotencyKey?.trim() || generateIdempotencyKey();
-    return new HttpHeaders({ 'Idempotency-Key': key });
+    let headers = new HttpHeaders({ 'Idempotency-Key': key });
+    if (options.suppressGlobalError) {
+      headers = headers.set('X-Skip-Error-Handling', 'true');
+    }
+    return headers;
+  }
+
+  /** Builds the headers for read endpoints (only suppression — no idempotency). */
+  private suppressionHeader(suppress: boolean | undefined): HttpHeaders | undefined {
+    return suppress ? new HttpHeaders({ 'X-Skip-Error-Handling': 'true' }) : undefined;
   }
 }

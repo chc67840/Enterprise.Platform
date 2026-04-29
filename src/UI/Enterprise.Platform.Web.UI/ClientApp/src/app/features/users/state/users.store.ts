@@ -17,13 +17,19 @@
  *   - paged list state (items, total, page, pageSize, filters)
  *   - per-id detail cache (`entities` map)
  *   - in-flight flags (`loading`, `loadingDetail`, `saving`)
- *   - last error (single signal — error interceptor still owns toasts)
+ *   - last error (per-channel — list / detail / save) so views can show
+ *     contextual retry affordances rather than a single global "error"
+ *   - explicit `notFound` flag for the detail view (404 ≠ "transient
+ *     error" — the route is logically wrong, not the network)
  *   - methods covering every UsersApiService surface
  *
  * What this store does NOT own:
- *   - HTTP error toasts → `errorInterceptor`
+ *   - HTTP error toasts → `errorInterceptor` (default path) OR component-
+ *     local handling (when the call sets `suppressGlobalError: true`)
  *   - Cache-busting across stores → would use `CacheInvalidationBus` if the
  *     UI had peer stores depending on user state; keep simple for now.
+ *   - Confirmation dialogs → component-level (UsersDetailComponent injects
+ *     ConfirmationService and asks before calling `deactivateUser`).
  */
 import { computed, inject } from '@angular/core';
 import {
@@ -71,8 +77,14 @@ interface UsersState {
   readonly loadingDetail: boolean;
   readonly saving: boolean;
 
-  /** Last failure surfaced by any method. Cleared before each call. */
-  readonly error: ApiError | null;
+  /** Last list-load failure. Cleared at the start of every `loadList`. */
+  readonly listError: ApiError | null;
+  /** Last detail-load failure (any non-404). */
+  readonly detailError: ApiError | null;
+  /** Set true when `getById` returned 404 — the view can route back to the list. */
+  readonly notFound: boolean;
+  /** Last mutation failure. Cleared at the start of every save. */
+  readonly saveError: ApiError | null;
 }
 
 const initialState: UsersState = {
@@ -84,8 +96,20 @@ const initialState: UsersState = {
   loading: false,
   loadingDetail: false,
   saving: false,
-  error: null,
+  listError: null,
+  detailError: null,
+  notFound: false,
+  saveError: null,
 };
+
+/**
+ * Map an `ApiError`'s status code to the SAVE-channel error. This pulls the
+ * status into the state without losing the original message — the create form
+ * uses it to render a dedicated message on the email field for 409 Conflict
+ * (duplicate email) rather than a generic "save failed" toast.
+ */
+const isStatus = (error: ApiError | null, status: number): boolean =>
+  !!error && error.statusCode === status;
 
 // ─── store ───────────────────────────────────────────────────────────────────
 
@@ -111,8 +135,28 @@ export const UsersStore = signalStore(
       return id ? (store.entities()[id] ?? null) : null;
     }),
 
-    /** True when the current page is empty AND we're not in the middle of loading. */
-    isEmpty: computed(() => store.ids().length === 0 && !store.loading()),
+    /**
+     * True when no rows are loaded AND we're not loading AND no error fired —
+     * the "intentionally empty" state. Distinguish from loading (spinner) and
+     * error (retry button) at the view layer using these signals together.
+     */
+    isEmpty: computed(
+      () => store.ids().length === 0 && !store.loading() && store.listError() === null,
+    ),
+
+    /**
+     * True when filters are applied AND the result is empty — for the
+     * "no matches" empty state. Differs from `isEmpty` (which fires for
+     * "no users at all" too).
+     */
+    hasNoMatches: computed(() => {
+      const p = store.listParams();
+      const filtersApplied = p.search !== null || p.activeOnly !== null;
+      return filtersApplied && store.ids().length === 0 && !store.loading();
+    }),
+
+    /** True if the most recent save failed with a 409 Conflict. */
+    saveConflict: computed(() => isStatus(store.saveError(), 409)),
   })),
 
   withMethods((store) => {
@@ -128,13 +172,16 @@ export const UsersStore = signalStore(
       });
     };
 
-    /** Re-fetches the affected user after a 204 mutation so local state matches the server. */
+    /**
+     * Re-fetches the affected user after a 204 mutation so local state matches the server.
+     * Errors are swallowed here — the mutation already succeeded; if the refresh fails
+     * (network blip, race), the user can refresh the page. We don't toast a misleading
+     * "load failed" after a successful "user updated".
+     */
     const refreshAfterMutation = (id: string): void => {
-      api.getById(id).subscribe({
+      api.getById(id, { suppressGlobalError: true }).subscribe({
         next: (fresh) => upsert(fresh),
-        error: () => {
-          // Already handled by the error interceptor; just don't crash the .subscribe.
-        },
+        error: () => { /* swallow — see above */ },
       });
     };
 
@@ -144,7 +191,7 @@ export const UsersStore = signalStore(
       /** Loads a page; merges partial overrides over current `listParams`. */
       loadList: rxMethod<Partial<ListUsersParams> | void>(
         pipe(
-          tap(() => patchState(store, { loading: true, error: null })),
+          tap(() => patchState(store, { loading: true, listError: null })),
           switchMap((override) => {
             const next: ListUsersParams = override
               ? { ...store.listParams(), ...override }
@@ -168,25 +215,50 @@ export const UsersStore = signalStore(
                     loading: false,
                   });
                 },
-                error: (error: ApiError) => patchState(store, { loading: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { loading: false, listError: error }),
               }),
             );
           }),
         ),
       ),
 
-      /** Loads a single user (detail view). Caches into `entities` + sets `activeId`. */
+      /**
+       * Loads a single user (detail view). Caches into `entities` + sets
+       * `activeId`. 404 sets `notFound: true` (the view routes back to the
+       * list); other errors set `detailError` (the view shows retry).
+       *
+       * Suppresses the global error toast — this method has its own
+       * UX (404 → navigate, 5xx → inline retry) so a top-right toast
+       * would be redundant and confusing.
+       */
       loadById: rxMethod<string>(
         pipe(
-          tap(() => patchState(store, { loadingDetail: true, error: null })),
+          tap(() =>
+            patchState(store, {
+              loadingDetail: true,
+              detailError: null,
+              notFound: false,
+            }),
+          ),
           switchMap((id) =>
-            api.getById(id).pipe(
+            api.getById(id, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: (user: UserDto) => {
                   upsert(user);
-                  patchState(store, { activeId: user.id, loadingDetail: false });
+                  patchState(store, {
+                    activeId: user.id,
+                    loadingDetail: false,
+                    notFound: false,
+                  });
                 },
-                error: (error: ApiError) => patchState(store, { loadingDetail: false, error }),
+                error: (error: ApiError) => {
+                  if (error.statusCode === 404) {
+                    patchState(store, { loadingDetail: false, notFound: true });
+                  } else {
+                    patchState(store, { loadingDetail: false, detailError: error });
+                  }
+                },
               }),
             ),
           ),
@@ -198,25 +270,37 @@ export const UsersStore = signalStore(
         patchState(store, { activeId: id });
       },
 
+      /** Resets the saveError signal. Forms call this when the user starts editing again. */
+      clearSaveError(): void {
+        patchState(store, { saveError: null });
+      },
+
       // ── writes ────────────────────────────────────────────────────────
 
       /**
-       * Creates a new user. On success: caches the returned DTO + invalidates
-       * the list cache (consumer should call `loadList()` to see the new row
-       * in correct sort order).
+       * Creates a new user. On success: caches the returned DTO + sets
+       * `activeId` (the view watches that signal to navigate to detail).
+       *
+       * Suppresses the global error toast — the create form binds to
+       * `saveError()` directly so 400 (validation) and 409 (duplicate
+       * email) render under the offending field.
        */
       createUser: rxMethod<CreateUserRequest>(
         pipe(
-          tap(() => patchState(store, { saving: true, error: null })),
+          tap(() => patchState(store, { saving: true, saveError: null })),
           switchMap((request) =>
-            api.create(request).pipe(
+            api.create(request, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: (created: UserDto) => {
                   upsert(created);
                   patchState(store, { saving: false, activeId: created.id });
-                  notify.success('User created', `${created.firstName} ${created.lastName} was added.`);
+                  notify.success(
+                    'User created',
+                    `${created.firstName} ${created.lastName} was added.`,
+                  );
                 },
-                error: (error: ApiError) => patchState(store, { saving: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
               }),
             ),
           ),
@@ -226,16 +310,17 @@ export const UsersStore = signalStore(
       /** Renames a user. Refreshes the entity from the server on success. */
       renameUser: rxMethod<{ id: string; request: RenameUserRequest }>(
         pipe(
-          tap(() => patchState(store, { saving: true, error: null })),
+          tap(() => patchState(store, { saving: true, saveError: null })),
           switchMap(({ id, request }) =>
-            api.rename(id, request).pipe(
+            api.rename(id, request, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: () => {
                   patchState(store, { saving: false });
                   refreshAfterMutation(id);
                   notify.success('User renamed', 'Name updated successfully.');
                 },
-                error: (error: ApiError) => patchState(store, { saving: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
               }),
             ),
           ),
@@ -245,16 +330,17 @@ export const UsersStore = signalStore(
       /** Changes a user's email. */
       changeEmail: rxMethod<{ id: string; request: ChangeUserEmailRequest }>(
         pipe(
-          tap(() => patchState(store, { saving: true, error: null })),
+          tap(() => patchState(store, { saving: true, saveError: null })),
           switchMap(({ id, request }) =>
-            api.changeEmail(id, request).pipe(
+            api.changeEmail(id, request, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: () => {
                   patchState(store, { saving: false });
                   refreshAfterMutation(id);
                   notify.success('Email updated', 'New email saved successfully.');
                 },
-                error: (error: ApiError) => patchState(store, { saving: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
               }),
             ),
           ),
@@ -264,16 +350,17 @@ export const UsersStore = signalStore(
       /** Reactivates a user. */
       activateUser: rxMethod<string>(
         pipe(
-          tap(() => patchState(store, { saving: true, error: null })),
+          tap(() => patchState(store, { saving: true, saveError: null })),
           switchMap((id) =>
-            api.activate(id).pipe(
+            api.activate(id, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: () => {
                   patchState(store, { saving: false });
                   refreshAfterMutation(id);
                   notify.success('User activated', 'User can now sign in.');
                 },
-                error: (error: ApiError) => patchState(store, { saving: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
               }),
             ),
           ),
@@ -283,16 +370,17 @@ export const UsersStore = signalStore(
       /** Deactivates a user with a reason. */
       deactivateUser: rxMethod<{ id: string; request: DeactivateUserRequest }>(
         pipe(
-          tap(() => patchState(store, { saving: true, error: null })),
+          tap(() => patchState(store, { saving: true, saveError: null })),
           switchMap(({ id, request }) =>
-            api.deactivate(id, request).pipe(
+            api.deactivate(id, request, { suppressGlobalError: true }).pipe(
               tapResponse({
                 next: () => {
                   patchState(store, { saving: false });
                   refreshAfterMutation(id);
                   notify.success('User deactivated', 'User can no longer sign in.');
                 },
-                error: (error: ApiError) => patchState(store, { saving: false, error }),
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
               }),
             ),
           ),
@@ -304,3 +392,18 @@ export const UsersStore = signalStore(
 
 /** Public type for components that inject the store. Avoids `typeof` ergonomics in templates. */
 export type UsersStoreType = InstanceType<typeof UsersStore>;
+
+/**
+ * Helper for views — `store.saveError()` exposes the raw `ApiError`; this
+ * extracts a friendly per-field message for the create / rename forms.
+ * Looks at lowercase keys too so backend `Email` (PascalCase ProblemDetails
+ * convention) and frontend `email` both resolve.
+ */
+export function fieldErrorMessage(error: ApiError | null, field: string): string | null {
+  if (!error?.errors) return null;
+  const direct = error.errors[field];
+  if (direct && direct.length > 0 && direct[0]) return direct[0];
+  const titlecased = error.errors[field.charAt(0).toUpperCase() + field.slice(1)];
+  if (titlecased && titlecased.length > 0 && titlecased[0]) return titlecased[0];
+  return null;
+}
