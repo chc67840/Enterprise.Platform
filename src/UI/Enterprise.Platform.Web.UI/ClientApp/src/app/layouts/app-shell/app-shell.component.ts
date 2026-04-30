@@ -27,6 +27,7 @@ import { SubNavOrchestratorComponent } from '@shared/layout/sub-nav';
 import {
   PlatformFooterV2Component,
   PlatformNavbarComponent,
+  PlatformSideNavComponent,
   type FooterConfig,
   type NavActionEvent,
   type NavLogoutEvent,
@@ -47,6 +48,7 @@ import {
     ConfirmDialogModule,
     SessionExpiringDialogComponent,
     PlatformNavbarComponent,
+    PlatformSideNavComponent,
     SubNavOrchestratorComponent,
     PlatformFooterV2Component,
   ],
@@ -62,17 +64,35 @@ import {
         (logout)="onLogout($event)"
       />
 
-      <app-sub-nav-orchestrator (action)="onPageHeaderAction($event)" />
+      <!--
+        Two-column body: sidebar (when active) ↔ main column. The sub-nav
+        orchestrator now lives INSIDE the main column so the sidebar can
+        run flush against the bottom edge of the top bar — previously it
+        rendered above the row and pushed the rail down by its own height,
+        producing the visible gap.
+      -->
+      <div class="ep-app-shell__body" [class.ep-app-shell__body--with-sidebar]="sidebarMode()">
+        @if (sidebarMode()) {
+          <app-platform-side-nav
+            [config]="navbarConfig().centerZone.menu"
+            (action)="onNavAction($event)"
+          />
+        }
 
-      <main
-        class="mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
-        style="overflow-x: clip; overscroll-behavior: contain;"
-        role="main"
-        id="main-content"
-        tabindex="-1"
-      >
-        <router-outlet />
-      </main>
+        <div class="ep-app-shell__main-col">
+          <app-sub-nav-orchestrator (action)="onPageHeaderAction($event)" />
+
+          <main
+            class="ep-app-shell__main mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
+            style="overflow-x: clip; overscroll-behavior: contain;"
+            role="main"
+            id="main-content"
+            tabindex="-1"
+          >
+            <router-outlet />
+          </main>
+        </div>
+      </div>
 
       <app-platform-footer [config]="footerConfig()" (navAction)="onNavAction($event)" />
 
@@ -84,6 +104,28 @@ import {
       }
     </div>
   `,
+  styles: [`
+    .ep-app-shell__body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+    .ep-app-shell__body--with-sidebar {
+      flex-direction: row;
+      align-items: stretch;
+    }
+    /* Right-side stack inside the sidebar layout: sub-nav header sits on
+       top of the routed view; both share the column so the sidebar can
+       run flush against the navbar without gap. */
+    .ep-app-shell__main-col {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+    }
+    .ep-app-shell__main { min-width: 0; }
+  `],
 })
 export class AppShellComponent {
   private readonly router = inject(Router);
@@ -103,6 +145,15 @@ export class AppShellComponent {
    */
   readonly navbarConfig = computed<NavbarConfig>(() => this.chromeService.navbar());
   readonly footerConfig = computed<FooterConfig>(() => this.chromeService.footer());
+
+  /**
+   * True when the chrome wants the centre menu rendered as a side rail
+   * instead of inside the top bar. Drives the body flex orientation and
+   * conditional mount of `<app-platform-side-nav>`.
+   */
+  readonly sidebarMode = computed(
+    () => this.navbarConfig().centerZone.menu.variant === 'sidebar',
+  );
 
   /** Adapter: AuthService signals → UserProfile shape. */
   readonly userProfile = computed<UserProfile | null>(() => {

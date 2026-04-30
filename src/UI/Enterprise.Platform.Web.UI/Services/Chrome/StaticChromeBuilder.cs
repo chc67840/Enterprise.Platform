@@ -66,7 +66,13 @@ public sealed class StaticChromeBuilder : IChromeBuilder
             TenantSwitcher: null),
         CenterZone: new NavCenterZoneConfigDto(
             Menu: new NavMenuConfigDto(
-                Variant: "flat",
+                // 'sidebar' moves the menu out of the top bar and into a
+                // vertical rail rendered by <app-platform-side-nav> on the
+                // SPA side. The top bar then surfaces a hamburger toggle
+                // anchored to the left zone. See the NavMenuVariant doc
+                // in shared/layout/models/nav.models.ts for the full
+                // variant matrix.
+                Variant: "sidebar",
                 ActiveMatchStrategy: "prefix-with-redirect",
                 CollapseBreakpoint: 1024,
                 Items:

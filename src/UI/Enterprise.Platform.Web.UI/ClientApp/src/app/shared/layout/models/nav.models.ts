@@ -207,8 +207,22 @@ export interface NavMenuItem {
   readonly tooltip?: string;
 }
 
-/** Visual variant for the center menu. */
-export type NavMenuVariant = 'flat' | 'mega' | 'icon' | 'tabs';
+/**
+ * Visual variant for the center menu.
+ *
+ * VARIANT SEMANTICS
+ *   - 'flat'    — horizontal list of links + dropdowns (top-bar default)
+ *   - 'mega'    — horizontal list; items with children open mega-overlay
+ *   - 'icon'    — horizontal icon-only buttons with pTooltip labels
+ *   - 'tabs'    — horizontal links with bottom-border active indicator
+ *   - 'sidebar' — VERTICAL rail rendered by `<app-platform-side-nav>` (NOT
+ *                 inside the top bar). When this variant is set, the top
+ *                 navbar hides its center menu and shows a hamburger that
+ *                 toggles `SidenavStateService.collapsed()`. Children of
+ *                 sidebar items render as inline accordions when expanded
+ *                 and as a click-triggered flyout popover when collapsed.
+ */
+export type NavMenuVariant = 'flat' | 'mega' | 'icon' | 'tabs' | 'sidebar';
 
 /** Top-level config for the centre nav zone. */
 export interface NavMenuConfig {

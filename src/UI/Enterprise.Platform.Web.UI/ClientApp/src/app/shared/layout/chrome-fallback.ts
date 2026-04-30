@@ -35,7 +35,10 @@ const NAVBAR: NavbarConfig = {
   },
   centerZone: {
     menu: {
-      variant: 'flat',
+      // 'sidebar' renders the menu vertically in `<app-platform-side-nav>`
+      // and the top bar shows a hamburger toggle. See the variant doc on
+      // NavMenuVariant for the full state matrix.
+      variant: 'sidebar',
       activeMatchStrategy: 'prefix-with-redirect',
       collapseBreakpoint: 1024,
       items: [

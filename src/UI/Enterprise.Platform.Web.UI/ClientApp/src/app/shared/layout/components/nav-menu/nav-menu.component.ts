@@ -259,6 +259,21 @@ export class NavMenuComponent {
   );
 
   /**
+   * Items that render a `<p-popover #overlay>` block — i.e. visible items
+   * with at least one child section. The template only emits a popover
+   * inside `@if (item.children && item.children.length > 0)`, so the
+   * `@ViewChildren('overlay')` QueryList is in 1:1 order with this subset.
+   *
+   * Using a separate selector (rather than indexing into `visibleItems`)
+   * fixes the idx-mismatch bug where leaf-only items earlier in the menu
+   * shifted the count and caused parent items further down to fail to
+   * open their dropdown (UI Demo silently no-op'd until this fix).
+   */
+  protected readonly itemsWithOverlays = computed<readonly NavMenuItem[]>(() =>
+    this.visibleItems().filter((it) => !!(it.children && it.children.length > 0)),
+  );
+
+  /**
    * Builds the explicit `aria-label` for a nav item. Robust against template
    * restructuring (icons, badges, nested spans don't fragment the computed
    * accessible name) and gives automation a stable handle by which to find
@@ -310,7 +325,7 @@ export class NavMenuComponent {
      * trigger click to this button.
      */
     event.stopPropagation();
-    const idx = this.visibleItems().findIndex((it) => it.id === itemId);
+    const idx = this.itemsWithOverlays().findIndex((it) => it.id === itemId);
     if (idx < 0) return;
     const panel = this.overlays.toArray()[idx];
     panel?.toggle(event);

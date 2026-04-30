@@ -98,6 +98,13 @@ export { ThemeToggleButtonComponent } from './components/widgets/theme-toggle-bu
 // ── F.5 footer ─────────────────────────────────────────────────────────────
 export { PlatformFooterComponent as PlatformFooterV2Component } from './components/platform-footer/platform-footer.component';
 
+// ── F.8 sidebar (vertical nav alternative to horizontal centerZone) ───────
+export { PlatformSideNavComponent } from './components/platform-side-nav/platform-side-nav.component';
+export {
+  SIDENAV_COLLAPSED_KEY,
+  SidenavStateService,
+} from './services/sidenav-state.service';
+
 // ── chrome fallback (used when /api/auth/session hasn't returned yet) ─────
 export {
   MINIMAL_FALLBACK_CHROME,

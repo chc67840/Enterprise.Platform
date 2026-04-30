@@ -514,7 +514,7 @@ export interface NavMenuItem {
 }
 
 export interface NavMenuConfig {
-  readonly variant: 'flat' | 'mega' | 'icon' | 'tabs';
+  readonly variant: 'flat' | 'mega' | 'icon' | 'tabs' | 'sidebar';
   readonly items: readonly NavMenuItem[];
   readonly activeMatchStrategy: NavActiveMatchStrategy;
   readonly collapseBreakpoint?: number;

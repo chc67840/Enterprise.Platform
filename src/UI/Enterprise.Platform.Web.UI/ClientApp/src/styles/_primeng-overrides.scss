@@ -441,3 +441,179 @@ p-cascadeselect {
   display: block;
   width: 100%;
 }
+
+// ─── Side-nav flyout popover (collapsed-mode submenu) ───────────────────────
+//
+// PrimeNG's <p-popover> appends to <body> via the `appendTo="body"` attr,
+// which puts the rendered content OUTSIDE every component's view-scoped
+// selector tree. So flyout content styles must live in a global file —
+// here. The class is the `styleClass` value we pass on the popover
+// (`ep-side-nav__flyout`); modifier classes (`--multi-section`,
+// `--split-single`) are appended for the wide layouts.
+//
+// LAYOUT MODES (mirrors PlatformSideNavComponent.flyoutLayoutMode):
+//   • single        — narrow, single-column stack (≤5 leaves total)
+//   • multi-section — CSS grid, one column per section (>5 leaves, >1 section)
+//   • split-single  — single section's leaves split into 2 CSS columns
+//
+// ARROW
+//   The popover sits to the right of the side rail (PrimeNG positions
+//   below+right by default for left-anchored triggers). A 7px triangle on
+//   the popover's left edge points back at the trigger icon. The arrow
+//   reuses the popover's background colour so light/dark themes inherit
+//   for free; a slightly larger neutral-200 triangle behind it draws the
+//   border line.
+.ep-side-nav__flyout {
+  min-width: 16rem;
+  max-width: 24rem;
+  padding: 0.5rem 0.625rem 0.625rem;
+  position: relative;
+  // Outer panel keeps `overflow: visible` so the left arrow at
+  // `left: -8px` (on `::before`/`::after`) renders. The scroll container
+  // is the inner `.p-popover-content` — see the rule below.
+  // Splitting outer/inner is necessary because `overflow-y: auto` would
+  // force `overflow-x: auto` on the same element, clipping the arrow.
+  overflow: visible;
+  // Cap the outer box to the available viewport space so the popover
+  // never extends past the bottom edge. `onFlyoutShow` already clamps
+  // its `top` to navbar-height + 8px so the global chrome stays visible.
+  max-height: calc(100vh - var(--nav-height, 64px) - 1rem);
+
+  // ── Triangle arrow pointing left toward the trigger ──────────────────
+  // Border layer (neutral-200) + fill layer (white) — the fill sits 1px
+  // to the right of the border so a 1px border line shows through.
+  // `--ep-flyout-arrow-top` is set inline by `onFlyoutShow` so the arrow
+  // tracks the trigger's vertical centre. Falls back to 1.25rem if the
+  // component didn't measure (e.g. SSR pass before hydration).
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: var(--ep-flyout-arrow-top, 1.25rem);
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+  }
+  &::before {
+    left: -8px;
+    border-right: 8px solid var(--ep-color-neutral-200);
+  }
+  &::after {
+    left: -7px;
+    border-right: 7px solid var(--ep-color-neutral-0, #ffffff);
+  }
+
+  .ep-side-nav__flyout-content { display: block; }
+
+  .ep-side-nav__flyout-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--ep-color-neutral-200);
+    margin-bottom: 0.375rem;
+    color: var(--ep-color-neutral-900);
+    font-weight: 600;
+    font-size: 0.875rem;
+
+    i { color: var(--ep-color-neutral-600); }
+  }
+  .ep-side-nav__flyout-title { flex: 1; }
+
+  // Default (single mode) — vertical stack of sections.
+  .ep-side-nav__flyout-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .ep-side-nav__flyout-section { min-width: 0; }
+
+  .ep-side-nav__flyout-heading {
+    margin: 0 0 0.125rem;
+    padding: 0 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ep-color-neutral-500);
+  }
+  .ep-side-nav__flyout-sub {
+    margin: 0 0 0.25rem;
+    padding: 0 0.375rem;
+    font-size: 0.6875rem;
+    color: var(--ep-color-neutral-500);
+  }
+  .ep-side-nav__flyout-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+  }
+}
+
+// Inner content wrapper PrimeNG renders inside .p-popover. Putting the
+// scroll container HERE (not on the outer .ep-side-nav__flyout) means the
+// outer keeps `overflow: visible` so the left arrow can stick out at
+// `left: -8px`. Browsers force `overflow-x` to a clip mode whenever
+// `overflow-y` is `auto`, so the arrow can't live on the same element
+// as the scroll. Cap height matches the outer panel's max-height so we
+// stay reachable under the navbar.
+.ep-side-nav__flyout .p-popover-content {
+  max-height: calc(100vh - var(--nav-height, 64px) - 2rem);
+  overflow-y: auto;
+}
+
+// ── Multi-section grid (>5 leaves, >1 section) ──────────────────────────
+//
+// `--section-count` is set inline by the component; we cap at 4 columns
+// so wider menus wrap gracefully. The min-width per column keeps each
+// column readable; the popover grows up to 90vw before clamping.
+.ep-side-nav__flyout--multi-section {
+  min-width: clamp(28rem, 60vw, 64rem);
+  max-width: 90vw;
+
+  .ep-side-nav__flyout-sections {
+    display: grid;
+    grid-template-columns: repeat(min(var(--section-count, 1), 4), minmax(12rem, 1fr));
+    gap: 0.875rem 1.25rem;
+  }
+}
+
+// ── Split-single (>5 leaves in ONE section) ─────────────────────────────
+//
+// CSS multi-column layout balances leaf items across 2 columns inside the
+// section's <ul>. `break-inside: avoid` keeps each leaf row from wrapping
+// across the column gutter mid-row.
+.ep-side-nav__flyout--split-single {
+  min-width: clamp(24rem, 44vw, 36rem);
+  max-width: 90vw;
+
+  .ep-side-nav__flyout-list {
+    display: block;
+    column-count: 2;
+    column-gap: 1.25rem;
+
+    > li {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+}
+
+// Dark-mode mirror for the flyout.
+:root.dark .ep-side-nav__flyout {
+  &::after { border-right-color: var(--ep-color-neutral-900); }
+  &::before { border-right-color: var(--ep-color-neutral-700); }
+
+  .ep-side-nav__flyout-header {
+    border-bottom-color: var(--ep-color-neutral-700);
+    color: var(--ep-color-neutral-50);
+    i { color: var(--ep-color-neutral-300); }
+  }
+  .ep-side-nav__flyout-heading,
+  .ep-side-nav__flyout-sub { color: var(--ep-color-neutral-400); }
+}

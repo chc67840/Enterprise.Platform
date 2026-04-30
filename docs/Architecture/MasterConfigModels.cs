@@ -708,7 +708,7 @@ public sealed record NavMenuItemDto(
     string? AnalyticsTag, bool? Disabled, string? Tooltip);
 
 public sealed record NavMenuConfigDto(
-    string Variant,                                   // "flat" | "mega" | "icon" | "tabs"
+    string Variant,                                   // "flat" | "mega" | "icon" | "tabs" | "sidebar"
     IReadOnlyList<NavMenuItemDto> Items,
     string ActiveMatchStrategy,                       // "exact" | "prefix" | "prefix-with-redirect"
     int? CollapseBreakpoint);

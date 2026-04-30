@@ -119,7 +119,7 @@ public sealed record NavMenuItemDto(
 
 /// <summary>Centre-zone menu config.</summary>
 public sealed record NavMenuConfigDto(
-    string Variant,                               // 'flat' | 'mega' | 'icon' | 'tabs'
+    string Variant,                               // 'flat' | 'mega' | 'icon' | 'tabs' | 'sidebar'
     IReadOnlyList<NavMenuItemDto> Items,
     string ActiveMatchStrategy,                   // 'exact' | 'prefix' | 'prefix-with-redirect'
     int? CollapseBreakpoint);

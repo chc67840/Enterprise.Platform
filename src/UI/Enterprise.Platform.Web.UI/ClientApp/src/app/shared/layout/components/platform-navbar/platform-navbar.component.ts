@@ -40,6 +40,7 @@ import {
   ViewChild,
   computed,
   effect,
+  inject,
   input,
   output,
   signal,
@@ -55,6 +56,7 @@ import { LanguageSwitcherComponent } from '../widgets/language-switcher.componen
 import { NavClockComponent } from '../widgets/nav-clock.component';
 import { QuickActionsComponent } from '../widgets/quick-actions.component';
 import { ThemeToggleButtonComponent } from '../widgets/theme-toggle-button.component';
+import { SidenavStateService } from '../../services/sidenav-state.service';
 import type {
   NavActionEvent,
   NavLogoutEvent,
@@ -100,7 +102,31 @@ import type {
     >
       <div class="ep-navbar__row">
         <!-- ═══════════ LEFT ZONE ═══════════ -->
+        <!--
+          When variant='sidebar', the hamburger toggle lives at the top of
+          the side rail (owned by app-platform-side-nav) — keeps the
+          collapse trigger visually anchored to the surface it controls.
+        -->
         <div class="ep-navbar__left">
+          <!--
+            Mobile-only sidebar trigger. Sidebar's own hamburger is at the
+            top of the rail itself; on mobile the rail is off-screen, so
+            this button is the user's only way back in. Visibility is
+            controlled by CSS (ep-navbar__mobile-trigger) — hidden ≥769px.
+          -->
+          @if (sidebarMode()) {
+            <button
+              type="button"
+              class="ep-icon-btn ep-navbar__mobile-trigger"
+              [attr.aria-expanded]="sidenavMobileOpen()"
+              aria-controls="ep-platform-sidenav"
+              [attr.aria-label]="sidenavMobileOpen() ? 'Close navigation menu' : 'Open navigation menu'"
+              (click)="onMobileSidenavTrigger($event)"
+            >
+              <i class="pi" [class.pi-bars]="!sidenavMobileOpen()" [class.pi-times]="sidenavMobileOpen()" aria-hidden="true"></i>
+            </button>
+          }
+
           <a
             [routerLink]="config().leftZone.logo.homeRoute"
             class="ep-navbar__brand"
@@ -152,12 +178,20 @@ import type {
         </div>
 
         <!-- ═══════════ CENTER ZONE ═══════════ -->
+        <!--
+          When the menu's variant is 'sidebar', the centre menu lives in the
+          side rail rendered by app-platform-side-nav. The top bar then
+          keeps an EMPTY centre slot — preserves the three-zone flex layout
+          (left to centre to right widgets stay separated by space-between).
+        -->
         <div class="ep-navbar__center">
-          <app-nav-menu
-            [config]="config().centerZone.menu"
-            tone="dark"
-            (action)="navAction.emit($event)"
-          />
+          @if (!sidebarMode()) {
+            <app-nav-menu
+              [config]="config().centerZone.menu"
+              tone="dark"
+              (action)="navAction.emit($event)"
+            />
+          }
         </div>
 
         <!-- ═══════════ RIGHT ZONE ═══════════ -->
@@ -294,18 +328,24 @@ import type {
             }
           }
 
-          <!-- Mobile hamburger — visible below the collapse breakpoint via CSS. -->
-          <button
-            #hamburgerBtn
-            type="button"
-            class="ep-icon-btn ep-hamburger"
-            [attr.aria-expanded]="isMobileMenuOpen()"
-            aria-controls="ep-mobile-menu"
-            [attr.aria-label]="isMobileMenuOpen() ? 'Close navigation menu' : 'Open navigation menu'"
-            (click)="toggleMobileMenu($event)"
-          >
-            <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
-          </button>
+          <!--
+            Mobile hamburger — only mounted when NOT in sidebar mode. The
+            sidebar's own toggle (in the left zone) replaces it across all
+            breakpoints once the variant is 'sidebar'.
+          -->
+          @if (!sidebarMode()) {
+            <button
+              #hamburgerBtn
+              type="button"
+              class="ep-icon-btn ep-hamburger"
+              [attr.aria-expanded]="isMobileMenuOpen()"
+              aria-controls="ep-mobile-menu"
+              [attr.aria-label]="isMobileMenuOpen() ? 'Close navigation menu' : 'Open navigation menu'"
+              (click)="toggleMobileMenu($event)"
+            >
+              <i class="pi" [class.pi-bars]="!isMobileMenuOpen()" [class.pi-times]="isMobileMenuOpen()" aria-hidden="true"></i>
+            </button>
+          }
         </div>
       </div>
     </nav>
@@ -350,6 +390,8 @@ import type {
   styleUrl: './platform-navbar.component.scss',
 })
 export class PlatformNavbarComponent {
+  private readonly sidenavState = inject(SidenavStateService);
+
   // ── inputs (signal inputs per spec) ────────────────────────────────────
 
   readonly config = input.required<NavbarConfig>();
@@ -371,6 +413,9 @@ export class PlatformNavbarComponent {
 
   protected readonly isMobileMenuOpen = signal(false);
   protected readonly isScrolled = signal(false);
+
+  /** Mirrors the sidenav service's mobile drawer flag for icon swap. */
+  protected readonly sidenavMobileOpen = this.sidenavState.mobileOpen;
 
   @ViewChild('hamburgerBtn') private readonly hamburgerBtn?: ElementRef<HTMLButtonElement>;
   @ViewChild('mobileDrawer') private readonly mobileDrawer?: ElementRef<HTMLDivElement>;
@@ -407,6 +452,16 @@ export class PlatformNavbarComponent {
   protected readonly heightPx = computed(() => this.config().heightPx ?? 64);
   protected readonly glassEnabled = computed(
     () => this.sticky() && this.config().glassMorphism === true,
+  );
+
+  /**
+   * True when the centre menu is rendered in the side rail, not inline.
+   * Used to (a) skip the centre-menu projection in the top bar and (b)
+   * suppress the right-zone mobile hamburger — the side rail owns its
+   * own collapse trigger, mounted at the top of the rail itself.
+   */
+  protected readonly sidebarMode = computed(
+    () => this.config().centerZone.menu.variant === 'sidebar',
   );
 
   protected readonly showEnvBadge = computed(() => {
@@ -537,5 +592,16 @@ export class PlatformNavbarComponent {
   protected onMobileNavAction(e: NavActionEvent): void {
     this.isMobileMenuOpen.set(false);
     this.navAction.emit(e);
+  }
+
+  /**
+   * Mobile navbar hamburger (sidebar mode only). Forwards to
+   * `SidenavStateService.toggle()` which is viewport-aware — on a mobile
+   * width it flips the drawer; the button is CSS-hidden above 768px so
+   * desktop users never see it.
+   */
+  protected onMobileSidenavTrigger(event: Event): void {
+    event.stopPropagation();
+    this.sidenavState.toggle();
   }
 }

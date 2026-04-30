@@ -1,0 +1,402 @@
+// ─── platform-side-nav.component.scss ────────────────────────────────────────
+//
+// Vertical rail rendered next to the main content area. Two states:
+//
+//   • EXPANDED  → 16rem wide, full label + icon, accordion children
+//   • COLLAPSED →  3.75rem rail, icon only with tooltip + flyout for parents
+//
+// CSS VARIABLE CONTRACT (read by `app-shell` to size the main content offset):
+//   --ep-side-nav-width-expanded
+//   --ep-side-nav-width-collapsed
+// Override per tenant by re-declaring on `:root.tenant-<slug>`.
+//
+// FLYOUT POPOVER STYLES live in the GLOBAL `_primeng-overrides.scss` (or
+// any layer-less file) because PrimeNG's `<p-popover>` appends to <body>
+// — component-scoped emulated encapsulation cannot reach it. The class
+// `.ep-side-nav__flyout` is the styleClass passed to <p-popover>.
+
+:host {
+  display: block;
+  --ep-side-nav-width-expanded: 16rem;
+  --ep-side-nav-width-collapsed: 3.75rem;
+  --ep-side-nav-mobile-width: min(20rem, 85vw);
+}
+
+.ep-side-nav {
+  // Sticky positioning relative to the body's scrolling viewport. The
+  // top bar is fixed-height (--nav-height) and lives ABOVE the flex
+  // row that contains this rail, so we offset the sticky pin by that
+  // height — once the body scrolls, the rail glues to the bottom edge
+  // of the top bar instead of disappearing behind it.
+  position: sticky;
+  top: var(--nav-height, 64px);
+  align-self: flex-start;
+  height: calc(100vh - var(--nav-height, 64px));
+  width: var(--ep-side-nav-width-expanded);
+  background: var(--ep-color-neutral-50);
+  border-right: 1px solid var(--ep-color-neutral-200);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  transition: width calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  // Custom scrollbar treatment — see styles/_scrollbars.scss for the utility.
+  scrollbar-width: thin;
+
+  &--collapsed {
+    width: var(--ep-side-nav-width-collapsed);
+  }
+}
+
+.ep-side-nav__backdrop {
+  display: none;
+}
+
+// ── Mobile drawer (≤768px — keep in lock-step with `SIDENAV_MOBILE_BREAKPOINT_PX`)
+//
+// Rail leaves the document flow and slides in as a left-anchored drawer
+// over a backdrop. `mobileOpen=false` hides via transform + visibility;
+// the visibility transition delays until the slide-out completes so the
+// off-screen drawer doesn't trap focus.
+@media (max-width: 768px) {
+  // The `.ep-side-nav.ep-side-nav--collapsed` companion selector locks
+  // mobile-width even when the desktop persistence class is applied
+  // briefly during the drawer's open transition.
+  .ep-side-nav,
+  .ep-side-nav.ep-side-nav--collapsed {
+    position: fixed;
+    top: var(--nav-height, 64px);
+    left: 0;
+    bottom: 0;
+    height: calc(100dvh - var(--nav-height, 64px));
+    width: var(--ep-side-nav-mobile-width);
+    transform: translateX(-100%);
+    visibility: hidden;
+    z-index: var(--ep-z-overlay);
+    box-shadow: var(--ep-shadow-xl);
+    transition:
+      transform calc(var(--ep-duration-base, 200ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+      visibility 0s linear calc(var(--ep-duration-base, 200ms) * var(--ep-motion-scale, 1));
+  }
+
+  .ep-side-nav.ep-side-nav--mobile-open,
+  .ep-side-nav.ep-side-nav--collapsed.ep-side-nav--mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      transform calc(var(--ep-duration-base, 200ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+      visibility 0s linear 0s;
+  }
+
+  .ep-side-nav__backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--nav-height, 64px) 0 0 0;
+    background: var(--ep-bg-overlay);
+    z-index: calc(var(--ep-z-overlay) - 1);
+    animation: ep-side-nav-backdrop-fade calc(var(--ep-duration-base, 200ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+  }
+}
+
+@keyframes ep-side-nav-backdrop-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ── Collapse / expand toggle (top of the rail) ───────────────────────────
+.ep-side-nav__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--ep-color-neutral-200);
+  color: var(--ep-color-neutral-700);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  i {
+    width: 1.25rem;
+    flex: 0 0 1.25rem;
+    text-align: center;
+    font-size: 1.125rem;
+    color: var(--ep-color-neutral-700);
+  }
+
+  &:hover {
+    background: var(--ep-color-neutral-100);
+    color: var(--ep-color-neutral-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ep-color-primary-500);
+    outline-offset: -2px;
+  }
+}
+
+.ep-side-nav__toggle-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-side-nav--collapsed .ep-side-nav__toggle {
+  justify-content: center;
+  padding: 0.75rem 0;
+
+  i { width: auto; flex: 0 0 auto; }
+}
+
+// Hide the rail's own collapse toggle on mobile — drawer is always
+// full-labels and the navbar's X button is the close UX. Source-order
+// matters: this rule MUST come after the desktop `display: flex` rule
+// because they share specificity (0/1/0).
+@media (max-width: 768px) {
+  .ep-side-nav__toggle { display: none; }
+}
+
+.ep-side-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ep-side-nav__li {
+  // Position relative so the active-route accent bar can be absolutely
+  // pinned to the leading edge without layout shift.
+  position: relative;
+}
+
+// ── Top-level row (button or anchor) ──────────────────────────────────────
+.ep-side-nav__row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--ep-color-neutral-800);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition: background calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  &:hover {
+    background: var(--ep-color-neutral-100);
+    color: var(--ep-color-neutral-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ep-color-primary-500);
+    outline-offset: -2px;
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--ep-color-primary-50), transparent 30%);
+    color: var(--ep-color-primary-700);
+    font-weight: 600;
+
+    // Accent bar — 3px brand-coloured left edge.
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--ep-color-primary-700);
+    }
+  }
+}
+
+.ep-side-nav__icon {
+  width: 1.25rem;
+  flex: 0 0 1.25rem;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--ep-color-neutral-600);
+
+  // Single-letter fallback when the config omits an icon — keeps the
+  // rail visually balanced rather than letting the label slide left.
+  &--placeholder {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--ep-color-neutral-700);
+    text-transform: uppercase;
+  }
+}
+
+.ep-side-nav__row--active .ep-side-nav__icon {
+  color: var(--ep-color-primary-700);
+}
+
+.ep-side-nav__label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-side-nav__badge {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: 9999px;
+  background: var(--ep-color-neutral-200);
+  color: var(--ep-color-neutral-800);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &[data-variant='success'] { background: var(--ep-color-success-100); color: var(--ep-color-success-800); }
+  &[data-variant='info']    { background: var(--ep-color-primary-100); color: var(--ep-color-primary-800); }
+  &[data-variant='warning'] { background: var(--ep-color-jessamine-100); color: var(--ep-color-jessamine-800); }
+  &[data-variant='danger']  { background: var(--ep-color-danger-100);  color: var(--ep-color-danger-800); }
+}
+
+.ep-side-nav__chevron {
+  font-size: 0.625rem;
+  color: var(--ep-color-neutral-500);
+  transition: transform calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  &--open { transform: rotate(180deg); }
+}
+
+// ── Accordion (expanded mode only) ───────────────────────────────────────
+.ep-side-nav__accordion {
+  padding: 0.125rem 0 0.375rem 1.875rem;
+}
+
+.ep-side-nav__accordion-heading {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ep-color-neutral-500);
+}
+
+.ep-side-nav__accordion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+// ── Leaf rows (used by accordion + flyout) ────────────────────────────────
+.ep-side-nav__leaf {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--ep-radius-md);
+  color: var(--ep-color-neutral-700);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition: background calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  &:hover {
+    background: var(--ep-color-neutral-100);
+    color: var(--ep-color-neutral-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ep-color-primary-500);
+    outline-offset: 2px;
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--ep-color-primary-50), transparent 30%);
+    color: var(--ep-color-primary-700);
+    font-weight: 600;
+  }
+
+  &--in-flyout {
+    padding: 0.5rem 0.625rem;
+  }
+}
+
+.ep-side-nav__leaf-icon {
+  width: 1rem;
+  flex: 0 0 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ep-color-neutral-500);
+}
+
+.ep-side-nav__leaf--active .ep-side-nav__leaf-icon { color: var(--ep-color-primary-700); }
+
+.ep-side-nav__leaf-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ep-side-nav__leaf-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-side-nav__leaf-desc {
+  font-size: 0.6875rem;
+  color: var(--ep-color-neutral-500);
+  font-weight: 400;
+}
+
+// ── Collapsed mode adjustments ────────────────────────────────────────────
+.ep-side-nav--collapsed {
+  .ep-side-nav__row {
+    justify-content: center;
+    padding: 0.625rem 0;
+  }
+  .ep-side-nav__icon { width: auto; flex: 0 0 auto; font-size: 1.125rem; }
+}
+
+// Reduce-motion respect — keep transitions snappy but no animation.
+@media (prefers-reduced-motion: reduce) {
+  .ep-side-nav,
+  .ep-side-nav__row,
+  .ep-side-nav__leaf,
+  .ep-side-nav__chevron {
+    transition: none;
+  }
+}
+
+// Dark-mode mirror.
+:root.dark .ep-side-nav {
+  background: var(--ep-color-neutral-900);
+  border-right-color: var(--ep-color-neutral-700);
+
+  .ep-side-nav__row { color: var(--ep-color-neutral-200); }
+  .ep-side-nav__row:hover { background: var(--ep-color-neutral-800); color: var(--ep-color-neutral-50); }
+  .ep-side-nav__row--active {
+    background: color-mix(in srgb, var(--ep-color-primary-700), transparent 70%);
+    color: var(--ep-color-primary-200);
+    &::before { background: var(--ep-color-primary-300); }
+  }
+  .ep-side-nav__icon { color: var(--ep-color-neutral-400); }
+  .ep-side-nav__row--active .ep-side-nav__icon { color: var(--ep-color-primary-200); }
+
+  .ep-side-nav__leaf { color: var(--ep-color-neutral-300); }
+  .ep-side-nav__leaf:hover { background: var(--ep-color-neutral-800); }
+  .ep-side-nav__leaf--active {
+    background: color-mix(in srgb, var(--ep-color-primary-700), transparent 70%);
+    color: var(--ep-color-primary-200);
+  }
+}

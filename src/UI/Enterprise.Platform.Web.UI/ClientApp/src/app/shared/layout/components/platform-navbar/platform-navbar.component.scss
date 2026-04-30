@@ -391,6 +391,18 @@
 @media (min-width: 1024px) { .ep-hamburger { display: none; } }
 
 /*
+ * Mobile-only sidebar trigger.
+ *
+ * In sidebar mode the rail's own hamburger lives at the top of the rail
+ * itself — fine on desktop, useless on mobile (the rail is off-screen
+ * until you can open it). This trigger is the user's entry point on
+ * mobile only; CSS-hidden ≥769px so desktop has exactly one collapse
+ * affordance (the rail's own).
+ */
+.ep-navbar__mobile-trigger { display: inline-flex; }
+@media (min-width: 769px) { .ep-navbar__mobile-trigger { display: none; } }
+
+/*
  * Mobile drawer — LEFT-anchored, FULL-HEIGHT side panel.
  *
  * Drawer spans top:0 → bottom:0 so it reads as a full-viewport
@@ -452,3 +464,4 @@
   .ep-mobile-backdrop,
   .ep-mobile-menu { display: none; }
 }
+
