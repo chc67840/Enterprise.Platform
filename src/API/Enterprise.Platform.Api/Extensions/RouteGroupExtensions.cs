@@ -11,30 +11,40 @@ namespace Enterprise.Platform.Api.Extensions;
 public static class RouteGroupExtensions
 {
     /// <summary>
-    /// Creates a route group rooted at <c>/api/v1</c> with the platform's standard
-    /// endpoint-filter stack pre-attached:
-    /// <list type="bullet">
-    ///   <item><see cref="IdempotencyEndpointFilter"/> — every mutation gets the
-    ///   <c>X-Idempotency-Key</c> contract automatically. GETs are unaffected
-    ///   because the filter only enforces on non-safe verbs at the inner check.</item>
-    /// </list>
-    /// Endpoint authors map under this group:
-    /// <code>
-    /// var v1 = app.MapPlatformApiV1Group();
-    /// v1.MapPost("/orders", CreateOrderHandler).WithName("CreateOrder");
-    /// </code>
+    /// Creates a route group rooted at <c>/api/v1</c>. The platform's
+    /// idempotency contract is applied per-mutation via
+    /// <see cref="RequireIdempotencyKey"/> (extension below), NOT at the group
+    /// level — applying the filter to the whole group used to swallow GETs
+    /// when the in-filter safe-method short-circuit and the running binary
+    /// went out of sync. Per-endpoint attachment makes the contract explicit
+    /// at the call-site and physically removes any path by which a read can
+    /// hit the idempotency check.
     /// </summary>
     /// <remarks>
-    /// Per-endpoint exemption: endpoints that are intentionally non-idempotent
-    /// (rare — usually operational debug endpoints) can declare a marker filter
-    /// or live outside the group. Document the exception in the endpoint's
-    /// XML comment so reviewers understand why.
+    /// Endpoint authors map under this group, then opt mutations into the
+    /// idempotency check explicitly:
+    /// <code>
+    /// var v1 = app.MapPlatformApiV1Group();
+    /// v1.MapPost("/orders", CreateOrderHandler).RequireIdempotencyKey().WithName("CreateOrder");
+    /// </code>
     /// </remarks>
     public static RouteGroupBuilder MapPlatformApiV1Group(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        return app.MapGroup("/api/v1")
-            .AddEndpointFilter<IdempotencyEndpointFilter>();
+        return app.MapGroup("/api/v1");
+    }
+
+    /// <summary>
+    /// Attaches <see cref="IdempotencyEndpointFilter"/> to a mutation endpoint.
+    /// Use exclusively on POST / PUT / PATCH / DELETE — GETs and other safe
+    /// verbs must never carry this filter, since they have no payload to
+    /// deduplicate and the filter would force callers to send a meaningless
+    /// <c>X-Idempotency-Key</c> header.
+    /// </summary>
+    public static RouteHandlerBuilder RequireIdempotencyKey(this RouteHandlerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.AddEndpointFilter<IdempotencyEndpointFilter>();
     }
 }

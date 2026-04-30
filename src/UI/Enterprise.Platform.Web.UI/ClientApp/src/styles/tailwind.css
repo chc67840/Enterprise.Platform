@@ -35,6 +35,52 @@
 
 @import 'tailwindcss';
 
+/* ─── DYNAMIC CLASS SAFELIST (P0.4) ────────────────────────────────────────
+ *
+ * Tailwind v4's content scanner statically analyses templates for class
+ * names. Classes constructed via TEMPLATE LITERALS (`col-span-${span}`,
+ * `grid-cols-${cols}`) or attribute-binding expressions cannot be detected
+ * — the scanner sees the literal `col-span-` and a `${...}` placeholder,
+ * not the runtime value, so the resulting utility is tree-shaken away
+ * and the class silently has zero effect at runtime.
+ *
+ * The dph-schema-form, dph-data-table, dph-detail-view, and the upcoming
+ * dynamic-form (P1.4) all build grid layouts from runtime config — span
+ * counts, column counts, alignment — so we MUST tell Tailwind to keep
+ * the full matrix even though it can't see the call sites.
+ *
+ * SYNTAX
+ *   `@source inline("{prefix1,prefix2,...}suffix-{a,b,c}")` is the v4
+ *   directive for an inline class manifest. Brace-expansion produces the
+ *   Cartesian product. Equivalent to listing every class manually.
+ *
+ * COVERAGE
+ *   Six breakpoint variants × twelve column values × four scales
+ *   (col-span, grid-cols, col-start, col-end) plus row variants and the
+ *   gap scale. Total ~600 classes; minified output is a few KB.
+ *
+ * RULE
+ *   Any new template-literal Tailwind class construction MUST extend this
+ *   manifest. Document the addition with a one-line comment naming the
+ *   component that introduced the dynamic class.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}grid-cols-{1,2,3,4,5,6,7,8,9,10,11,12}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-start-{1,2,3,4,5,6,7,8,9,10,11,12,13}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-end-{1,2,3,4,5,6,7,8,9,10,11,12,13}");
+
+/* Row variants — for vertical grid spans (less common but used by
+ * the dynamic-form's stacked sections in P1.4). */
+@source inline("{,sm:,md:,lg:,xl:,2xl:}row-span-{1,2,3,4,5,6}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}grid-rows-{1,2,3,4,5,6}");
+
+/* Gap utilities — every dph-stack/cluster/grid invocation picks gap from
+ * a runtime token, so the full Tailwind gap scale stays in the bundle. */
+@source inline("{,sm:,md:,lg:,xl:,2xl:}gap-{0,1,2,3,4,5,6,8,10,12,16}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}gap-x-{0,1,2,3,4,5,6,8,10,12,16}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}gap-y-{0,1,2,3,4,5,6,8,10,12,16}");
+
 @theme inline {
   /* ── Brand palette — Indigo Blue (primary) ─────────────────────────
    *  Usage: class="bg-primary-700"  / class="text-primary-100"
@@ -152,4 +198,77 @@
   --font-sans:      var(--ep-font-primary);
   --font-serif:     var(--ep-font-secondary);
   --font-mono:      var(--ep-font-mono);
+
+  /* ── Semantic intent — text colour utilities (B.1) ─────────────────
+   *  Usage: class="text-text-primary"  / class="text-text-link"
+   *
+   *  The double "text-text-*" prefix is intentional — Tailwind names
+   *  utilities by `<scale-name>-<step>`, so a scale literally named
+   *  "text" produces `text-text-primary`. The alternative was renaming
+   *  to `--color-fg-primary` etc., but the SCSS token names ("text-")
+   *  are the source of truth for intent and consumers expect
+   *  `var(--ep-text-primary)` to bridge to a Tailwind class with the
+   *  same intent label.
+   */
+  --color-text-primary:    var(--ep-text-primary);
+  --color-text-secondary:  var(--ep-text-secondary);
+  --color-text-muted:      var(--ep-text-muted);
+  --color-text-disabled:   var(--ep-text-disabled);
+  --color-text-inverse:    var(--ep-text-inverse);
+  --color-text-link:       var(--ep-text-link);
+  --color-text-link-hover: var(--ep-text-link-hover);
+
+  /* ── Semantic intent — background utilities (B.1) ──────────────────
+   *  Usage: class="bg-canvas"  / class="bg-elevated"  / class="bg-sunken"
+   */
+  --color-canvas:   var(--ep-bg-canvas);
+  --color-elevated: var(--ep-bg-elevated);
+  --color-sunken:   var(--ep-bg-sunken);
+
+  /* ── Semantic intent — border utilities (B.1) ──────────────────────
+   *  Usage: class="border-subtle"  / class="border-default"  / class="border-focus"
+   *  Tailwind generates: `border-color`, `divide-color`, `outline-color`,
+   *  `ring-color`, etc. for each of these.
+   */
+  --color-border-subtle:  var(--ep-border-subtle);
+  --color-border-default: var(--ep-border-default);
+  --color-border-strong:  var(--ep-border-strong);
+  --color-border-focus:   var(--ep-border-focus);
+
+  /* ── Motion — duration + easing utilities (B.1) ─────────────────────
+   *  Usage:
+   *    class="duration-ep-fast"    → 120ms (scaled by --ep-motion-scale)
+   *    class="ease-ep-spring"      → cubic-bezier(0.34, 1.56, 0.64, 1)
+   *
+   *  Tailwind v4 namespaces: --animation-duration-* and --animation-timing-function-*
+   *  are NOT the right ones; the actual scales used by `duration-*` and
+   *  `ease-*` are `--transition-duration-*` (no — actually `--duration-*`)
+   *  and `--ease-*`. Verify against tailwind's "Customizing your theme"
+   *  docs for v4 if these don't surface as expected utilities.
+   */
+  --duration-ep-instant: calc(var(--ep-duration-instant) * var(--ep-motion-scale));
+  --duration-ep-fast:    calc(var(--ep-duration-fast)    * var(--ep-motion-scale));
+  --duration-ep-normal:  calc(var(--ep-duration-normal)  * var(--ep-motion-scale));
+  --duration-ep-slow:    calc(var(--ep-duration-slow)    * var(--ep-motion-scale));
+  --duration-ep-slower:  calc(var(--ep-duration-slower)  * var(--ep-motion-scale));
+
+  --ease-ep-standard:   var(--ep-ease-standard);
+  --ease-ep-emphasized: var(--ep-ease-emphasized);
+  --ease-ep-decelerate: var(--ep-ease-decelerate);
+  --ease-ep-accelerate: var(--ep-ease-accelerate);
+  --ease-ep-spring:     var(--ep-ease-spring);
+  --ease-ep-bounce:     var(--ep-ease-bounce);
+
+  /* ── Z-index utilities (B.1) ────────────────────────────────────────
+   *  Usage: class="z-ep-modal"  / class="z-ep-tooltip"
+   *  Tailwind generates `z-index: var(--ep-z-modal)` for each.
+   */
+  --z-index-ep-base:     var(--ep-z-base);
+  --z-index-ep-raised:   var(--ep-z-raised);
+  --z-index-ep-dropdown: var(--ep-z-dropdown);
+  --z-index-ep-sticky:   var(--ep-z-sticky);
+  --z-index-ep-overlay:  var(--ep-z-overlay);
+  --z-index-ep-modal:    var(--ep-z-modal);
+  --z-index-ep-toast:    var(--ep-z-toast);
+  --z-index-ep-tooltip:  var(--ep-z-tooltip);
 }

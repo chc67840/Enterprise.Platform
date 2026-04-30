@@ -676,10 +676,15 @@ export interface NavNotification {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Useful when the shell composes navbar + footer config maps keyed by
- * domain id — the type forces a complete pair per registered domain.
+ * Whole-app chrome — navbar + footer pair. Returned by the BFF in the
+ * `chrome` field of `SessionInfo` (see `core/auth/auth.service.ts`); the
+ * SPA's `NavbarConfigService` hydrates from this exact shape.
+ *
+ * Single chrome per deployment — no domain switching machinery exists on the
+ * wire or in the SPA. Phase 2 will filter the contained `NavMenuItem[]` per
+ * user / role server-side; the type stays the same.
  */
-export interface DomainChromeConfig {
+export interface ChromeConfig {
   readonly navbar: NavbarConfig;
   readonly footer: FooterConfig;
 }

@@ -585,15 +585,40 @@ export interface DialogConfig {
   readonly loading?: boolean;
 }
 
+/**
+ * Named-preset width/height for `<dph-drawer>`. Maps to:
+ *   sm   → 320px (filter panels, secondary nav)
+ *   md   → 480px (form drawers — DEFAULT)
+ *   lg   → 640px (rich detail / multi-column edit)
+ *   xl   → 960px (full editor with preview pane)
+ *   full → 100% of the orthogonal viewport dimension
+ *
+ * The mapping flips axis based on `position`:
+ *   - `left | right` → controls width
+ *   - `top  | bottom` → controls height
+ *
+ * `width` / `height` direct overrides take precedence when both are
+ * supplied (escape hatch for one-offs).
+ */
+export type DrawerSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
 export interface DrawerConfig {
   readonly position: 'left' | 'right' | 'top' | 'bottom';
+  /** Named preset — ignored if `width` (left/right) or `height` (top/bottom) is set. */
+  readonly size?: DrawerSize;
+  /** Direct CSS width; overrides `size` for left/right drawers. */
   readonly width?: string;
+  /** Direct CSS height; overrides `size` for top/bottom drawers. */
   readonly height?: string;
   readonly modal?: boolean;
   readonly dismissableMask?: boolean;
   readonly closable?: boolean;
   readonly showCloseInHeader?: boolean;
   readonly header?: string;
+  /** Subheader rendered under the title — typically a single descriptive sentence. */
+  readonly subheader?: string;
+  /** Show a divider above the projected `[drawerFooter]` slot. Default: true. */
+  readonly footerDivider?: boolean;
   readonly closeOnEscape?: boolean;
 }
 

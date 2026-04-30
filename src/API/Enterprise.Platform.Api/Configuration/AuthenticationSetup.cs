@@ -157,6 +157,15 @@ public static class AuthenticationSetup
         }
 
         services.AddAuthorization();
+
+        // Phase-1 claims transformation — enriches every authenticated
+        // principal with the canonical `ep:permission` claims that endpoint
+        // policies consume. Without this, JWTs from Entra (which never
+        // carry platform permissions) would fail the
+        // `perm:users.read`-style policies even when the BFF cookie
+        // carries the same claims for the BFF-served endpoints.
+        services.AddTransient<IClaimsTransformation, Phase1ClaimsTransformer>();
+
         return services;
     }
 

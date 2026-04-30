@@ -62,9 +62,10 @@ export interface EffectivePermissions {
   readonly roles: readonly string[];
 
   /**
-   * Fine-grained permission strings (e.g. `'users:read'`, `'reports:export'`).
-   * The convention is `<resource>:<action>`; `<resource>.<qualifier>:<action>`
-   * is allowed for qualified resources. Strings are compared case-insensitively.
+   * Fine-grained permission strings (e.g. `'users.read'`, `'reports.export'`).
+   * The convention is `<aggregate>.<action>`, lower-case, dot-separated — same
+   * wire format the backend's `RbacPolicyProvider` consumes (`perm:users.read`).
+   * Strings are compared case-insensitively.
    */
   readonly permissions: readonly string[];
 

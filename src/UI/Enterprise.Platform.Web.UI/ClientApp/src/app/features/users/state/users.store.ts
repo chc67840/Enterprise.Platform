@@ -41,7 +41,7 @@ import {
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { tapResponse } from '@ngrx/operators';
-import { pipe, switchMap, tap } from 'rxjs';
+import { type Observable, forkJoin, of, pipe, switchMap, tap } from 'rxjs';
 
 import type { ApiError } from '@core/models';
 import { NotificationService } from '@core/services/notification.service';
@@ -304,6 +304,54 @@ export const UsersStore = signalStore(
               }),
             ),
           ),
+        ),
+      ),
+
+      /**
+       * Coordinated edit for the user dialog — fires whatever subset of
+       * `rename` and `changeEmail` actually changed. forkJoin runs both in
+       * parallel (no ordering constraint between name and email at the
+       * domain layer); the store reflects a single saving lifecycle and a
+       * single notification regardless of how many sub-calls fired.
+       *
+       * Returns synchronously (rxMethod), but the observable chain settles
+       * once every sub-call resolves. On any sub-call failure the saveError
+       * channel surfaces it; partial success is treated as success on the
+       * pieces that worked (the failure wins for `saveError`, but the
+       * server already committed the parts that succeeded — `refreshAfterMutation`
+       * pulls the truth back).
+       */
+      updateUser: rxMethod<{
+        id: string;
+        rename?: RenameUserRequest;
+        emailRequest?: ChangeUserEmailRequest;
+      }>(
+        pipe(
+          tap(() => patchState(store, { saving: true, saveError: null })),
+          switchMap(({ id, rename, emailRequest }) => {
+            const calls: Observable<void>[] = [];
+            if (rename) {
+              calls.push(api.rename(id, rename, { suppressGlobalError: true }));
+            }
+            if (emailRequest) {
+              calls.push(api.changeEmail(id, emailRequest, { suppressGlobalError: true }));
+            }
+            if (calls.length === 0) {
+              patchState(store, { saving: false });
+              return of(undefined);
+            }
+            return forkJoin(calls).pipe(
+              tapResponse({
+                next: () => {
+                  patchState(store, { saving: false });
+                  refreshAfterMutation(id);
+                  notify.success('User updated', 'Changes saved successfully.');
+                },
+                error: (error: ApiError) =>
+                  patchState(store, { saving: false, saveError: error }),
+              }),
+            );
+          }),
         ),
       ),
 

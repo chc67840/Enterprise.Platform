@@ -26,7 +26,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   input,
   model,
   output,
@@ -194,9 +193,14 @@ import type { InputConfig } from './dph.types';
 })
 export class InputComponent {
   readonly config = input.required<InputConfig>();
+  // `model()` auto-publishes a `valueChange` output — do NOT also declare an
+  // explicit `valueChange = output<>()`, that creates a name collision and
+  // silently drops child writes from reaching the parent's `(valueChange)`
+  // listener (which is how the schema-form binds field values to its
+  // FormGroup). The auto-output fires on `value.set()` from any source
+  // (ngModel two-way included), which is exactly what we want.
   readonly value = model<string | number | null>('');
 
-  readonly valueChange = output<string | number | null>();
   readonly blur = output<FocusEvent>();
   readonly focus = output<FocusEvent>();
   readonly cleared = output<void>();
@@ -228,10 +232,6 @@ export class InputComponent {
     const v = this.value();
     const len = typeof v === 'string' ? v.length : 0;
     return `${len}/${max}`;
-  });
-
-  private readonly _emit = effect(() => {
-    this.valueChange.emit(this.value());
   });
 
   protected onBlur(event: FocusEvent): void {

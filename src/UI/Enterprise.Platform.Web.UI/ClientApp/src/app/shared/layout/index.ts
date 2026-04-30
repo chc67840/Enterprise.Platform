@@ -14,8 +14,8 @@
 
 export type {
   // ── shared primitives ────────────────────────────────────────────────────
+  ChromeConfig,
   ComplianceBadge,
-  DomainChromeConfig,
   EnvBadge,
   IconClass,
   LanguageOption,
@@ -98,10 +98,8 @@ export { ThemeToggleButtonComponent } from './components/widgets/theme-toggle-bu
 // ── F.5 footer ─────────────────────────────────────────────────────────────
 export { PlatformFooterComponent as PlatformFooterV2Component } from './components/platform-footer/platform-footer.component';
 
-// ── F.7 providers (dynamic config sources) ────────────────────────────────
+// ── chrome fallback (used when /api/auth/session hasn't returned yet) ─────
 export {
-  NAVBAR_CONFIG_PROVIDER,
-  StaticNavbarConfigProvider,
-  BackendNavbarConfigProvider,
-} from './providers';
-export type { NavbarConfigContext, NavbarConfigProvider } from './providers';
+  MINIMAL_FALLBACK_CHROME,
+  STATIC_FALLBACK_CHROME,
+} from './chrome-fallback';

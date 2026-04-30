@@ -1,0 +1,274 @@
+// ─── _wizard-pane.scss ───────────────────────────────────────────────────
+//
+// Shared chrome for the right pane of a `<dph-steps variant="split">` wizard
+// — breadcrumb, title, scrollable body, sticky bottom toolbar with Previous /
+// Next / Submit. Designed to be re-used wherever a feature surfaces a
+// multi-step wizard inside the split rail layout (onboarding, settings
+// flows, payment checkouts, multi-tenant provisioning).
+//
+// USAGE
+//
+//   <dph-steps [config]="{ variant: 'split', steps, activeIndex }">
+//     <div class="ep-wizard-pane">
+//       <div class="ep-wizard-pane__crumb"> ... breadcrumb chips ... </div>
+//       <h4 class="ep-wizard-pane__title">{{ currentStep.label }}</h4>
+//       <div class="ep-wizard-pane__body">
+//         <!-- per-step content via @switch / @if -->
+//       </div>
+//       <div class="ep-wizard-pane__toolbar">
+//         <div class="ep-wizard-pane__toolbar-left">
+//           <dph-button label="Previous" icon="pi pi-arrow-left" variant="outline" (clicked)="back()" />
+//           <dph-button label="Reset" variant="ghost" (clicked)="reset()" />
+//         </div>
+//         <div class="ep-wizard-pane__toolbar-right">
+//           <span class="ep-wizard-pane__progress">Step 3 of 7</span>
+//           <dph-button label="Next" icon="pi pi-arrow-right" iconPosition="right" (clicked)="next()" />
+//         </div>
+//       </div>
+//     </div>
+//   </dph-steps>
+//
+// CLASS NAMES (BEM, prefixed `ep-` for "enterprise platform")
+//   .ep-wizard-pane                — flex column, fills the pane height
+//   .ep-wizard-pane__crumb         — breadcrumb row (group › step)
+//   .ep-wizard-pane__crumb-group   — group name
+//   .ep-wizard-pane__crumb-step    — current step name
+//   .ep-wizard-pane__crumb-chip    — "optional" / "beta" pill
+//   .ep-wizard-pane__title         — current step heading
+//   .ep-wizard-pane__desc          — helper paragraph under the title
+//   .ep-wizard-pane__body          — main content; flexes to fill
+//   .ep-wizard-pane__toolbar       — bottom button bar, sticks to the bottom
+//   .ep-wizard-pane__toolbar-left  — left zone — Previous, Reset
+//   .ep-wizard-pane__toolbar-right — right zone — progress, Skip, Next/Submit
+//   .ep-wizard-pane__progress      — "Step X of N" indicator
+//   .ep-wizard-pane__callout       — primary-tinted callout chip
+//   .ep-wizard-pane__hint          — sub-text hint with optional --warn modifier
+//
+// EMBEDDED PRIMITIVES
+//   .ep-plan-cards / .ep-plan-card — radio-card list (used by plan picker)
+//   .ep-avatar-pick / .ep-avatar-swatch — gradient-circle radio swatches
+//   .ep-wizard-pane__summary       — definition list summarising form values
+//   .ep-wizard-pane__terms         — checkbox + label inline terms acceptance
+// ──────────────────────────────────────────────────────────────────────────
+
+.ep-wizard-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 22rem;
+}
+
+.ep-wizard-pane__crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-500);
+  margin-bottom: 0.25rem;
+
+  i { font-size: 0.625rem; }
+}
+.ep-wizard-pane__crumb-group { font-weight: 500; }
+.ep-wizard-pane__crumb-step  {
+  color: var(--ep-color-neutral-800);
+  font-weight: 600;
+}
+.ep-wizard-pane__crumb-chip {
+  margin-left: 0.375rem;
+  padding: 0 0.375rem;
+  background: var(--ep-color-jessamine-100);
+  color: var(--ep-color-jessamine-800);
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ep-wizard-pane__title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ep-color-neutral-900);
+}
+.ep-wizard-pane__desc {
+  margin: 0 0 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--ep-color-neutral-600);
+}
+
+.ep-wizard-pane__body {
+  flex: 1;
+  min-height: 8rem;
+  padding-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+// Primary-tinted callout chip — for "we sent a code to your email" type messages.
+.ep-wizard-pane__callout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--ep-color-primary-50);
+  color: var(--ep-color-primary-800);
+  border-radius: var(--ep-radius-md);
+  font-size: 0.8125rem;
+}
+
+// Helper hint — neutral by default, flips to warning tone with --warn.
+.ep-wizard-pane__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-600);
+
+  &--warn { color: var(--ep-color-jessamine-800); }
+}
+
+// Bottom toolbar — fixed to the bottom of the pane via flex margin-top:auto.
+.ep-wizard-pane__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--ep-color-neutral-200);
+  margin-top: auto;
+}
+.ep-wizard-pane__toolbar-left,
+.ep-wizard-pane__toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ep-wizard-pane__progress {
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-500);
+  margin-right: 0.5rem;
+}
+
+// ── Plan-cards radio list ──────────────────────────────────────────────
+//
+// Vertical list of large card-style radio inputs. The native <input
+// type="radio"> sits in column 1 of a 2-column grid; columns 2 carries the
+// label + price + description. Active state highlights the border and tints
+// the background.
+.ep-plan-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.ep-plan-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.125rem 0.625rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--ep-color-neutral-300);
+  border-radius: var(--ep-radius-md);
+  cursor: pointer;
+  transition:
+    border-color calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+    background calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  &:hover { border-color: var(--ep-color-primary-400); }
+
+  input {
+    grid-row: 1 / span 2;
+    align-self: center;
+    accent-color: var(--ep-color-primary-700);
+  }
+}
+.ep-plan-card__title {
+  grid-column: 2;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ep-color-neutral-900);
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.ep-plan-card__price {
+  font-size: 0.75rem;
+  color: var(--ep-color-primary-700);
+  font-weight: 500;
+}
+.ep-plan-card__desc {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ep-color-neutral-600);
+}
+.ep-plan-card--active {
+  border-color: var(--ep-color-primary-600);
+  background: color-mix(in srgb, var(--ep-color-primary-50), transparent 30%);
+}
+
+// ── Avatar-pick swatches ───────────────────────────────────────────────
+.ep-avatar-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ep-avatar-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    transform calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+    border-color calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
+
+  &:hover { transform: scale(1.05); }
+
+  &--active {
+    border-color: var(--ep-color-primary-700);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-color-primary-500), transparent 80%);
+  }
+}
+
+// ── Review-summary definition list ─────────────────────────────────────
+.ep-wizard-pane__summary {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.375rem 0.625rem;
+  margin: 0 0 0.875rem;
+  font-size: 0.8125rem;
+
+  dt { color: var(--ep-color-neutral-500); }
+  dd { margin: 0; color: var(--ep-color-neutral-900); font-weight: 500; }
+}
+
+// ── Terms-acceptance row ───────────────────────────────────────────────
+.ep-wizard-pane__terms {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  font-size: 0.8125rem;
+  color: var(--ep-color-neutral-700);
+
+  input {
+    margin-top: 0.1875rem;
+    accent-color: var(--ep-color-primary-700);
+  }
+}
+
+// ── OTP input — letter-spaced, centered text ───────────────────────────
+//
+// Wrap a `<dph-input>` (or any input whose visible chrome is rendered by
+// `.dph-input__field`) in `.ep-wizard-pane__otp`. The rule reaches into the
+// inner `<input>` to widen the letter-spacing — emulating the typical 6-digit
+// OTP UX. Lives in the global stylesheet so it pierces component view
+// encapsulation that would otherwise block the descendant selector.
+.ep-wizard-pane__otp {
+  max-width: 12rem;
+
+  .dph-input__field input {
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-size: 1.125rem;
+  }
+}

@@ -229,6 +229,56 @@
   flex-direction: column;
 }
 
+// ─── Motion-aware transition (B.1 / B.2) ──────────────────────────────────
+//
+// Emits a `transition` declaration that respects the global motion-scale
+// token. When the user has `prefers-reduced-motion: reduce` enabled,
+// `_tokens.scss` flips `--ep-motion-scale` to `0` and every transition
+// using this mixin snaps to instant — without each component rewriting
+// its own `@media (prefers-reduced-motion)` block.
+//
+// USAGE
+//   .ep-card {
+//     @include m.motion(transform);                       // fast / standard
+//     @include m.motion(opacity, slow, decelerate);
+//     @include m.motion(transform 0.2s, normal, spring);  // override prop fully
+//   }
+//
+// PARAMS
+//   $prop      — CSS property to transition (default `all`).
+//   $duration  — token suffix (`instant | fast | normal | slow | slower`).
+//   $easing    — token suffix (`standard | emphasized | decelerate | accelerate | spring | bounce`).
+//
+// IMPORTANT
+//   For ESSENTIAL motion (loading spinner, async progress) where freezing
+//   would harm UX, do NOT use this mixin — declare the transition/animation
+//   without referencing `--ep-motion-scale`. See `_animations.scss`.
+@mixin motion($prop: all, $duration: fast, $easing: standard) {
+  transition:
+    $prop
+    calc(var(--ep-duration-#{$duration}) * var(--ep-motion-scale))
+    var(--ep-ease-#{$easing});
+}
+
+// ─── Intent-aware focus ring (B.1) ────────────────────────────────────────
+//
+// Like `focus-ring` above (which is anchored on the jessamine accent), but
+// consumes the semantic `--ep-focus-ring-color*` tokens so a destructive
+// form can scope `--ep-focus-ring-color: var(--ep-focus-ring-color-danger)`
+// and every nested control's focus ring re-skins to red.
+//
+// USAGE
+//   .ep-button:focus-visible {
+//     @include m.focus-ring-intent;            // primary (default)
+//   }
+//   .ep-delete-form {
+//     --ep-focus-ring-color: var(--ep-focus-ring-color-danger);
+//   }
+@mixin focus-ring-intent {
+  outline: var(--ep-focus-ring-width) solid var(--ep-focus-ring-color);
+  outline-offset: var(--ep-focus-ring-offset);
+}
+
 // ─── Screen-reader only ───────────────────────────────────────────────────
 //
 // Hides content visually but leaves it discoverable to assistive tech.

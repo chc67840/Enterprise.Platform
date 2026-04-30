@@ -30,9 +30,6 @@ export const STORAGE_KEYS = {
   /** Theme mode preference: 'light' | 'dark' | 'system'. */
   THEME: 'ep:theme-mode',
 
-  /** Active domain identifier — finance / healthcare / hr. */
-  DOMAIN: 'ep:active-domain',
-
   /** Status-banner dismissed-id list (JSON array of strings). */
   BANNER_DISMISSED: 'ep:status-banner:dismissed',
 

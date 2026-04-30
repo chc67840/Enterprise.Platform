@@ -16,33 +16,76 @@
   margin-left: 0.125rem;
 }
 
+// MATERIAL-STYLE FILLED CHROME (adapted from reference enterprise-app).
+//   - Top corners square; bottom corners pick up --ep-radius-md.
+//   - Neutral-50 fill on light, neutral-800 on dark, defines the input area.
+//   - Focus paints ONLY the bottom border 2px primary + soft drop-shadow.
+//     Top/right/left stay neutral. Validation errors get the same bottom-only
+//     treatment in danger-500.
 .dph-input__field {
   position: relative;
   display: flex;
   align-items: stretch;
-  background-color: #ffffff;
+  background-color: var(--ep-color-neutral-50);
   border: 1px solid var(--ep-color-neutral-300);
-  border-radius: var(--ep-radius-md);
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--ep-radius-md);
+  border-bottom-right-radius: var(--ep-radius-md);
+  transition:
+    border-color calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+    box-shadow calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease),
+    background-color calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
   min-height: 2.75rem;     /* WCAG 2.5.5 — 44px */
 }
 .dph-input__field:focus-within {
-  border-color: var(--ep-color-primary-600);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-color-primary-500), transparent 75%);
+  border-top-color: var(--ep-color-neutral-300);
+  border-right-color: var(--ep-color-neutral-300);
+  border-left-color: var(--ep-color-neutral-300);
+  border-bottom-color: var(--ep-color-primary-500);
+  border-bottom-width: 2px;
+  box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-primary-500) 30%, transparent);
 }
 .dph-input__field--invalid {
-  border-color: var(--ep-color-danger-600);
+  border-bottom-color: var(--ep-color-danger-500);
+  border-bottom-width: 2px;
 }
 .dph-input__field--invalid:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-color-danger-500), transparent 75%);
+  border-bottom-color: var(--ep-color-danger-500);
+  box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-danger-500) 30%, transparent);
 }
 .dph-input__field--disabled {
   background-color: var(--ep-color-neutral-100);
   opacity: 0.7;
 }
 .dph-input__field[data-variant='filled'] {
-  background-color: var(--ep-color-neutral-50);
+  background-color: var(--ep-color-neutral-100);
   border-color: transparent;
+  border-bottom-color: var(--ep-color-neutral-400);
+}
+
+// Dark-mode mirror — neutral-800 fill, neutral-600 borders, primary-400 focus.
+:root.dark {
+  .dph-input__field {
+    background-color: var(--ep-color-neutral-800);
+    border-color: var(--ep-color-neutral-600);
+  }
+  .dph-input__field:focus-within {
+    border-top-color: var(--ep-color-neutral-600);
+    border-right-color: var(--ep-color-neutral-600);
+    border-left-color: var(--ep-color-neutral-600);
+    border-bottom-color: var(--ep-color-primary-400);
+    box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-primary-400) 25%, transparent);
+  }
+  .dph-input__field--invalid {
+    border-bottom-color: var(--ep-color-danger-400);
+  }
+  .dph-input__field--invalid:focus-within {
+    box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-danger-400) 25%, transparent);
+  }
+  .dph-input__field--disabled {
+    background-color: var(--ep-color-neutral-900);
+  }
 }
 
 // .dph-input__field input/.p-inputnumber/.p-password rules lifted to
@@ -63,11 +106,12 @@
 }
 .dph-input__addon--prefix {
   border-right: 1px solid var(--ep-color-neutral-200);
-  border-radius: var(--ep-radius-md) 0 0 var(--ep-radius-md);
+  // Match Material-style chrome: top corner square, bottom corner rounded.
+  border-radius: 0 0 0 var(--ep-radius-md);
 }
 .dph-input__addon--suffix {
   border-left: 1px solid var(--ep-color-neutral-200);
-  border-radius: 0 var(--ep-radius-md) var(--ep-radius-md) 0;
+  border-radius: 0 0 var(--ep-radius-md) 0;
 }
 
 .dph-input__clear {

@@ -159,15 +159,18 @@ export class UsersApiService {
 
   /**
    * Builds the headers attached to every mutation:
-   *   - `Idempotency-Key` — always emitted; the backend's
-   *     `IdempotencyEndpointFilter` is mandatory for mutations under
-   *     `/api/v1/*` (per `MapPlatformApiV1Group()`).
+   *   - `X-Idempotency-Key` — always emitted; the backend's
+   *     `IdempotencyEndpointFilter` is mandatory on every mutation endpoint
+   *     under `/api/v1/*` (attached via `.RequireIdempotencyKey()`). Header
+   *     name MUST match `Enterprise.Platform.Shared.Constants.HttpHeaderNames.IdempotencyKey`
+   *     (`X-Idempotency-Key`); a bare `Idempotency-Key` slips past as missing
+   *     and the filter rejects with 400.
    *   - `X-Skip-Error-Handling` — only when `suppressGlobalError` is true; the
    *     error interceptor strips it and bypasses toast/redirect side-effects.
    */
   private mutationHeaders(options: MutationOptions): HttpHeaders {
     const key = options.idempotencyKey?.trim() || generateIdempotencyKey();
-    let headers = new HttpHeaders({ 'Idempotency-Key': key });
+    let headers = new HttpHeaders({ 'X-Idempotency-Key': key });
     if (options.suppressGlobalError) {
       headers = headers.set('X-Skip-Error-Handling', 'true');
     }

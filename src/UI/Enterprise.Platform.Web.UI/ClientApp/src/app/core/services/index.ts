@@ -9,6 +9,7 @@ export { ThemeService } from './theme.service';
 export type { ThemeMode } from './theme.service';
 export { StatusBannerService } from './status-banner.service';
 export type { StatusBanner, StatusBannerSeverity, StatusBannerAction } from './status-banner.service';
-export { DomainStore } from './domain.store';
 export { NavbarConfigService } from './navbar-config.service';
 export { FocusManagementService } from './focus-management.service';
+export { ConfirmDialogService } from './confirm-dialog.service';
+export type { ConfirmOptions, ConfirmSeverity } from './confirm-dialog.service';

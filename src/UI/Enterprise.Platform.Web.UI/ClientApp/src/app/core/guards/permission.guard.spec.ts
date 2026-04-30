@@ -45,13 +45,13 @@ describe('permissionGuard + anyPermissionGuard', () => {
 
   it('permissionGuard returns true when every required perm is present', () => {
     store.hasAllPermissions.mockReturnValue(true);
-    expect(run(permissionGuard('users:read', 'users:update'))).toBe(true);
-    expect(store.hasAllPermissions).toHaveBeenCalledWith('users:read', 'users:update');
+    expect(run(permissionGuard('users.read', 'users.update'))).toBe(true);
+    expect(store.hasAllPermissions).toHaveBeenCalledWith('users.read', 'users.update');
   });
 
   it('permissionGuard returns UrlTree(/error/forbidden) when any perm is missing', () => {
     store.hasAllPermissions.mockReturnValue(false);
-    const result = run(permissionGuard('users:delete'));
+    const result = run(permissionGuard('users.delete'));
     expect(result).toBeInstanceOf(UrlTree);
     expect(router.serializeUrl(result as UrlTree)).toContain('/error/forbidden');
   });

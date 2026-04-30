@@ -107,11 +107,15 @@ import type {
             [attr.aria-label]="config().leftZone.logo.alt"
           >
             @if (config().leftZone.logo.imageSrc) {
+              <!--
+                Intentionally NO width / height HTML attributes — those lock
+                the rendered box to a square and crush horizontal logos
+                (the SVG's own viewBox aspect is the source of truth). CSS
+                pins height + lets width follow the SVG's natural aspect.
+              -->
               <img
                 [src]="config().leftZone.logo.imageSrc!"
                 [alt]="config().leftZone.logo.alt"
-                width="32"
-                height="32"
                 loading="eager"
                 class="ep-navbar__logo-img"
               />

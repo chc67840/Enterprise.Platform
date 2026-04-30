@@ -1,6 +1,7 @@
 using Enterprise.Platform.Api.Extensions;
 using Enterprise.Platform.Application.Abstractions.Messaging;
 using Enterprise.Platform.Application.Common.Models;
+using Enterprise.Platform.Application.Features.Users;
 using Enterprise.Platform.Application.Features.Users.Commands;
 using Enterprise.Platform.Application.Features.Users.Queries;
 using Enterprise.Platform.Contracts.DTOs.App;
@@ -18,9 +19,16 @@ namespace Enterprise.Platform.Api.Endpoints.v1.Users;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Authorization model.</b> Mutations require an authenticated principal
-/// (<c>RequireAuthorization()</c>). Fine-grained RBAC (e.g. only admins can
-/// deactivate users) belongs in a future <c>permissionGuard</c>-style policy.
+/// <b>Authorization model.</b> Each endpoint is gated by a fine-grained
+/// permission policy synthesised by <c>RbacPolicyProvider</c> from a
+/// <c>perm:&lt;permission&gt;</c> string, e.g. <c>perm:users.read</c>. The
+/// permission tokens themselves come from <see cref="UserPermissions"/> so the
+/// SPA's <c>USER_PERMISSIONS</c> constants and the API stay in lock-step. Read
+/// endpoints require <see cref="UserPermissions.Read"/>; activation-state
+/// transitions require their own dedicated permissions
+/// (<see cref="UserPermissions.Activate"/> / <see cref="UserPermissions.Deactivate"/>)
+/// — these are intentionally split from <see cref="UserPermissions.Write"/> so
+/// HIPAA/SOX auditors can grant "edit profile" without granting "suspend access".
 /// </para>
 /// <para>
 /// <b>Response shape.</b> Endpoints return native
@@ -44,35 +52,90 @@ public static class UserEndpoints
             .WithTags("Users");
 
         group.MapGet("/{id:guid}", GetUserByIdAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Read))
             .WithName("GetUserById")
-            .WithSummary("Returns a single user by id.");
+            .WithSummary("Returns a single user by id.")
+            .Produces<UserDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/", ListUsersAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Read))
             .WithName("ListUsers")
-            .WithSummary("Returns a paged list of users with optional search + active-only filter.");
+            .WithSummary("Returns a paged list of users with optional search + active-only filter.")
+            .Produces<PagedResult<UserDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/", CreateUserAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Create))
+            .RequireIdempotencyKey()
             .WithName("CreateUser")
-            .WithSummary("Registers a new platform user.");
+            .WithSummary("Registers a new platform user.")
+            .Produces<UserDto>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPut("/{id:guid}/name", RenameUserAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Write))
+            .RequireIdempotencyKey()
             .WithName("RenameUser")
-            .WithSummary("Replaces the user's first/last name.");
+            .WithSummary("Replaces the user's first/last name.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPut("/{id:guid}/email", ChangeUserEmailAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Write))
+            .RequireIdempotencyKey()
             .WithName("ChangeUserEmail")
-            .WithSummary("Replaces the user's canonical email.");
+            .WithSummary("Replaces the user's canonical email.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{id:guid}/activate", ActivateUserAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Activate))
+            .RequireIdempotencyKey()
             .WithName("ActivateUser")
-            .WithSummary("Reactivates a deactivated user.");
+            .WithSummary("Reactivates a deactivated user.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{id:guid}/deactivate", DeactivateUserAsync)
+            .RequireAuthorization(PermissionPolicy(UserPermissions.Deactivate))
+            .RequireIdempotencyKey()
             .WithName("DeactivateUser")
-            .WithSummary("Deactivates an active user (reversible).");
+            .WithSummary("Deactivates an active user (reversible).")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         return app;
     }
+
+    /// <summary>
+    /// Builds the dynamic policy name consumed by <c>RbacPolicyProvider</c>
+    /// (e.g. <c>users.read</c> → <c>perm:users.read</c>). Centralised so the
+    /// <c>perm:</c> prefix lives in exactly one place per endpoint group.
+    /// </summary>
+    private static string PermissionPolicy(string permission) => $"perm:{permission}";
 
     // ── handlers ────────────────────────────────────────────────────────────
 
