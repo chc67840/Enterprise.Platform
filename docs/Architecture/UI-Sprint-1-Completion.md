@@ -20,6 +20,9 @@ channel + the upgraded drawer-with-size-presets + the chart widget.
 | **P1.2** | Drawer panel with size presets + named-slot footer | M | ✅ Completed |
 | **P1.3** | ChartWidgetComponent with theme-aware rebuild | M | ✅ Completed |
 | **B.1** | Semantic intent tokens migration | L | ✅ Completed |
+| **C.1** | Material-style filled input chrome (adapted from reference) | S | ✅ Completed |
+| **C.2** | UI Demo mega-menu navbar surface + Kitchen Sink showcase | S | ✅ Completed |
+| **C.3** | Sprint 1 demos (chart · schema-form · confirm · tokens · drawer-sizes) | S | ✅ Completed |
 
 ## Build / test deltas
 
@@ -44,6 +47,8 @@ src/app/shared/components/dph/chart-widget.builder.ts
 src/app/shared/components/dph/chart-widget.builder.spec.ts  (21 tests)
 src/app/shared/components/dph/chart-widget.component.ts
 src/app/shared/components/dph/chart-widget.component.scss
+src/app/features/__demo/ui-kit/sprint1-demos.ts             (C.3)
+src/app/features/__demo/ui-kit/kitchen-sink.component.ts    (C.2)
 Docs/Architecture/UI-Semantic-Tokens-RFC.md
 Docs/Architecture/UI-Sprint-1-Completion.md
 ```
@@ -129,6 +134,28 @@ don't repeat the `acceptButtonStyleClass` boilerplate.
 `[data-density="compact"]` rebinds `--ep-control-height` for the subtree.
 Attribute-based instead of class-based to avoid collisions with Tailwind's
 `dark:` variant family.
+
+### 8. Material-style filled input chrome (C.1)
+
+Adapted from the reference `enterprise-app/src/styles/primeng-overrides.css`.
+Top corners stay square, bottom corners pick up `--ep-radius-md`. A subtle
+`--ep-color-neutral-50` background tint visually defines the control area;
+focus paints the bottom border 2px in `--ep-color-primary-500` plus a soft
+drop-shadow underneath. Dark-mode mirror flips to neutral-800 fill, neutral-600
+borders, primary-400 highlight. Validation errors keep the same bottom-only
+treatment in `--ep-color-danger-500`. Lives at the bottom of
+`_primeng-overrides.scss` so it sits OUTSIDE any cascade layer and reliably
+wins against PrimeNG's runtime style injection.
+
+### 9. UI Demo mega-menu surface (C.2 / C.3)
+
+`StaticChromeBuilder` (BFF) and `chrome-fallback.ts` (SPA) both surface a
+"UI Demo" top-level navbar item with a 3-section mega-menu (Overview / Forms
+& Inputs / Components). The dropdown opens a 19-leaf catalogue covering every
+DPH primitive plus a "Kitchen Sink" leaf that points at one scrollable page
+with every component at multiple column widths and variation tiers. Engineers
+discover variants without leaving the running app — the routes are also
+flat-linkable for stand-up demos.
 
 ## Migration impact
 

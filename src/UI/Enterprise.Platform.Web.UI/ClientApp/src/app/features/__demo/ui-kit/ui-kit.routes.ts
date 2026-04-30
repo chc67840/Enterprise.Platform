@@ -9,6 +9,14 @@ import type { Routes } from '@angular/router';
 
 import type { RouteMetadata } from '@core/models';
 
+import { KitchenSinkComponent } from './kitchen-sink.component';
+import {
+  DemoChartComponent,
+  DemoConfirmComponent,
+  DemoDrawerSizesComponent,
+  DemoSchemaFormComponent,
+  DemoTokensComponent,
+} from './sprint1-demos';
 import {
   DemoButtonComponent,
   DemoDataTableComponent,
@@ -52,6 +60,15 @@ export const UI_KIT_ROUTES: Routes = [
       },
     } satisfies RouteMetadata,
   },
+  // ── Sprint 1 additions + comprehensive showcase ───────────────────────
+  { path: 'kitchen-sink', component: KitchenSinkComponent,     data: headerFor('Kitchen Sink',  'Every primitive on one scrollable page.', 'pi pi-objects-column') satisfies RouteMetadata },
+  { path: 'tokens',       component: DemoTokensComponent,      data: headerFor('Design Tokens', 'Semantic intents · density · motion-scale (B.1).', 'pi pi-palette') satisfies RouteMetadata },
+  { path: 'schema-form',  component: DemoSchemaFormComponent,  data: headerFor('Schema Form',   'Declarative form rendering with discriminated event channel (P1.1).', 'pi pi-clone') satisfies RouteMetadata },
+  { path: 'chart',        component: DemoChartComponent,       data: headerFor('Charts',        'Theme-aware Chart.js wrapper (P1.3).', 'pi pi-chart-bar') satisfies RouteMetadata },
+  { path: 'confirm',      component: DemoConfirmComponent,     data: headerFor('Confirm Dialog','Promise-based ConfirmDialogService (P0.5).', 'pi pi-question-circle') satisfies RouteMetadata },
+  { path: 'drawer-sizes', component: DemoDrawerSizesComponent, data: headerFor('Drawer sizes',  'sm/md/lg/xl/full × axis-aware width/height (P1.2).', 'pi pi-window-restore') satisfies RouteMetadata },
+
+  // ── Original 14 categories (Phase 4 baseline) ─────────────────────────
   { path: 'form-layout',  component: DemoFormLayoutComponent,  data: headerFor('Form Layout',   'Grid / stacked / inline / wizard layouts.', 'pi pi-th-large') satisfies RouteMetadata },
   { path: 'input',        component: DemoInputComponent,       data: headerFor('Input',         'Text / number / password / textarea + addons.', 'pi pi-pencil') satisfies RouteMetadata },
   { path: 'float-label',  component: DemoFloatLabelComponent,  data: headerFor('Float Label',   'Animated floating labels.', 'pi pi-arrows-v') satisfies RouteMetadata },

@@ -85,6 +85,137 @@
 // ── ColumnFilterComponent (DPH data-table) ────────────────────────────────
 .dph-cf__pop .p-popover-content { padding: 0.5rem; }
 
+// ─────────────────────────────────────────────────────────────────────────
+// MATERIAL-STYLE INPUT CHROME (adapted from reference framework)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// PrimeNG's stock input chrome is a uniform 4-side rounded rectangle. The
+// reference enterprise-app project uses a Material-Design "filled" treatment
+// that reads more polished:
+//
+//   - Top corners SQUARE, bottom corners rounded.
+//   - Subtle surface tint behind the input (--ep-color-neutral-50 / surface-50).
+//   - Focus paints the BOTTOM border 2px in primary, plus a soft drop-shadow
+//     under the field. Top/right/left stay neutral.
+//
+// Why we adopt it here:
+//   - Visually distinguishes "filled" form chrome from "outlined" buttons.
+//   - The bottom-only focus highlight is a clear, accessible (2px + shadow)
+//     state without the heavy 4-side outline that PrimeNG defaults to.
+//   - Pairs naturally with our autofill-suppression block (above) — both
+//     target the same selector set.
+//
+// Targets:
+//   .p-inputtext, .p-textarea — text/email/password/etc inputs
+//   .p-select, .p-multiselect — dropdown triggers
+//   .p-inputnumber-input, .p-password-input, .p-autocomplete-input
+//
+// We DO NOT touch: checkbox, radio, toggle-switch, button, calendar grid —
+// those are pill/round shapes by intent.
+
+%dph-input-fill-base {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--ep-radius-md);
+  border-bottom-right-radius: var(--ep-radius-md);
+  background-color: var(--ep-color-neutral-50);
+  transition:
+    border-color calc(var(--ep-duration-fast) * var(--ep-motion-scale)) var(--ep-ease-standard),
+    box-shadow calc(var(--ep-duration-fast) * var(--ep-motion-scale)) var(--ep-ease-standard),
+    background-color calc(var(--ep-duration-fast) * var(--ep-motion-scale)) var(--ep-ease-standard);
+}
+
+.p-inputtext,
+.p-textarea,
+.p-select,
+.p-multiselect,
+.p-inputnumber-input,
+.p-password-input,
+.p-autocomplete-input,
+.p-inputotp-input {
+  @extend %dph-input-fill-base;
+}
+
+// AutoComplete wrapper needs matching radius so the focus border matches.
+.p-autocomplete {
+  @extend %dph-input-fill-base;
+}
+
+// Focus state (light theme) — bottom-border-only highlight + drop shadow.
+// `:enabled:focus` targets the inner <input>; `.p-focus` targets the
+// PrimeNG component host (Select, MultiSelect, AutoComplete) which paints
+// the visual border.
+.p-inputtext:enabled:focus,
+.p-textarea:enabled:focus,
+.p-inputnumber-input:enabled:focus,
+.p-password-input:enabled:focus,
+.p-autocomplete-input:enabled:focus,
+.p-select.p-focus,
+.p-multiselect.p-focus,
+.p-autocomplete.p-focus {
+  border-top-color: var(--ep-color-neutral-300);
+  border-right-color: var(--ep-color-neutral-300);
+  border-left-color: var(--ep-color-neutral-300);
+  border-bottom-color: var(--ep-color-primary-500);
+  border-bottom-width: 2px;
+  box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-primary-500) 30%, transparent);
+  outline: none;
+}
+
+// Dark-mode mirror — borders ride one shade darker, primary one shade
+// lighter so the highlight stays readable on dark surfaces.
+:root.dark {
+  .p-inputtext,
+  .p-textarea,
+  .p-select,
+  .p-multiselect,
+  .p-inputnumber-input,
+  .p-password-input,
+  .p-autocomplete-input,
+  .p-inputotp-input,
+  .p-autocomplete {
+    background-color: var(--ep-color-neutral-800);
+  }
+
+  .p-inputtext:enabled:focus,
+  .p-textarea:enabled:focus,
+  .p-inputnumber-input:enabled:focus,
+  .p-password-input:enabled:focus,
+  .p-autocomplete-input:enabled:focus,
+  .p-select.p-focus,
+  .p-multiselect.p-focus,
+  .p-autocomplete.p-focus {
+    border-top-color: var(--ep-color-neutral-600);
+    border-right-color: var(--ep-color-neutral-600);
+    border-left-color: var(--ep-color-neutral-600);
+    border-bottom-color: var(--ep-color-primary-400);
+    box-shadow: 0 2px 4px -1px color-mix(in srgb, var(--ep-color-primary-400) 25%, transparent);
+  }
+}
+
+// Validation error state — bottom border red regardless of focus.
+.p-inputtext.ng-invalid.ng-touched,
+.p-inputtext.ng-invalid.ng-dirty,
+.p-textarea.ng-invalid.ng-touched,
+.p-textarea.ng-invalid.ng-dirty,
+.p-select.ng-invalid.ng-touched,
+.p-select.ng-invalid.ng-dirty,
+.p-multiselect.ng-invalid.ng-touched,
+.p-multiselect.ng-invalid.ng-dirty {
+  border-bottom-color: var(--ep-color-danger-500);
+  border-bottom-width: 2px;
+}
+
+// Special-cases that should NOT inherit the filled treatment:
+//   - DatePicker host wrapper: focus is handled by the inner .p-inputtext
+//   - InputGroup wrappers: rounded fully because they typically sit between
+//     two addons that compose the corner radius.
+.p-datepicker.p-focus,
+.p-datepicker:enabled:focus {
+  border: none;
+  box-shadow: none;
+}
+
 // ── UserMenuButtonComponent (Layout chrome) ───────────────────────────────
 //
 // The avatar tones target classes passed to <p-avatar [styleClass]>; the

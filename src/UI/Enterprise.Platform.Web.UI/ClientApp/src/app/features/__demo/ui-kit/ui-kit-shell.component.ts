@@ -15,6 +15,14 @@ interface Tile {
 }
 
 const TILES: readonly Tile[] = [
+  // ── Sprint 1 + comprehensive showcase ───────────────────────────────
+  { path: 'kitchen-sink', title: 'Kitchen Sink', icon: 'pi pi-objects-column', desc: 'Every primitive on one scrollable page — multiple variations side-by-side.' },
+  { path: 'tokens', title: 'Design Tokens', icon: 'pi pi-palette', desc: 'Semantic intents · density modes · motion-scale (B.1).' },
+  { path: 'schema-form', title: 'Schema Form', icon: 'pi pi-clone', desc: 'Declarative form rendering with discriminated event channel.' },
+  { path: 'chart', title: 'Charts', icon: 'pi pi-chart-bar', desc: 'Theme-aware Chart.js wrapper · 6 chart types · loading skeleton.' },
+  { path: 'confirm', title: 'Confirm Dialog', icon: 'pi pi-question-circle', desc: 'Promise-based ConfirmDialogService.ask() / askDestructive().' },
+  { path: 'drawer-sizes', title: 'Drawer sizes', icon: 'pi pi-window-restore', desc: 'sm / md / lg / xl / full × axis-aware width/height resolution.' },
+  // ── Original categories ─────────────────────────────────────────────
   { path: 'form-layout', title: 'Form Layout', icon: 'pi pi-th-large', desc: 'Grid / stacked / inline / tabbed / wizard layouts.' },
   { path: 'input', title: 'Input', icon: 'pi pi-pencil', desc: 'Text, number, password, textarea + addons + states.' },
   { path: 'float-label', title: 'Float Label', icon: 'pi pi-arrows-v', desc: 'Animated floating labels for any input.' },
@@ -40,9 +48,9 @@ const TILES: readonly Tile[] = [
   template: `
     <section class="space-y-4">
       <p class="text-sm text-gray-700">
-        14 reusable primitives prefixed <code>dph-*</code>. Every component is config-driven, signal-based,
-        OnPush, standalone, accessible, responsive (320px → 2560px). Pick a category to explore variants
-        and edge cases.
+        Reusable primitives prefixed <code>dph-*</code>. Every component is config-driven, signal-based,
+        OnPush, standalone, accessible, responsive (320px → 2560px). Open <strong>Kitchen Sink</strong>
+        for every primitive on one page, or pick a category for variants and edge cases.
       </p>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         @for (t of tiles; track t.path) {

@@ -75,6 +75,7 @@ public sealed class StaticChromeBuilder : IChromeBuilder
                     UsersFlat(),
                     NavItem(id: "reports",  label: "Reports",   icon: "pi pi-chart-bar",  route: "/reports"),
                     NavItem(id: "settings", label: "Settings",  icon: "pi pi-cog",        route: "/settings"),
+                    UiDemoMenu(),
                 ])),
         RightZone: new NavRightZoneConfigDto(
             Clock: new NavClockConfigDto(
@@ -225,6 +226,84 @@ public sealed class StaticChromeBuilder : IChromeBuilder
         AnalyticsTag: "nav.users",
         Disabled: null,
         Tooltip: null);
+
+    /// <summary>
+    /// "UI Demo" parent with mega-menu sections covering every DPH UI Kit
+    /// category. Surfaces the permanent UI Kit reference (lives at
+    /// <c>/demo/ui-kit</c>) inside the navbar so engineers can find variants
+    /// + edge-cases without leaving the running app. The "Kitchen Sink" entry
+    /// points at the all-in-one showcase — every component on a single
+    /// scrollable page.
+    /// </summary>
+    /// <remarks>
+    /// No permission gate: the UI Kit is documentation, not a feature.
+    /// Hide it in production by either (a) editing this builder or
+    /// (b) wrapping the route group in a feature flag at build time.
+    /// </remarks>
+    private static NavMenuItemDto UiDemoMenu() => new(
+        Id: "ui-demo",
+        Label: "UI Demo",
+        Icon: "pi pi-palette",
+        RoutePath: "/demo/ui-kit",
+        ExternalUrl: null,
+        Badge: null,
+        Permission: null,
+        Children:
+        [
+            new NavMenuSectionDto(
+                Heading: "Overview",
+                Subheading: "Get started",
+                Leaves:
+                [
+                    UiDemoLeaf("ui-kit-home",     "Overview",      "pi pi-th-large",        "/demo/ui-kit",                "Landing — every category at a glance"),
+                    UiDemoLeaf("ui-kit-sink",     "Kitchen Sink",  "pi pi-objects-column", "/demo/ui-kit/kitchen-sink",   "All primitives on a single page"),
+                    UiDemoLeaf("ui-kit-tokens",   "Design Tokens", "pi pi-palette",         "/demo/ui-kit/tokens",         "Color · spacing · density · motion"),
+                ]),
+            new NavMenuSectionDto(
+                Heading: "Forms & Inputs",
+                Subheading: "Build any form fast",
+                Leaves:
+                [
+                    UiDemoLeaf("ui-kit-button",  "Buttons",      "pi pi-bolt",     "/demo/ui-kit/button",       "7 variants × 5 sizes + states"),
+                    UiDemoLeaf("ui-kit-input",   "Inputs",       "pi pi-pencil",   "/demo/ui-kit/input",        "Text · email · password · textarea"),
+                    UiDemoLeaf("ui-kit-form",    "Form Layout",  "pi pi-th-large", "/demo/ui-kit/form-layout",  "Grid / inline / wizard layouts"),
+                    UiDemoLeaf("ui-kit-schema",  "Schema Form",  "pi pi-clone",    "/demo/ui-kit/schema-form",  "Declarative — schema → typed FormGroup"),
+                    UiDemoLeaf("ui-kit-file",    "File Upload",  "pi pi-paperclip","/demo/ui-kit/file",         "Dropzone / button + preview"),
+                ]),
+            new NavMenuSectionDto(
+                Heading: "Components",
+                Subheading: "Display, navigation, overlays",
+                Leaves:
+                [
+                    UiDemoLeaf("ui-kit-table",    "Data Table",       "pi pi-table",            "/demo/ui-kit/data-table", "17 cell types · multi-sort · async"),
+                    UiDemoLeaf("ui-kit-chart",    "Charts",           "pi pi-chart-bar",        "/demo/ui-kit/chart",      "Theme-aware Chart.js wrapper"),
+                    UiDemoLeaf("ui-kit-overlay",  "Overlays",         "pi pi-window-restore",   "/demo/ui-kit/overlay",    "Dialog · Drawer · Popover · Tooltip"),
+                    UiDemoLeaf("ui-kit-confirm",  "Confirm Dialog",   "pi pi-question-circle",  "/demo/ui-kit/confirm",    "Promise-based ask() / askDestructive()"),
+                    UiDemoLeaf("ui-kit-message",  "Messages + Toast", "pi pi-comment",          "/demo/ui-kit/message",    "Inline · toast · banners"),
+                    UiDemoLeaf("ui-kit-list",     "Lists",            "pi pi-list",             "/demo/ui-kit/list",       "Simple · selectable · checklist"),
+                    UiDemoLeaf("ui-kit-tree",     "Trees",            "pi pi-sitemap",          "/demo/ui-kit/tree",       "Hierarchical with selection · filter"),
+                    UiDemoLeaf("ui-kit-panel",    "Panels",           "pi pi-window-maximize",  "/demo/ui-kit/panel",      "Cards: default · elevated · flat · ghost"),
+                    UiDemoLeaf("ui-kit-media",    "Media",            "pi pi-image",            "/demo/ui-kit/media",      "Image · Avatar · Gallery"),
+                    UiDemoLeaf("ui-kit-menu",     "Menus",            "pi pi-bars",             "/demo/ui-kit/menu",       "Dropdown · Context"),
+                    UiDemoLeaf("ui-kit-steps",    "Steps + Wizard",   "pi pi-step-forward",     "/demo/ui-kit/steps",      "8 variants · sub-steps · validation"),
+                ]),
+        ],
+        AnalyticsTag: "nav.uiDemo",
+        Disabled: null,
+        Tooltip: "Reference catalogue — every UI Kit primitive with all variants");
+
+    private static NavMenuLeafDto UiDemoLeaf(string id, string label, string icon, string route, string description) => new(
+        Id: id,
+        Label: label,
+        Icon: icon,
+        RoutePath: route,
+        ExternalUrl: null,
+        Badge: null,
+        Permission: null,
+        AnalyticsTag: null,
+        Disabled: null,
+        Tooltip: null,
+        Description: description);
 
     private static UserMenuItemDto UserMenuLink(string id, string label, string icon, string route) => new(
         Kind: "link",

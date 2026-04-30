@@ -185,7 +185,11 @@
       "Bash(npx playwright *)",
       "Bash(xargs -0 grep -L 'styleUrl\\\\|styles:\\\\s*\\\\[')",
       "Bash(python -c \"import xml.etree.ElementTree as ET; ET.parse\\('Enterprise-Platform-Master-Architecture.svg'\\); print\\('SVG parsed OK'\\)\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(awk '{print $NF}')",
+      "Bash(where dotnet *)",
+      "Bash(git add *)",
+      "Bash(git restore *)"
     ]
   }
 }
