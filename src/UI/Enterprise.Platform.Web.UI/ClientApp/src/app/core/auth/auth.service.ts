@@ -48,6 +48,8 @@ import { AuthStore } from '@core/auth/auth.store';
 import { SessionMonitorService } from '@core/auth/session-monitor.service';
 import type { CurrentUser } from '@core/models';
 import { LoggerService } from '@core/services/logger.service';
+import { NavbarConfigService } from '@core/services/navbar-config.service';
+import type { ChromeConfig } from '@shared/layout/models/nav.models';
 
 /** BroadcastChannel name used to sync logout events across open tabs. */
 const LOGOUT_CHANNEL = 'ep:auth';
@@ -58,12 +60,20 @@ const LOGOUT_MESSAGE = 'logout';
  * `SessionInfo` record in `Enterprise.Platform.Web.UI.Controllers.AuthController`.
  * Kept narrow — the SPA has no business reading tokens, TIDs, or refresh
  * metadata; that all stays server-side.
+ *
+ * Post-2026-04-29: bundled the post-login envelope. `permissions` + `chrome`
+ * arrive in the same call so the shell has everything it needs to paint
+ * without a chain of follow-up requests.
  */
 interface SessionInfo {
   readonly isAuthenticated: boolean;
   readonly name: string | null;
   readonly email: string | null;
   readonly roles: readonly string[];
+  /** Fine-grained permission strings (e.g. `users.read`). Phase 1 always empty. */
+  readonly permissions: readonly string[];
+  /** Navbar + footer chrome built server-side. Null when anonymous. */
+  readonly chrome: ChromeConfig | null;
   /** ISO-8601 timestamp of cookie expiration, or `null` when anonymous. */
   readonly expiresAt: string | null;
 }
@@ -74,6 +84,7 @@ export class AuthService {
   private readonly log = inject(LoggerService);
   private readonly authStore = inject(AuthStore);
   private readonly sessionMonitor = inject(SessionMonitorService);
+  private readonly chromeService = inject(NavbarConfigService);
   private readonly destroyRef = inject(DestroyRef);
 
   // ── PUBLIC SIGNALS (reactive auth state) ─────────────────────────────────
@@ -94,6 +105,16 @@ export class AuthService {
     const ts = Date.parse(raw);
     return Number.isNaN(ts) ? null : ts;
   });
+
+  /**
+   * Tracks whether the antiforgery token cookie has been issued for this
+   * session. The BFF's `[AutoValidateAntiforgeryToken]` rejects mutating XHRs
+   * (POST/PUT/PATCH/DELETE) without a valid `X-XSRF-TOKEN` header — and that
+   * header is only present when the readable `XSRF-TOKEN` cookie exists.
+   * That cookie is issued by `GET /api/antiforgery/token`; we must call it
+   * once per session before any user-triggered mutation.
+   */
+  private antiforgeryReady = false;
 
   /** Convenient projection into the app-facing `CurrentUser` shape. */
   readonly currentUser = computed<CurrentUser | null>(() => {
@@ -138,20 +159,46 @@ export class AuthService {
    */
   async refreshSession(): Promise<void> {
     try {
+      // `?include=chrome` opts into the heavy bundle (navbar + footer config).
+      // SessionMonitorService deliberately does NOT pass this flag — its tick
+      // only reads expiresAt, so the chrome blob would be wasted bandwidth on
+      // every poll (multiplied across the cookie's 8h lifetime). This call
+      // fires once on boot + on explicit refresh (e.g. admin grants a new
+      // permission and the SPA needs the updated nav).
+      //
+      // `X-Skip-Loading: true` opts out of the global progress bar — auth
+      // bootstrap is invisible plumbing, not user-perceived activity. Without
+      // this header, every boot would flash the top progress bar.
       const session = await firstValueFrom(
-        this.http.get<SessionInfo>('/api/auth/session', {
+        this.http.get<SessionInfo>('/api/auth/session?include=chrome', {
           withCredentials: true,
+          headers: { 'X-Skip-Loading': 'true' },
         }),
       );
       this._session.set(session);
+      // Post-login envelope carries the chrome config — push it into the
+      // chrome service so the shell renders the right navbar / footer on
+      // first paint. `null` when anonymous (login page renders, chrome is
+      // unused).
+      this.chromeService.hydrate(session.chrome);
       this.log.info('auth.session.loaded', {
         isAuthenticated: session.isAuthenticated,
       });
+      // Antiforgery token must exist before the first mutation; provision it
+      // here on the success path so the user can immediately interact with
+      // POST / PUT / DELETE endpoints without race-conditioning on a separate
+      // bootstrap step.
+      if (session.isAuthenticated) {
+        await this.ensureAntiforgeryToken();
+      }
     } catch (err: unknown) {
       this.log.warn('auth.session.load.failed', {
         err: err instanceof Error ? err.message : String(err),
       });
       this._session.set(null);
+      // Keep the lastKnown chrome (if any) and surface the error so the
+      // shell can render a status banner with a retry affordance.
+      this.chromeService.markError(err);
     } finally {
       this.isLoading.set(false);
     }
@@ -203,7 +250,11 @@ export class AuthService {
     //    during the redirect chain.
     this._session.set(null);
     this.authStore.reset();
+    this.chromeService.reset();
     this.sessionMonitor.stop();
+    // Logout invalidates the BFF's HttpOnly antiforgery secret cookie; the
+    // next session must re-fetch a fresh token pair.
+    this.antiforgeryReady = false;
 
     // 2. Tell other tabs to clear their state too.
     try {
@@ -224,6 +275,34 @@ export class AuthService {
     form.style.display = 'none';
     document.body.appendChild(form);
     form.submit();
+  }
+
+  /**
+   * Issues the readable `XSRF-TOKEN` cookie via `GET /api/antiforgery/token`.
+   * Idempotent — the second call is a cheap no-op once the cookie is set.
+   *
+   * Failures here are logged but never thrown: a missing cookie surfaces later
+   * as a 400 on the first mutation, which is a better signal than crashing
+   * app bootstrap. Cookies are not exposed to JS error events on cross-site
+   * boundaries, so we can't distinguish "set" from "blocked"; we trust the
+   * 200 response status.
+   */
+  private async ensureAntiforgeryToken(): Promise<void> {
+    if (this.antiforgeryReady) return;
+    try {
+      await firstValueFrom(
+        this.http.get<{ headerName: string }>('/api/antiforgery/token', {
+          withCredentials: true,
+          headers: { 'X-Skip-Loading': 'true' },
+        }),
+      );
+      this.antiforgeryReady = true;
+      this.log.info('auth.antiforgery.ready');
+    } catch (err: unknown) {
+      this.log.warn('auth.antiforgery.failed', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   // ── INTERNALS ────────────────────────────────────────────────────────────
@@ -271,7 +350,9 @@ export class AuthService {
       if (evt.data === LOGOUT_MESSAGE) {
         this._session.set(null);
         this.authStore.reset();
+        this.chromeService.reset();
         this.sessionMonitor.stop();
+        this.antiforgeryReady = false;
       }
     };
     this.destroyRef.onDestroy(() => channel.close());

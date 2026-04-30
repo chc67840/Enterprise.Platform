@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Enterprise.Platform.Application.Common.Authorization;
 using Enterprise.Platform.Web.UI.Controllers.Models;
+using Enterprise.Platform.Web.UI.Services.Chrome;
 using Enterprise.Platform.Web.UI.Services.Graph;
 using Enterprise.Platform.Web.UI.Setup;
 using Microsoft.AspNetCore.Authentication;
@@ -157,20 +159,53 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     }
 
     /// <summary>
-    /// Returns a JSON summary of the current session. Called by the SPA on app
-    /// bootstrap + periodically by <c>SessionMonitorService</c> to drive the
-    /// expiry-warning dialog and to track auth state.
+    /// Returns a JSON summary of the current session. Default response is
+    /// lightweight (identity, role labels, expiry) so <c>SessionMonitorService</c>
+    /// can poll it cheaply every <c>session.pollIntervalSeconds</c>. Pass
+    /// <c>?include=chrome</c> to additionally embed the navbar/footer config —
+    /// the SPA does this exactly once on bootstrap via
+    /// <c>AuthService.refreshSession()</c> so the post-login shell paints
+    /// without a chain of follow-up calls.
     /// </summary>
     /// <remarks>
-    /// NEVER returns tokens or sensitive claims — strictly identity + roles +
-    /// expiry. The access token stays in the server-side ticket.
+    /// <para>
+    /// <b>Why conditional payload.</b> Chrome is several KB; bundling it on
+    /// every monitor tick (one per minute, sustained over an 8-hour cookie
+    /// lifetime) wastes bandwidth + serialisation cycles for no UI benefit
+    /// — the monitor only ever reads <c>expiresAt</c>. The query flag splits
+    /// the two access patterns through a single endpoint without API-surface
+    /// bloat.
+    /// </para>
+    /// <para>
+    /// NEVER returns tokens or sensitive claims — strictly identity + roles
+    /// + (optional) permissions + (optional) chrome + expiry. The access
+    /// token stays in the server-side ticket.
+    /// </para>
+    /// <para>
+    /// Chrome is built by <see cref="IChromeBuilder"/>; Phase 1 returns a
+    /// hardcoded config, Phase 2 will filter per user / module / role from
+    /// SQL. The SPA's <c>NavbarConfigService.hydrate</c> consumes the
+    /// <c>chrome</c> field directly when present — no separate
+    /// <c>/me/chrome</c> endpoint exists.
+    /// </para>
     /// </remarks>
+    /// <param name="chromeBuilder">DI-injected; only invoked when chrome is requested.</param>
+    /// <param name="include">
+    /// Comma-separated opt-in flags for heavy fields. Recognised: <c>chrome</c>.
+    /// Anything else is ignored (tolerant of future-flag mistakes).
+    /// </param>
+    /// <param name="cancellationToken">Cooperative cancellation for chrome build.</param>
     /// <returns>A <see cref="SessionInfo"/> envelope; <c>IsAuthenticated=false</c> when anonymous.</returns>
     [AllowAnonymous]
     [HttpGet("session")]
     [ProducesResponseType<SessionInfo>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<SessionInfo>> Session(CancellationToken cancellationToken)
+    public async Task<ActionResult<SessionInfo>> Session(
+        [FromServices] IChromeBuilder chromeBuilder,
+        [FromQuery] string? include,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(chromeBuilder);
+
         if (User.Identity?.IsAuthenticated != true)
         {
             return Ok(SessionInfo.Anonymous);
@@ -199,15 +234,53 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
+        // Phase 1: hardcoded grant of the full feature-permission set for any
+        // authenticated user. Phase 2 will replace with a SQL query against
+        // the platform's identity store (Users → UserModules → Permissions).
+        // The wire shape is stable so the SPA's AuthStore.hydrate consumer
+        // needs no changes when real values land.
+        var permissions = BuildPhase1Permissions();
+
+        // Build chrome only when the caller asked for it — keeps the
+        // SessionMonitorService poll cheap. The query flag is the SINGLE
+        // signal; absent / unrecognised → no chrome.
+        var chrome = WantsInclude(include, "chrome")
+            ? await chromeBuilder.BuildAsync(User, cancellationToken).ConfigureAwait(false)
+            : null;
+
         var session = new SessionInfo(
             IsAuthenticated: true,
             Name: name,
             Email: email,
             Roles: roles,
+            Permissions: permissions,
+            Chrome: chrome,
             ExpiresAt: expiresAt);
 
-        _ = cancellationToken; // reserved for future async work
         return Ok(session);
+    }
+
+    /// <summary>
+    /// Tolerant comma-split lookup for the <c>?include=</c> query flag.
+    /// Case-insensitive. Whitespace-tolerant. Ignores unknown values so
+    /// future flag rollouts don't 400 callers that paste the wrong name.
+    /// </summary>
+    private static bool WantsInclude(string? include, string flag)
+    {
+        if (string.IsNullOrWhiteSpace(include))
+        {
+            return false;
+        }
+
+        var parts = include.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var part in parts)
+        {
+            if (string.Equals(part, flag, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -267,19 +340,33 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     }
 
     /// <summary>
-    /// Placeholder permission set. Returns an empty <see cref="EffectivePermissions"/>
-    /// payload so the SPA's <c>AuthStore.hydrate()</c> resolves cleanly instead
-    /// of seeing the recurring 404 the proxy was producing for the absent Api
-    /// endpoint. <b>Replace with real PlatformDb-backed hydration when D4 lifts</b>
-    /// — the call signature here matches what the eventual real implementation
-    /// will return, so the SPA needs no changes at that point.
+    /// Phase-1 placeholder permission set hydrated by the SPA's
+    /// <c>AuthStore.hydrate()</c>. Returns the full feature-permission grant
+    /// for any authenticated user — no per-user filtering yet, just hardcoded
+    /// strings matching <see cref="UserPermissions"/> (and any future feature's
+    /// <c>*Permissions</c> static class as modules ship). Phase 2 swaps the
+    /// hardcoded array for a SQL query against the platform identity store.
     /// </summary>
     /// <remarks>
-    /// Lives on the host (not the Api) because the eventual hydration is per-user
-    /// and benefits from the host's session context — no extra Api round-trip
-    /// during the call. Roles surface from the session claims so the UI can
-    /// already render coarse role badges; fine-grained permissions stay empty
-    /// until the platform identity store ships.
+    /// <para>
+    /// <b>Why grant everything in Phase 1.</b> The SPA's route guards and nav
+    /// menu both gate on these strings. An empty list (the prior behaviour)
+    /// blocks every authenticated user from reaching gated routes — fail-
+    /// closed by accident. Granting the full feature set keeps the platform
+    /// usable while the real hydration plumbing ships.
+    /// </para>
+    /// <para>
+    /// <b>Source-of-truth coupling.</b> The list mirrors what
+    /// <c>BuildPhase1Permissions</c> emits inside <see cref="Session"/> — the
+    /// two endpoints MUST stay in sync; if a SPA component reads from one and
+    /// gates on the other, drift would surface as confusing partial-render
+    /// bugs.
+    /// </para>
+    /// <para>
+    /// Lives on the host (not the Api) because the eventual hydration is
+    /// per-user and benefits from the host's session context — no extra Api
+    /// round-trip during the call.
+    /// </para>
     /// </remarks>
     [Authorize]
     [HttpGet("me/permissions")]
@@ -296,11 +383,19 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
 
         return Ok(new EffectivePermissions(
             Roles: roles,
-            Permissions: Array.Empty<string>(),
+            Permissions: BuildPhase1Permissions(),
             TenantId: null,
             Bypass: false,
             TtlSeconds: 300));
     }
+
+    /// <summary>
+    /// Phase-1 permission grant used by both <see cref="Session"/> and
+    /// <see cref="MePermissions"/>. Delegates to the shared
+    /// <see cref="Phase1Permissions"/> static so the OIDC cookie-claim seeding
+    /// reads from the same source — preventing client/server drift.
+    /// </summary>
+    private static IReadOnlyList<string> BuildPhase1Permissions() => Phase1Permissions.All;
 
     // ── helpers ────────────────────────────────────────────────────────
 

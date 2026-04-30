@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Enterprise.Platform.Application.Common.Authorization;
 using Enterprise.Platform.Web.UI.Configuration;
 using Enterprise.Platform.Web.UI.Observability;
 using Enterprise.Platform.Web.UI.Services.Authentication;
@@ -5,6 +7,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using PlatformClaimTypes = Enterprise.Platform.Shared.Constants.ClaimTypes;
 
 namespace Enterprise.Platform.Web.UI.Setup;
 
@@ -131,12 +134,23 @@ public static class PlatformAuthenticationSetup
             };
 
             // Refresh-token rotation. Resolved per-request from DI to avoid
-            // capturing a singleton HttpClient in the closure.
+            // capturing a singleton HttpClient in the closure. Also tops up
+            // the Phase-1 permission claims for cookies that were issued
+            // before claim-seeding shipped — without this, existing sessions
+            // would 403 on every gated endpoint until the user logged out
+            // and back in.
             options.Events.OnValidatePrincipal = async ctx =>
             {
                 var refresher = ctx.HttpContext.RequestServices
                     .GetRequiredService<TokenRefreshService>();
                 await refresher.ValidateAsync(ctx).ConfigureAwait(false);
+
+                if (TopUpPermissionClaims(ctx.Principal))
+                {
+                    // Tells the cookie middleware to re-serialise the ticket
+                    // so the freshly-added claims persist past this request.
+                    ctx.ShouldRenew = true;
+                }
             };
 
             // Session-created metric — fires on each new sign-in (cookie
@@ -232,6 +246,19 @@ public static class PlatformAuthenticationSetup
 
             options.Events = new OpenIdConnectEvents
             {
+                // Phase-1 cookie-claim seeding. Entra returns identity / role
+                // claims but never the platform's fine-grained
+                // `ep:permission` claims that endpoint policies consume. Add
+                // them here so every freshly-issued cookie carries the
+                // canonical Phase-1 grant; Phase 2 swaps the static list for
+                // a per-user SQL lookup. Same source-of-truth as the SPA's
+                // `AuthStore.hydrate` consumes (see <see cref="Phase1Permissions"/>).
+                OnTokenValidated = ctx =>
+                {
+                    TopUpPermissionClaims(ctx.Principal);
+                    return Task.CompletedTask;
+                },
+
                 // Localhost redirect URIs register as http://localhost:<port>/signin-oidc
                 // on the App Registration. When the host runs under http://
                 // (dev default), the handler must not force https on the
@@ -296,6 +323,53 @@ public static class PlatformAuthenticationSetup
     {
         var prefix = pathBase.HasValue ? pathBase.Value : string.Empty;
         return $"http://{host}{prefix}{callbackPath}";
+    }
+
+    /// <summary>
+    /// Adds the Phase-1 <c>ep:permission</c> claims to <paramref name="principal"/>
+    /// when they're absent. Idempotent — never adds duplicates. Returns
+    /// <c>true</c> when claims were added (so the caller can flag the cookie
+    /// for re-serialisation).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called from two places:
+    /// <list type="bullet">
+    ///   <item><c>OnTokenValidated</c> — fresh login, principal lacks every
+    ///     <c>ep:permission</c>, all are added.</item>
+    ///   <item><c>OnValidatePrincipal</c> — every authenticated request,
+    ///     covers cookies issued before claim-seeding shipped (no logout
+    ///     required to recover).</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// Phase 2 swaps the static <see cref="Phase1Permissions.All"/> for a
+    /// per-user SQL lookup; the public surface of this helper stays the
+    /// same so the call-sites don't change.
+    /// </para>
+    /// </remarks>
+    private static bool TopUpPermissionClaims(ClaimsPrincipal? principal)
+    {
+        if (principal?.Identity is not ClaimsIdentity identity)
+        {
+            return false;
+        }
+
+        var existing = identity.FindAll(PlatformClaimTypes.Permission)
+            .Select(c => c.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var added = false;
+        foreach (var permission in Phase1Permissions.All)
+        {
+            if (existing.Add(permission))
+            {
+                identity.AddClaim(new Claim(PlatformClaimTypes.Permission, permission));
+                added = true;
+            }
+        }
+
+        return added;
     }
 
     // ── config validation ──────────────────────────────────────────────

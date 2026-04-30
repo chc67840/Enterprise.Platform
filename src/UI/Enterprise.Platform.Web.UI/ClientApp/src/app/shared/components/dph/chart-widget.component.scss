@@ -1,0 +1,43 @@
+// ─── ChartWidgetComponent — local styles ──────────────────────────────────
+//
+// Card chrome: title / subtitle stacked on top, chart canvas filling the
+// remaining height. Designed to drop straight into a dashboard grid cell
+// without the host needing to wrap it in an additional card.
+
+@use 'mixins' as m;
+
+:host {
+  display: block;
+}
+
+.dph-chart-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-stack-xs);
+  padding: var(--ep-inset-md);
+  background: var(--ep-bg-elevated);
+  border: 1px solid var(--ep-border-subtle);
+  border-radius: var(--ep-radius-lg);
+  box-shadow: var(--ep-shadow-sm);
+}
+
+.dph-chart-widget__title {
+  margin: 0;
+  font-size: var(--ep-text-base);
+  font-weight: var(--ep-font-weight-semibold);
+  color: var(--ep-text-primary);
+  line-height: var(--ep-leading-tight);
+}
+
+.dph-chart-widget__subtitle {
+  margin: 0 0 var(--ep-stack-xs) 0;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-text-secondary);
+  line-height: var(--ep-leading-normal);
+}
+
+.dph-chart-widget__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}

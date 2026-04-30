@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   ComplianceBadge,
-  DomainChromeConfig,
+  ChromeConfig,
   FooterConfig,
   NavActionEvent,
   NavbarConfig,
@@ -353,13 +353,13 @@ const _notification: NavNotification = {
 } satisfies NavNotification;
 
 // ───────────────────────────────────────────────────────────────────────────────
-// 8. DomainChromeConfig composite — Finance / Healthcare / HR placeholders
+// 8. ChromeConfig composite — Finance / Healthcare / HR placeholders
 // ───────────────────────────────────────────────────────────────────────────────
 
-const _domainPair: DomainChromeConfig = {
+const _domainPair: ChromeConfig = {
   navbar: _navbarFlat,
   footer: _footerFull,
-} satisfies DomainChromeConfig;
+} satisfies ChromeConfig;
 
 // ───────────────────────────────────────────────────────────────────────────────
 // vitest discovery hook

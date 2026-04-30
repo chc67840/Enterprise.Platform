@@ -106,7 +106,7 @@ describe('UsersApiService', () => {
 
     const req = httpMock.expectOne(`${BASE}/users`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(req.request.headers.get('X-Idempotency-Key')).toBeTruthy();
 
     req.flush({ ...sampleUser, email: 'bob@example.test', firstName: 'Bob', lastName: 'Brown' });
     httpMock.verify();
@@ -164,7 +164,7 @@ describe('UsersApiService', () => {
   it('mutating verbs accept a caller-supplied idempotency key', () => {
     api.activate(sampleUser.id, { idempotencyKey: 'fixed-key-abc' }).subscribe();
     const req = httpMock.expectOne(`${BASE}/users/${sampleUser.id}/activate`);
-    expect(req.request.headers.get('Idempotency-Key')).toBe('fixed-key-abc');
+    expect(req.request.headers.get('X-Idempotency-Key')).toBe('fixed-key-abc');
     req.flush(null, { status: 204, statusText: 'No Content' });
     httpMock.verify();
   });

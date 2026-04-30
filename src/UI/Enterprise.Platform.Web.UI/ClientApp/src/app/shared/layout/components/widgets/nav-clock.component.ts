@@ -63,17 +63,24 @@ export class NavClockComponent implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
       hour12: cfg.format === '12h',
-      timeZone: cfg.timezone,
     };
+    // Intl.DateTimeFormat throws RangeError on `timeZone: null`. Only set the
+    // option when a non-empty IANA name is present; absent / null / '' all
+    // fall through to browser-local. Same defensive pattern in `tz` below.
+    if (cfg.timezone) {
+      opts.timeZone = cfg.timezone;
+    }
     return new Intl.DateTimeFormat(undefined, opts).format(this._now());
   });
 
   protected readonly tz = computed(() => {
     const cfg = this.config();
     const opts: Intl.DateTimeFormatOptions = {
-      timeZone: cfg.timezone,
       timeZoneName: 'short',
     };
+    if (cfg.timezone) {
+      opts.timeZone = cfg.timezone;
+    }
     const parts = new Intl.DateTimeFormat(undefined, opts).formatToParts(this._now());
     return parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
   });

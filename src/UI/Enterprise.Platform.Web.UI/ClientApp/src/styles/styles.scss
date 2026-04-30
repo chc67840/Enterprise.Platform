@@ -34,7 +34,11 @@
 //                             utilities + global prefers-reduced-motion.
 //        d. reset           — html/body, :focus-visible, @media print,
 //                             chrome interaction guards.
-//        e. primeng-overrides — global PrimeNG `.p-*` overrides
+//        e. scrollbars      — opt-in `.ep-scrollbar-thin` and
+//                             `.ep-scrollbar-none` utilities for surfaces
+//                             that need styled / hidden scrollbars (drawers,
+//                             popovers, command palette, code blocks).
+//        f. primeng-overrides — global PrimeNG `.p-*` overrides
 //                               (populated in Phase 3).
 //
 //   2. `@import 'primeicons/primeicons.css';`
@@ -56,6 +60,7 @@
 @use 'typography';
 @use 'animations';
 @use 'reset';
+@use 'scrollbars';
 @use 'primeng-overrides';
 
 // PrimeIcons font — explicit `.css` extension so Sass passes through

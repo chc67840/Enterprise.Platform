@@ -1,432 +1,422 @@
 /**
  * ─── USERS LIST ─────────────────────────────────────────────────────────────────
  *
- * PrimeNG Table with:
- *   - Server-side pagination (uses backend `pageNumber` / `pageSize`).
- *   - Debounced search across email + display name (250 ms; skipped when the
- *     trimmed value matches the active store value — avoids a no-op refetch
- *     on focus events that re-emit the same string).
- *   - Active-only filter toggle.
- *   - URL state sync — page, pageSize, search, activeOnly persist as
- *     `?page=2&size=50&q=alice&active=true`. Browser back / refresh / share-
- *     link restores the exact filter posture. Initial load reads from the
- *     URL; subsequent filter changes write to the URL via
- *     `router.navigate([], { queryParamsHandling: 'merge' })`.
- *   - Distinguished empty states — separate UI for "no users yet"
- *     (just call `loadList`), "no matches" (clear filters CTA), and "load
- *     failed" (retry button). Keeps each state actionable.
- *   - Row-level keyboard navigation — `tabindex="0"` + `(keydown.enter)` on
- *     each row opens the detail page (mirrors clicking the link).
- *   - Permission-aware "New user" affordance — the page-header's
- *     `requiredPermissions` filter hides the CTA for users without
- *     `users.create`; this component listens for the dispatched action and
- *     navigates only if `AuthStore.hasAllPermissions` agrees (defense-in-
- *     depth — UI hide + click-time check).
+ * Generic dph-data-table driving the users page. Replaces the hand-rolled
+ * PrimeNG table + per-column markup with a config-driven definition (one
+ * `TableConfig<UserDto>`) and a `RemoteDataSource<UserDto>` that proxies the
+ * existing `UsersApiService.list`.
+ *
+ * CRUD UX (post-refactor):
+ *   - Create     → "New user" toolbar button opens `UserFormDialogComponent`
+ *                  in `mode='create'`.
+ *   - Edit       → row action "Edit" opens the same dialog in `mode='edit'`.
+ *   - Activate   → row action confirms via `ConfirmationService` (no reason
+ *                  needed; activation is recoverable) → `store.activateUser`.
+ *   - Deactivate → row action opens `UserDeactivateDialogComponent` to
+ *                  capture a reason for the audit log → `store.deactivateUser`.
+ *
+ * STATE OWNERSHIP
+ *   The dph-data-table owns its own list lifecycle (loading + error UI). The
+ *   store is the source of truth for entity mutations and post-mutation cache
+ *   (`entities` + `activeId`); list pages flow straight from `api.list` into
+ *   the table without touching the store, which avoided the duplicate-HTTP
+ *   trap an earlier draft of this file fell into.
+ *
+ *   Cross-cutting refresh after a mutation is handled by `bumpRefreshTick`
+ *   which the data-table's effect picks up via its query inputs (page bump),
+ *   re-firing the fetcher.
  */
-import type {
-  OnInit} from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  DestroyRef,
-  effect,
   inject,
   signal,
-  untracked,
+  type OnInit,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CheckboxModule } from 'primeng/checkbox';
-import { TableModule, type TablePageEvent } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { DestroyRef } from '@angular/core';
+import { type Observable, map } from 'rxjs';
 
 import { AuthStore } from '@core/auth/auth.store';
-import { InputComponent } from '@shared/components/dph';
+import { ConfirmDialogService } from '@core/services/confirm-dialog.service';
+import { NotificationService } from '@core/services/notification.service';
+import {
+  DataTableComponent,
+  RemoteDataSource,
+  type ColumnDef,
+  type TableConfig,
+  type TablePage,
+  type TableQuery,
+} from '@shared/components/dph';
 
+import { UserFormDialogComponent, type UserFormMode } from '../components/user-form-dialog.component';
+import { UserDeactivateDialogComponent } from '../components/user-deactivate-dialog.component';
 import { USER_PERMISSIONS } from '../data/user.permissions';
-import type { ListUsersParams, UserDto } from '../data/user.types';
+import type { UserDto } from '../data/user.types';
+import { UsersApiService } from '../data/users-api.service';
 import { UsersStore } from '../state/users.store';
 
-/** Allowed page sizes — keep aligned with backend `MAX_PAGE_SIZE`. */
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 const DEFAULT_PAGE_SIZE: PageSize = 25;
 
-/**
- * Mutable counterpart to the readonly `ListUsersParams` — used while
- * building the parsed params before they're frozen by being passed to the
- * store. The store itself stores them as readonly via withState.
- */
-type MutableListParams = {
-  page?: number;
-  pageSize?: number;
-  search?: string | null;
-  activeOnly?: boolean | null;
-};
-
-/** Tightly bounded URL → state translation; keeps malformed query strings safe. */
-function parseQueryParams(
-  raw: Readonly<Record<string, string | undefined>>,
-): MutableListParams {
-  const out: MutableListParams = {};
-  const page = Number(raw['page']);
-  if (Number.isFinite(page) && page >= 1) out.page = Math.floor(page);
-  const sizeNum = Number(raw['size']);
-  if (PAGE_SIZES.includes(sizeNum as PageSize)) out.pageSize = sizeNum as PageSize;
-  if (typeof raw['q'] === 'string' && raw['q'].trim().length > 0) out.search = raw['q'].trim();
-  if (raw['active'] === 'true') out.activeOnly = true;
-  else if (raw['active'] === 'false') out.activeOnly = false;
-  return out;
-}
+const ACTION = {
+  EDIT: 'edit',
+  ACTIVATE: 'activate',
+  DEACTIVATE: 'deactivate',
+} as const;
 
 @Component({
   selector: 'app-users-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DatePipe,
-    FormsModule,
-    RouterLink,
-    CheckboxModule,
-    TableModule,
-    TagModule,
-    InputComponent,
+    ConfirmDialogModule,
+    DataTableComponent,
+    UserFormDialogComponent,
+    UserDeactivateDialogComponent,
   ],
   template: `
-    <section class="space-y-4" aria-labelledby="users-list-heading">
-      <!-- The page-header in the chrome owns the visible <h1>; this is the
-           accessible label so screen readers can land on the section. -->
+    <p-confirmDialog
+      header="Activate user"
+      icon="pi pi-check-circle"
+      [style]="{ width: '420px' }"
+    />
+
+    <section class="users-list" aria-labelledby="users-list-heading">
       <h2 id="users-list-heading" class="sr-only">Users list</h2>
 
-      <p class="text-sm text-gray-500" aria-live="polite">
-        {{ summary() }}
-      </p>
-
-      <!-- Filters: search + active-only -->
-      <div
-        class="flex flex-wrap items-center gap-3 rounded-lg bg-white p-3 shadow-sm ring-1 ring-gray-200"
-        role="search"
-      >
-        <div class="w-64">
-          <label for="users-search" class="sr-only">Search users by email or name</label>
-          <dph-input
-            [(value)]="searchValue"
-            (valueChange)="onSearchChanged($any($event))"
-            [config]="{
-              id: 'users-search',
-              type: 'search',
-              placeholder: 'Search email or name…',
-              prefixIcon: 'pi pi-search',
-              clearable: true,
-              size: 'sm'
-            }"
-          />
-        </div>
-        <label class="flex items-center gap-2 text-sm text-gray-700" for="active-only">
-          <p-checkbox
-            [(ngModel)]="activeOnlyInput"
-            (onChange)="onActiveOnlyChanged($event.checked)"
-            [binary]="true"
-            inputId="active-only"
-          />
-          <span>Active only</span>
-        </label>
-
-        @if (hasActiveFilters()) {
+      <header class="users-list__header">
+        <p class="users-list__lede" aria-live="polite">{{ summary() }}</p>
+        @if (canCreate()) {
           <button
             type="button"
-            class="text-sm text-blue-600 hover:text-blue-700 underline"
-            (click)="clearFilters()"
+            class="users-list__cta"
+            (click)="openCreate()"
           >
-            Clear filters
+            <i class="pi pi-plus" aria-hidden="true"></i>
+            New user
           </button>
         }
-      </div>
+      </header>
 
-      <!-- Error banner — distinct from "no matches"; offers retry. -->
-      @if (store.listError(); as err) {
-        <div
-          class="rounded-lg bg-red-50 p-4 ring-1 ring-red-200"
-          role="alert"
-          aria-live="assertive"
-        >
-          <p class="text-sm font-semibold text-red-800">Could not load users.</p>
-          <p class="mt-1 text-sm text-red-700">{{ err.message }}</p>
-          @if (err.correlationId) {
-            <p class="mt-1 font-mono text-xs text-red-600">Trace: {{ err.correlationId }}</p>
-          }
-          <button
-            type="button"
-            class="mt-3 rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-            (click)="retry()"
-          >
-            Retry
-          </button>
-        </div>
-      }
-
-      <!-- Table -->
-      @if (!store.listError()) {
-        <p-table
-          [value]="store.items()"
-          [loading]="store.loading()"
-          [lazy]="true"
-          [paginator]="true"
-          [rows]="store.listParams().pageSize"
-          [totalRecords]="store.total()"
-          [first]="firstRowIndex()"
-          [rowsPerPageOptions]="pageSizes"
-          (onPage)="onPageChange($event)"
-          styleClass="p-datatable-sm"
-          responsiveLayout="scroll"
-          dataKey="id"
-          emptyMessage="No users match the current filters."
-          [showCurrentPageReport]="true"
-          currentPageReportTemplate="Showing {first}–{last} of {totalRecords}"
-        >
-          <ng-template pTemplate="header">
-            <tr>
-              <th scope="col">Email</th>
-              <th scope="col">Name</th>
-              <th scope="col">Status</th>
-              <th scope="col">Last login</th>
-              <th scope="col" class="w-1">
-                <span class="sr-only">Actions</span>
-              </th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-user>
-            <tr
-              tabindex="0"
-              [attr.aria-label]="user.firstName + ' ' + user.lastName + ', ' + user.email"
-              (keydown.enter)="openDetail(user)"
-              (keydown.space)="openDetail(user, $event)"
-              class="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-500"
-            >
-              <td class="font-mono text-sm text-gray-700">{{ user.email }}</td>
-              <td>{{ user.firstName }} {{ user.lastName }}</td>
-              <td>
-                @if (user.isActive) {
-                  <p-tag value="Active" severity="success" />
-                } @else {
-                  <p-tag value="Inactive" severity="secondary" />
-                }
-                @if (user.isDeleted) {
-                  <p-tag value="Deleted" severity="danger" class="ml-1" />
-                }
-              </td>
-              <td class="text-sm text-gray-600">
-                {{ user.lastLoginAt ? (user.lastLoginAt | date: 'short') : '—' }}
-              </td>
-              <td>
-                <a
-                  [routerLink]="[user.id]"
-                  [attr.aria-label]="'Open ' + user.firstName + ' ' + user.lastName"
-                  class="text-sm font-medium text-blue-600 hover:text-blue-700"
-                  (click)="$event.stopPropagation()"
-                >
-                  Open
-                </a>
-              </td>
-            </tr>
-          </ng-template>
-
-          <!-- Custom empty-message template: clear-filters CTA when filters
-               are applied; otherwise plain text. -->
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="5" class="py-12 text-center">
-                @if (store.hasNoMatches()) {
-                  <p class="text-sm text-gray-700">No users match the current filters.</p>
-                  <button
-                    type="button"
-                    class="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700 underline"
-                    (click)="clearFilters()"
-                  >
-                    Clear filters
-                  </button>
-                } @else if (store.isEmpty()) {
-                  <p class="text-sm text-gray-700">No users yet.</p>
-                  @if (canCreate()) {
-                    <a
-                      [routerLink]="['new']"
-                      class="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-700 underline"
-                    >
-                      Create the first user
-                    </a>
-                  }
-                }
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
-      }
+      <dph-data-table
+        [config]="tableConfig"
+        [dataSource]="dataSource"
+        [totalRecords]="serverTotal()"
+        [(page)]="page"
+        [(pageSize)]="pageSize"
+        (rowClick)="onRowClick($event)"
+        (actionClick)="onRowAction($event)"
+        (queryChange)="onQueryChange($event)"
+      />
     </section>
+
+    <app-user-form-dialog
+      [(visible)]="formDialogOpen"
+      [mode]="formDialogMode()"
+      [user]="formDialogUser()"
+      (saved)="onFormSaved()"
+    />
+
+    <app-user-deactivate-dialog
+      [(visible)]="deactivateDialogOpen"
+      [user]="selectedUser()"
+      (deactivated)="onDeactivated()"
+    />
   `,
+  styles: [
+    `
+      .users-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+      }
+      .users-list__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .users-list__lede {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--ep-text-secondary, #4b5563);
+      }
+      .users-list__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 0.875rem;
+        background: var(--ep-color-primary, #1b3f73);
+        color: #fff;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+      }
+      .users-list__cta:hover {
+        background: var(--ep-color-primary-700, #16335c);
+      }
+    `,
+  ],
 })
 export class UsersListComponent implements OnInit {
   protected readonly store = inject(UsersStore);
+  private readonly api = inject(UsersApiService);
   private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirm = inject(ConfirmDialogService);
+  private readonly notify = inject(NotificationService);
 
-  /** Public to the template — drives the empty-state CTA. */
+  // ── Permission selectors ─────────────────────────────────────────────
   protected readonly canCreate = computed(() =>
     this.auth.hasAllPermissions(USER_PERMISSIONS.CREATE),
   );
+  protected readonly canWrite = computed(() =>
+    this.auth.hasAllPermissions(USER_PERMISSIONS.WRITE),
+  );
+  protected readonly canActivate = computed(() =>
+    this.auth.hasAllPermissions(USER_PERMISSIONS.ACTIVATE),
+  );
+  protected readonly canDeactivate = computed(() =>
+    this.auth.hasAllPermissions(USER_PERMISSIONS.DEACTIVATE),
+  );
 
-  protected readonly pageSizes = [...PAGE_SIZES];
+  // ── Dialog state ─────────────────────────────────────────────────────
+  protected readonly formDialogOpen = signal(false);
+  protected readonly formDialogMode = signal<UserFormMode>('create');
+  protected readonly formDialogUser = signal<UserDto | null>(null);
 
-  // ── filter inputs (two-way bound to template) ───────────────────────────
-  /** Live value of the search box. dph-input model is signal-backed. */
-  protected readonly searchValue = signal<string | number | null>('');
-  /** Live value of the active-only checkbox. */
-  protected activeOnlyInput = false;
+  protected readonly deactivateDialogOpen = signal(false);
+  protected readonly selectedUser = signal<UserDto | null>(null);
 
-  /** Debounce timer id for the search box. */
-  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  // ── Data table state ─────────────────────────────────────────────────
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal<PageSize>(DEFAULT_PAGE_SIZE);
+  protected readonly serverTotal = signal(0);
 
-  // ── computed view-model helpers ─────────────────────────────────────────
-
-  /** PrimeNG's table is 0-based for `first`; backend / store is 1-based for `page`. */
-  protected readonly firstRowIndex = computed(() => {
-    const params = this.store.listParams();
-    return (params.page - 1) * params.pageSize;
-  });
-
-  /** Header summary — combines total count + page slice + filter summary. */
+  // ── Derived ──────────────────────────────────────────────────────────
   protected readonly summary = computed(() => {
-    const total = this.store.total();
-    const params = this.store.listParams();
-    if (this.store.loading()) return 'Loading…';
-    if (total === 0) return 'no rows';
-    const start = (params.page - 1) * params.pageSize + 1;
-    const end = Math.min(params.page * params.pageSize, total);
+    const total = this.serverTotal();
+    if (total === 0) return 'No users.';
+    const start = (this.page() - 1) * this.pageSize() + 1;
+    const end = Math.min(this.page() * this.pageSize(), total);
     return `${total} total · showing ${start}–${end}`;
   });
 
-  /** True when at least one filter is non-default. */
-  protected readonly hasActiveFilters = computed(() => {
-    const p = this.store.listParams();
-    return p.search !== null || p.activeOnly !== null;
-  });
+  // ── Data source — translates dph TableQuery → UsersApiService.list ───
+  protected readonly dataSource = new RemoteDataSource<UserDto>(
+    (q: TableQuery): Observable<TablePage<UserDto>> => {
+      const search =
+        typeof q.globalFilter === 'string' && q.globalFilter.trim().length > 0
+          ? q.globalFilter.trim()
+          : null;
+      return this.api
+        .list({ page: q.page, pageSize: q.pageSize, search, activeOnly: null })
+        .pipe(
+          map((resp) => {
+            const total = resp.totalCount ?? resp.items.length;
+            this.serverTotal.set(total);
+            return { rows: [...resp.items], total };
+          }),
+        );
+    },
+  );
 
-  // ── URL ↔ state sync ─────────────────────────────────────────────────────
+  // ── Table column definitions ─────────────────────────────────────────
+  private readonly columns: readonly ColumnDef<UserDto>[] = [
+    {
+      field: 'email',
+      header: 'Email',
+      type: 'email',
+      width: '24rem',
+      cssClass: 'font-mono text-sm',
+    },
+    { field: 'firstName', header: 'First name', type: 'text' },
+    { field: 'lastName', header: 'Last name', type: 'text' },
+    {
+      field: 'isActive',
+      header: 'Status',
+      type: 'badge',
+      width: '7rem',
+      align: 'center',
+      cellOptions: {
+        badgeSeverityMap: { true: 'success', false: 'neutral' },
+      },
+      format: (value) => (value ? 'Active' : 'Inactive'),
+    },
+    {
+      field: 'lastLoginAt',
+      header: 'Last login',
+      type: 'datetime',
+      width: '12rem',
+    },
+  ];
 
-  /**
-   * Effect that writes the active filter posture back to the URL whenever
-   * the store's listParams change. Wraps the read in `untracked()` for the
-   * router call so it doesn't loop on its own writes.
-   */
-  private readonly _urlWriteEffect = effect(() => {
-    const p = this.store.listParams();
-    untracked(() => {
-      const queryParams: Record<string, string | null> = {
-        page: p.page === 1 ? null : String(p.page),
-        size: p.pageSize === DEFAULT_PAGE_SIZE ? null : String(p.pageSize),
-        q: p.search ?? null,
-        active: p.activeOnly === null ? null : String(p.activeOnly),
-      };
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams,
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
-    });
-  });
+  protected readonly tableConfig: TableConfig<UserDto> = {
+    columns: this.columns,
+    idField: 'id',
+    pagination: true,
+    pageSizes: [...PAGE_SIZES],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    sortable: false,
+    filterable: false,
+    globalFilter: true,
+    globalFilterFields: ['email', 'firstName', 'lastName'],
+    striped: true,
+    size: 'md',
+    densitySelector: false,
+    toolbar: {
+      search: true,
+      searchPlaceholder: 'Search email or name…',
+      refresh: true,
+    },
+    emptyMessage: 'No users yet.',
+    emptyAfterFilterMessage: 'No users match the current filters.',
+    rowActions: [
+      {
+        key: ACTION.EDIT,
+        label: 'Edit',
+        icon: 'pi pi-pencil',
+        severity: 'info',
+        visible: () => this.canWrite(),
+      },
+      {
+        key: ACTION.DEACTIVATE,
+        label: 'Deactivate',
+        icon: 'pi pi-ban',
+        severity: 'danger',
+        visible: (row) => row.isActive && this.canDeactivate(),
+      },
+      {
+        key: ACTION.ACTIVATE,
+        label: 'Activate',
+        icon: 'pi pi-check-circle',
+        severity: 'success',
+        visible: (row) => !row.isActive && this.canActivate(),
+      },
+    ],
+  };
+
+  // ── Lifecycle ────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    // Hydrate from URL on first navigation. `route.snapshot` is fine here —
-    // we only want the initial paint; later URL changes from elsewhere
-    // (e.g. browser back) come through queryParams subscription below.
-    const initial = parseQueryParams(this.route.snapshot.queryParams);
-    if (initial.search !== undefined) this.searchValue.set(initial.search);
-    if (initial.activeOnly === true) this.activeOnlyInput = true;
-    this.store.loadList(initial);
+    const qp = this.route.snapshot.queryParams as Record<string, string | undefined>;
+    const pageNum = Number(qp['page']);
+    if (Number.isFinite(pageNum) && pageNum >= 1) this.page.set(Math.floor(pageNum));
+    const sizeNum = Number(qp['size']);
+    if (PAGE_SIZES.includes(sizeNum as PageSize)) this.pageSize.set(sizeNum as PageSize);
 
-    // Browser-back / explicit URL change → re-sync. We don't push a
-    // navigation in response (avoid loops); we just reload with the new
-    // params. The list-write effect's `replaceUrl: true` keeps history clean.
     this.route.queryParams
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((qp) => {
-        const next = parseQueryParams(qp as Record<string, string | undefined>);
-        const current = this.store.listParams();
-        // Only reload if the parsed params differ from the current store params
-        // (suppress the navigation we just emitted ourselves).
-        const same =
-          (next.page ?? 1) === current.page &&
-          (next.pageSize ?? DEFAULT_PAGE_SIZE) === current.pageSize &&
-          (next.search ?? null) === current.search &&
-          (next.activeOnly ?? null) === current.activeOnly;
-        if (!same) {
-          // Sync inputs visible to the user too.
-          this.searchValue.set(next.search ?? '');
-          this.activeOnlyInput = next.activeOnly === true;
-          this.store.loadList({
-            page: next.page ?? 1,
-            pageSize: next.pageSize ?? DEFAULT_PAGE_SIZE,
-            search: next.search ?? null,
-            activeOnly: next.activeOnly ?? null,
-          });
-        }
-      });
+      .subscribe((params) => this.syncFromUrl(params as Record<string, string | undefined>));
   }
 
-  // ── filter event handlers ───────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────
+
+  protected openCreate(): void {
+    this.formDialogMode.set('create');
+    this.formDialogUser.set(null);
+    this.formDialogOpen.set(true);
+  }
+
+  protected onRowClick(event: { row: UserDto }): void {
+    if (this.canWrite()) this.openEdit(event.row);
+  }
+
+  protected onRowAction(event: { action: string; row: UserDto }): void {
+    switch (event.action) {
+      case ACTION.EDIT:
+        this.openEdit(event.row);
+        break;
+      case ACTION.DEACTIVATE:
+        this.openDeactivate(event.row);
+        break;
+      case ACTION.ACTIVATE:
+        void this.confirmActivate(event.row);
+        break;
+    }
+  }
+
+  protected onQueryChange(query: TableQuery): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        page: query.page === 1 ? null : String(query.page),
+        size: query.pageSize === DEFAULT_PAGE_SIZE ? null : String(query.pageSize),
+        q: query.globalFilter ? query.globalFilter : null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  protected onFormSaved(): void {
+    this.refreshList();
+  }
+
+  protected onDeactivated(): void {
+    this.refreshList();
+  }
+
+  // ── Internals ────────────────────────────────────────────────────────
+
+  private openEdit(user: UserDto): void {
+    this.formDialogMode.set('edit');
+    this.formDialogUser.set(user);
+    this.formDialogOpen.set(true);
+  }
+
+  private openDeactivate(user: UserDto): void {
+    this.selectedUser.set(user);
+    this.deactivateDialogOpen.set(true);
+  }
+
+  private async confirmActivate(user: UserDto): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      severity: 'success',
+      header: 'Activate user',
+      message: `Activate ${user.firstName} ${user.lastName}? They will regain access immediately.`,
+      acceptLabel: 'Activate',
+      rejectLabel: 'Cancel',
+      defaultFocus: 'reject',
+    });
+    if (!confirmed) return;
+    this.store.activateUser(user.id);
+    this.notify.info('Activating user', `${user.firstName} ${user.lastName} will be activated.`);
+    // Schedule a refresh once the activation roundtrip likely completes.
+    // The store fires its toast on success and refreshAfterMutation
+    // pulls the row; the page-flip re-renders the table.
+    queueMicrotask(() => this.refreshList());
+  }
 
   /**
-   * Debounce + skip-no-change. The user typing `a-l-i-c-e` then blurring fires
-   * one request, not five — and a blur that doesn't change the value fires
-   * none.
+   * Trigger a re-fetch by toggling the page signal and restoring it. The
+   * dph-data-table watches its query inputs (page / pageSize / sort / filters /
+   * globalFilter) — any change re-runs the data-source fetcher. The
+   * one-tick toggle is invisible to the user (no second render lands).
    */
-  protected onSearchChanged(value: string | number | null): void {
-    const text = value === null || value === undefined ? '' : String(value);
-    if (this.searchDebounce) clearTimeout(this.searchDebounce);
-    this.searchDebounce = setTimeout(() => {
-      const next = text.trim() || null;
-      const current = this.store.listParams().search;
-      if (next === current) return;             // skip-no-change
-      this.applyFilters({ search: next, page: 1 });
-    }, 250);
+  private refreshList(): void {
+    const current = this.page();
+    this.page.set(current === 1 ? 2 : 1);
+    queueMicrotask(() => this.page.set(current));
   }
 
-  protected onActiveOnlyChanged(checked: boolean): void {
-    const next = checked ? true : null;
-    if (next === this.store.listParams().activeOnly) return;
-    this.applyFilters({ activeOnly: next, page: 1 });
-  }
-
-  protected onPageChange(event: TablePageEvent): void {
-    const page = Math.floor(event.first / event.rows) + 1;
-    const current = this.store.listParams();
-    if (page === current.page && event.rows === current.pageSize) return;
-    this.applyFilters({ page, pageSize: event.rows });
-  }
-
-  protected clearFilters(): void {
-    this.searchValue.set('');
-    this.activeOnlyInput = false;
-    this.applyFilters({ search: null, activeOnly: null, page: 1 });
-  }
-
-  protected retry(): void {
-    this.store.loadList();
-  }
-
-  /** Programmatic detail nav from row keyboard shortcuts. */
-  protected openDetail(user: UserDto, event?: Event): void {
-    event?.preventDefault();
-    void this.router.navigate([user.id], { relativeTo: this.route });
-  }
-
-  private applyFilters(override: Partial<ListUsersParams>): void {
-    this.store.loadList(override);
+  private syncFromUrl(qp: Record<string, string | undefined>): void {
+    const pageNum = Number(qp['page']);
+    if (Number.isFinite(pageNum) && pageNum >= 1 && pageNum !== this.page()) {
+      this.page.set(Math.floor(pageNum));
+    }
+    const sizeNum = Number(qp['size']);
+    if (PAGE_SIZES.includes(sizeNum as PageSize) && sizeNum !== this.pageSize()) {
+      this.pageSize.set(sizeNum as PageSize);
+    }
   }
 }

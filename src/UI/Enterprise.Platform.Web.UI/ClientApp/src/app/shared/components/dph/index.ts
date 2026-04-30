@@ -18,6 +18,7 @@ export { InputComponent } from './input.component';
 export { FieldErrorComponent } from './field-error.component';
 export { FloatLabelComponent } from './float-label.component';
 export { FormLayoutComponent } from './form-layout.component';
+export { SchemaFormComponent } from './schema-form.component';
 export { DrawerComponent } from './drawer.component';
 
 // Phase C — data
@@ -34,6 +35,9 @@ export { TreeComponent } from './tree.component';
 export { PanelComponent } from './panel.component';
 
 // Phase D — rich content
+export { ChartWidgetComponent } from './chart-widget.component';
+export type { ChartWidgetConfig, ChartWidgetDataset, ChartWidgetType } from './chart-widget.types';
+export { buildChartData, buildChartOptions, paletteColor } from './chart-widget.builder';
 export { AvatarComponent } from './avatar.component';
 export { ImageComponent } from './image.component';
 export { GalleryComponent } from './gallery.component';
@@ -61,6 +65,7 @@ export type {
   DataSource,
   DialogConfig,
   DrawerConfig,
+  DrawerSize,
   DropdownMenuConfig,
   FieldErrorConfig,
   FileItem,
@@ -102,3 +107,23 @@ export type {
   Variant,
   WizardButtonsConfig,
 } from './dph.types';
+
+export type {
+  FormSchema,
+  SchemaField,
+  SchemaFieldType,
+  FieldValidatorSpec,
+  ServerErrorIndex,
+  // P1.1 — single-channel event union + per-kind subtypes for pattern matching
+  SchemaFormEvent,
+  SchemaFormFormEvent,
+  SchemaFormFieldEvent,
+  SchemaFormSectionEvent,
+  SchemaFormActionEvent,
+} from './schema-form.types';
+export {
+  isSchemaFormFormEvent,
+  isSchemaFormFieldEvent,
+  isSchemaFormSectionEvent,
+  isSchemaFormActionEvent,
+} from './schema-form.types';

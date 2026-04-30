@@ -112,7 +112,43 @@
   outline: 2px solid var(--ep-color-jessamine-500);
   outline-offset: 2px;
 }
-.ep-navbar__logo-img { display: block; border-radius: 0.25rem; }
+/*
+ * Logo image — height-pinned, width follows the SVG's natural aspect ratio
+ * (set via its viewBox). `object-fit: contain` keeps the logo intact when
+ * the chip is constrained; `max-width` caps a particularly wide logo so it
+ * doesn't crowd the centre nav.
+ *
+ * Sizing rationale: the navbar is 64px tall (--nav-height); 2.75rem (44px)
+ * leaves 10px breathing room top + bottom. SVGs with whitespace inside their
+ * viewBox (common when a designer exports with padding) render visually
+ * smaller than their box suggests — the larger chip compensates. If a
+ * specific deployment ships an even larger logo, bump --nav-height in the
+ * config alongside this height.
+ */
+.ep-navbar__logo-img {
+  display: block;
+  /*
+   * Mobile default — narrower viewport, brand text hidden (display:none
+   * until 640px), so the logo carries the brand alone. 2.25rem (36px)
+   * fits the 64px navbar with comfortable padding and doesn't elbow
+   * the centre menu's hamburger.
+   */
+  height: 2.25rem;
+  width: auto;
+  max-width: 8rem;
+  object-fit: contain;
+  border-radius: 0.375rem;
+}
+/*
+ * Desktop — brand text appears (>= 640px) so the logo sits next to a wordmark
+ * and can carry more presence. 3.75rem (60px) gives the SVG room to read.
+ */
+@media (min-width: 640px) {
+  .ep-navbar__logo-img {
+    height: 3.75rem;
+    max-width: 12rem;
+  }
+}
 .ep-navbar__logo-glyph {
   display: grid;
   place-items: center;

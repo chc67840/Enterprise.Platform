@@ -1,4 +1,69 @@
-:host { display: contents; }
+// ─── DrawerComponent — local styles ───────────────────────────────────────
+//
+// Component-scoped layout for the dph-drawer's projected content. The
+// PrimeNG `<p-drawer>` panel itself is restyled in
+// `src/styles/_primeng-overrides.scss` (overscroll behaviour); these rules
+// scope only to the dph-drawer's projected children.
+//
+// ARCHITECTURE
+//   The drawer panel is a flex column:
+//     ┌─────────────┐
+//     │  HEADER     │ ← managed by PrimeNG (uses the `header` config string)
+//     ├─────────────┤
+//     │ subheader   │ ← optional, rendered only when config.subheader present
+//     │ body (flex) │ ← scrollable, fills remaining height
+//     │             │
+//     ├─────────────┤
+//     │ footer      │ ← projected via [drawerFooter] slot; auto-hides if empty
+//     └─────────────┘
+//
+// The `:empty` rule on the footer means hosts that don't supply a footer
+// slot get a clean panel with no footer chrome — no need to conditionally
+// render the wrapper itself.
+//
+// FOOTER DIVIDER
+//   Default behaviour places a 1px divider above the footer to separate it
+//   from scrollable body content. Suppressed via
+//   `config: { footerDivider: false }` for cases where the footer should
+//   appear flush (single-button drawers, custom backgrounds).
 
-// .dph-drawer .p-drawer-content overscroll-behavior lifted to
-// src/styles/_primeng-overrides.scss — the drawer renders to body.
+:host {
+  display: contents;
+}
+
+.dph-drawer__subheader {
+  margin: 0 0 0.75rem 0;
+  padding: 0 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--ep-text-secondary);
+  line-height: 1.5;
+}
+
+.dph-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 1.25rem 1rem;
+}
+
+.dph-drawer__footer {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid var(--ep-border-default);
+  background: var(--ep-bg-elevated);
+
+  // Auto-hide when no [drawerFooter] content is projected. Modern browsers
+  // (Chrome 121+, Safari 17.4+, Firefox 137+) support `:empty` on
+  // ng-content slots — older browsers see the empty footer (1.5rem chrome
+  // strip), tolerable graceful degradation.
+  &:empty {
+    display: none;
+  }
+
+  &--no-divider {
+    border-top: none;
+  }
+}

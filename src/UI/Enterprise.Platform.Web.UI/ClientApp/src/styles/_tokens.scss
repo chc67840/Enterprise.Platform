@@ -194,8 +194,22 @@
    * outline (button, input, menu item) reads as the same brand colour. */
   --ep-shadow-focus: 0 0 0 3px rgba(27, 63, 115, 0.35);
 
-  /* ── Z-index scale ───────────────────────────────────────────────── */
+  /* ── Z-index scale ────────────────────────────────────────────────────
+   *
+   *   Eight named layers. Always reference these tokens, never literal
+   *   values; otherwise the day a modal appears under a sticky header is
+   *   the day you wish you had this scale.
+   *
+   *   `raised` sits just above content for hover-cards / tooltips that
+   *   pop within the document flow. `dropdown` is the first overlay tier;
+   *   modals/toasts/tooltips climb from there.
+   *
+   *   Composition rule: a date-picker panel inside a modal needs to float
+   *   ABOVE the modal — express as `z-index: calc(var(--ep-z-modal) + 50)`
+   *   rather than inventing a new tier.
+   */
   --ep-z-base:     0;
+  --ep-z-raised:   10;
   --ep-z-dropdown: 1000;
   --ep-z-sticky:   1100;
   --ep-z-overlay:  1200;
@@ -203,12 +217,36 @@
   --ep-z-toast:    1400;
   --ep-z-tooltip:  1500;
 
-  /* ── Transitions + easing ────────────────────────────────────────── */
-  --ep-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* ── Transitions + easing ─────────────────────────────────────────────
+   *
+   *   Five durations, five easings. Keep components on these tokens so a
+   *   single `--ep-motion-scale` swap (see "Motion preferences" below)
+   *   can reduce motion app-wide for users with vestibular sensitivities.
+   *
+   *   Easing semantics:
+   *     standard    — symmetric ease-in-out, default for most transitions.
+   *     emphasized  — slightly heavier acceleration, draws the eye.
+   *     decelerate  — fast in, slow out (e.g. enter animations).
+   *     accelerate  — slow in, fast out (e.g. exit animations).
+   *     spring      — overshoots and settles (playful affordances).
+   *     bounce      — heavier overshoot (success / arrival).
+   *
+   *   Don't animate properties that trigger layout (width / height /
+   *   margin / padding / top / left). Stick to `transform` and `opacity`.
+   */
+  --ep-ease-standard:   cubic-bezier(0.2, 0, 0, 1);
   --ep-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
-  --ep-duration-fast:   120ms;
-  --ep-duration-normal: 200ms;
-  --ep-duration-slow:   320ms;
+  --ep-ease-decelerate: cubic-bezier(0.0, 0, 0.2, 1);
+  --ep-ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+  --ep-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ep-ease-bounce:     cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  --ep-duration-instant: 50ms;
+  --ep-duration-fast:    120ms;
+  --ep-duration-normal:  200ms;
+  --ep-duration-slow:    320ms;
+  --ep-duration-slower:  500ms;
+
   --ep-transition-standard: var(--ep-duration-normal) var(--ep-ease-standard);
 
   /* ── Layout dimensions (chrome + container widths) ───────────────── */
@@ -295,6 +333,113 @@
   --ep-blur-sm: 4px;
   --ep-blur-md: 8px;
   --ep-blur-lg: 16px;
+
+  /* ─── SEMANTIC INTENT TOKENS (B.1) ─────────────────────────────────────
+   *
+   *   The token families above are SCALES (palette steps, spacing steps,
+   *   radius steps). The tokens below are INTENTS — they encode WHY a
+   *   value is being applied, not what it is. Components SHOULD prefer
+   *   intent tokens over scale tokens, because:
+   *
+   *     1. Adding a new theme axis (high-contrast, sepia, tenant override)
+   *        is a single intent-token rebinding, not a per-component edit.
+   *     2. Refactoring the underlying scale (e.g. promoting neutral-700 →
+   *        a different hue) doesn't touch any component.
+   *     3. Intent tokens read self-documenting in component CSS:
+   *        `border: 1px solid var(--ep-border-subtle)` beats
+   *        `border: 1px solid var(--ep-color-neutral-200)`.
+   *
+   *   The MIGRATION RULE:
+   *     - Brand assets (logos, gradients, theme accents) consume scale tokens.
+   *     - Components (everything else) consume intent tokens.
+   *
+   *   See docs/Architecture/UI-Semantic-Tokens-RFC.md for the full mapping
+   *   table from scale → intent.
+   */
+
+  /* Text intent. Each level is a contrast tier, NOT a colour choice.
+   * Inverse is for text on dark/coloured backgrounds. */
+  --ep-text-disabled:    var(--ep-color-neutral-400);
+  --ep-text-inverse:     var(--ep-color-neutral-0);
+  --ep-text-link:        var(--ep-color-primary-700);
+  --ep-text-link-hover:  var(--ep-color-primary-800);
+  --ep-text-link-visited: var(--ep-color-primary-800);
+  /* `--ep-text-primary/secondary/muted` already declared above. */
+
+  /* Background intent. `canvas` is the page; `elevated` is anything on top
+   * (cards, modals, panels); `sunken` is for inset wells (code blocks,
+   * input groups). `overlay` is the modal scrim. */
+  --ep-bg-canvas:    var(--ep-surface-50);
+  --ep-bg-elevated:  var(--ep-surface-0);
+  --ep-bg-sunken:    var(--ep-surface-100);
+  --ep-bg-overlay:   rgba(15, 23, 42, 0.40);  /* slate-900 @ 40% */
+
+  /* Border intent. Subtle is for separators that shouldn't compete; default
+   * is for inputs/cards; strong is for active states. Focus is the brand
+   * accent applied as a border / outline. */
+  --ep-border-subtle:   var(--ep-color-neutral-100);
+  --ep-border-default:  var(--ep-color-neutral-200);
+  --ep-border-focus:    var(--ep-color-primary-500);
+  /* `--ep-border` and `--ep-border-strong` already declared above; we
+   * keep them as the canonical tokens and add the `subtle/default/focus`
+   * intent variants for components that need finer granularity. */
+
+  /* Spacing semantics — vertical rhythm (stack), horizontal rhythm
+   * (cluster / inline), and uniform inset (padding all sides). Each
+   * intent maps to a step from the underlying spacing scale. Picking
+   * `--ep-stack-md` instead of `var(--ep-space-4)` says "this is the
+   * default vertical rhythm" rather than "this is 16px", so a future
+   * density toggle reflows correctly. */
+  --ep-stack-xs:  var(--ep-space-1);   /*  4px */
+  --ep-stack-sm:  var(--ep-space-2);   /*  8px */
+  --ep-stack-md:  var(--ep-space-4);   /* 16px */
+  --ep-stack-lg:  var(--ep-space-6);   /* 24px */
+  --ep-stack-xl:  var(--ep-space-8);   /* 32px */
+  --ep-stack-2xl: var(--ep-space-12);  /* 48px */
+
+  --ep-inline-xs: var(--ep-space-1);   /*  4px */
+  --ep-inline-sm: var(--ep-space-2);   /*  8px */
+  --ep-inline-md: var(--ep-space-3);   /* 12px */
+  --ep-inline-lg: var(--ep-space-4);   /* 16px */
+  --ep-inline-xl: var(--ep-space-6);   /* 24px */
+
+  --ep-inset-xs: var(--ep-space-1);    /*  4px */
+  --ep-inset-sm: var(--ep-space-2);    /*  8px */
+  --ep-inset-md: var(--ep-space-3);    /* 12px */
+  --ep-inset-lg: var(--ep-space-4);    /* 16px */
+  --ep-inset-xl: var(--ep-space-6);    /* 24px */
+
+  /* Density — control heights for compact / comfortable / touch modes.
+   * The DEFAULT (--ep-control-height) maps to comfortable; opt-in dense
+   * UIs scope `[data-density="compact"]` on a parent and the alias flips
+   * for everything underneath. See the [data-density] selectors below. */
+  --ep-control-height-compact:     2rem;     /* 32px */
+  --ep-control-height-comfortable: 2.5rem;   /* 40px */
+  --ep-control-height-touch:       3rem;     /* 48px */
+  --ep-control-height: var(--ep-control-height-comfortable);
+
+  /* Focus ring tokens. The platform default is the primary-brand ring;
+   * destructive forms bind `--ep-focus-ring-color` to `--ep-color-danger`
+   * inside their own scope so `[type="submit"]` on a delete form gets a
+   * red focus ring. Width and offset stay constant so the visual rhythm
+   * is consistent across intents. */
+  --ep-focus-ring-width:          2px;
+  --ep-focus-ring-offset:         2px;
+  --ep-focus-ring-color:          var(--ep-color-primary-500);
+  --ep-focus-ring-color-danger:   var(--ep-color-danger);
+  --ep-focus-ring-color-warning:  var(--ep-color-warning);
+  --ep-focus-ring-color-success:  var(--ep-color-success);
+
+  /* Motion preferences. `--ep-motion-scale` multiplies every duration so
+   * setting it to `0` under `prefers-reduced-motion` (see media query at
+   * the bottom of this file) snaps all transitions to instant. Components
+   * MUST express durations as `calc(var(--ep-duration-fast) * var(--ep-motion-scale))`
+   * — or use the `motion()` mixin from `_mixins.scss` — to participate.
+   *
+   * Loading spinners and other ESSENTIAL motion should NOT consume
+   * `--ep-motion-scale`; they're decorative-but-required, and a frozen
+   * spinner is worse UX than a moving one. */
+  --ep-motion-scale: 1;
 }
 
 /* ─── Dark-theme overrides ──────────────────────────────────────────────
@@ -350,4 +495,61 @@
   --ep-color-success: var(--ep-color-palmetto-300);
   --ep-color-warning: var(--ep-color-jessamine-300);
   --ep-color-danger:  var(--ep-color-danger-500);
+
+  /* ─── Semantic intent — dark variants (B.1) ──────────────────────────
+   *
+   *   Mirror the light-theme intent tokens. Surface/text already flipped
+   *   above; remaining intents (links, bg layers, borders, focus, overlay)
+   *   need their own dark bindings.
+   */
+  --ep-text-disabled:    var(--ep-color-neutral-500);
+  --ep-text-inverse:     var(--ep-color-neutral-900);
+  --ep-text-link:        var(--ep-color-primary-300);
+  --ep-text-link-hover:  var(--ep-color-primary-200);
+  --ep-text-link-visited: var(--ep-color-primary-200);
+
+  --ep-bg-canvas:    var(--ep-surface-50);
+  --ep-bg-elevated:  var(--ep-surface-0);
+  --ep-bg-sunken:    #050a18;   /* one step below the page bg */
+  --ep-bg-overlay:   rgba(0, 0, 0, 0.55);
+
+  --ep-border-subtle:   #1a2138;   /* between surface-50 and surface-100 */
+  --ep-border-default:  var(--ep-border);
+  --ep-border-focus:    var(--ep-color-primary-400);
+
+  --ep-focus-ring-color: var(--ep-color-primary-400);
+}
+
+/* ─── Density modes (B.1) ─────────────────────────────────────────────────
+ *
+ *   Toggling `<html data-density="compact">` or scoping a region with
+ *   `<section data-density="touch">` rebinds `--ep-control-height` for
+ *   that subtree. Components consuming `var(--ep-control-height)` resize
+ *   automatically; no `[size]` input needed.
+ *
+ *   Use `comfortable` (default) for general UI, `compact` for data-dense
+ *   admin tables, `touch` for tablet/mobile or accessibility modes.
+ */
+[data-density='compact']     { --ep-control-height: var(--ep-control-height-compact); }
+[data-density='comfortable'] { --ep-control-height: var(--ep-control-height-comfortable); }
+[data-density='touch']       { --ep-control-height: var(--ep-control-height-touch); }
+
+/* ─── Motion preferences (B.2) ────────────────────────────────────────────
+ *
+ *   When the user has `prefers-reduced-motion: reduce` enabled at the OS
+ *   level, snap every motion-scale-multiplied duration to zero. Components
+ *   MUST consume `--ep-motion-scale` for this to take effect (use the
+ *   `motion()` mixin in `_mixins.scss` or write
+ *   `calc(var(--ep-duration-fast) * var(--ep-motion-scale))` directly).
+ *
+ *   ESSENTIAL motion (loading spinner, async progress) should NOT consume
+ *   the scale and is therefore unaffected — a frozen spinner is worse UX
+ *   than a moving one for users who only need orientation cues reduced.
+ *
+ *   WCAG SC 2.3.3 — Animation from Interactions.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ep-motion-scale: 0;
+  }
 }

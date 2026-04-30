@@ -4,6 +4,7 @@ using Enterprise.Platform.Web.UI.Configuration;
 using Enterprise.Platform.Web.UI.Controllers;
 using Enterprise.Platform.Web.UI.Endpoints;
 using Enterprise.Platform.Web.UI.Middleware;
+using Enterprise.Platform.Web.UI.Services.Chrome;
 using Enterprise.Platform.Web.UI.Services.Graph;
 using Enterprise.Platform.Web.UI.Setup;
 using Microsoft.Extensions.FileProviders;
@@ -55,6 +56,12 @@ try
     builder.Services.AddHttpClient(GraphUserProfileService.TokenHttpClientName);
     builder.Services.AddHttpClient(GraphUserProfileService.GraphHttpClientName);
     builder.Services.AddScoped<GraphUserProfileService>();
+
+    // ── Chrome (navbar + footer) builder ─────────────────────────────
+    // Phase 1: a single hardcoded chrome built once at startup and shared
+    // across every authenticated request. Phase 2 swaps the registration
+    // to a SQL-backed builder filtering per user / module / role.
+    builder.Services.AddSingleton<IChromeBuilder, StaticChromeBuilder>();
 
     // ── Downstream Api HTTP client (used by ProxyController) ─────────
     builder.Services.AddHttpClient(ProxyController.HttpClientName);

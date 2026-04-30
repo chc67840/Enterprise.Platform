@@ -21,8 +21,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
 import { AuthService, AuthStore, SessionMonitorService } from '@core/auth';
-import { DomainStore, LoggerService, NavbarConfigService } from '@core/services';
-import { GlobalProgressBarComponent } from '@shared/components/global-progress-bar/global-progress-bar.component';
+import { LoggerService, NavbarConfigService } from '@core/services';
 import { SessionExpiringDialogComponent } from '@shared/components/session-expiring-dialog/session-expiring-dialog.component';
 import { SubNavOrchestratorComponent } from '@shared/layout/sub-nav';
 import {
@@ -37,7 +36,6 @@ import {
   type NavbarConfig,
   type UserProfile,
 } from '@shared/layout';
-import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
 
 @Component({
   selector: 'app-app-shell',
@@ -47,7 +45,6 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
     RouterOutlet,
     ToastModule,
     ConfirmDialogModule,
-    GlobalProgressBarComponent,
     SessionExpiringDialogComponent,
     PlatformNavbarComponent,
     SubNavOrchestratorComponent,
@@ -55,8 +52,6 @@ import { DOMAIN_CHROME_REGISTRY } from '@shared/layout/domains';
   ],
   template: `
     <div class="ep-app-shell flex min-h-screen min-w-0 flex-col bg-[color:var(--ep-surface-50)]" style="overflow-x: clip;">
-      <app-global-progress-bar />
-
       <app-platform-navbar
         [config]="navbarConfig()"
         [userProfile]="userProfile()"
@@ -95,7 +90,6 @@ export class AppShellComponent {
   private readonly log = inject(LoggerService);
   private readonly authService = inject(AuthService);
   private readonly authStore = inject(AuthStore);
-  private readonly domains = inject(DomainStore);
   private readonly chromeService = inject(NavbarConfigService);
 
   readonly session = inject(SessionMonitorService);

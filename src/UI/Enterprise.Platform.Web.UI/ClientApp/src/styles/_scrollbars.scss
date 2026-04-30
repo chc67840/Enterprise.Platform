@@ -1,0 +1,83 @@
+// ─── _scrollbars.scss ─────────────────────────────────────────────────────
+//
+// Cross-browser scrollbar utilities. Two opt-in classes — applied where
+// the OS-default scrollbar would clash with the design system (drawers,
+// popovers, code panels, the chrome's nav menu).
+//
+// PROBLEM
+//   Browsers default to OS scrollbars (Windows: 17px, macOS: thin overlay).
+//   In dark mode on Windows the scrollbar track stays light — visible
+//   colour-clash. Drawer panels with internal scroll show a chunky bar
+//   that breaks the floating-panel illusion.
+//
+// SOLUTION
+//   `.ep-scrollbar-thin` — slim 6px scrollbar styled with `--ep-border*`
+//   tokens. Dark mode via `:root.dark` mirrors token values automatically.
+//
+//   `.ep-scrollbar-none` — fully hidden but still scrollable; for cases
+//   where scroll is functional but the bar would be visual noise (e.g.
+//   horizontal nav strips on touch devices).
+//
+// CROSS-BROWSER STRATEGY
+//   1. Modern (Firefox 64+, Chromium 121+):
+//      Use the standard `scrollbar-width` + `scrollbar-color` properties.
+//   2. WebKit (Chromium <121, Safari, older Edge):
+//      Use the legacy `::-webkit-scrollbar*` pseudo-elements.
+//   Both blocks coexist; engines ignore properties they don't understand.
+//
+// USAGE
+//   <div class="ep-scrollbar-thin" style="overflow:auto; max-height:400px">
+//     ... long content ...
+//   </div>
+//
+//   For component-internal scroll, prefer applying the class on the
+//   scrolling element rather than its child.
+//
+// WHY OPT-IN
+//   Body / page scroll keeps the OS-default. Users with custom scroll
+//   tools (Smooth Scroll, browser extensions) lose them under custom
+//   scrollbar styles. We override only inside our own surfaces.
+// ──────────────────────────────────────────────────────────────────────────
+
+.ep-scrollbar-thin {
+  // Modern browsers — Firefox 64+, Chromium 121+, Edge 121+.
+  scrollbar-width: thin;
+  scrollbar-color: var(--ep-border-strong) transparent;
+
+  // Legacy WebKit (Chromium <121, Safari, older Edge).
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--ep-border-strong);
+    border-radius: 9999px;
+
+    &:hover {
+      background-color: var(--ep-text-muted);
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+// Pure invisibility — bar is hidden but element still scrolls. Useful
+// for horizontal nav strips, image carousels, command-palette result
+// lists where the scroll is implied and a visible bar would distract.
+.ep-scrollbar-none {
+  scrollbar-width: none; // Firefox / modern Chromium
+  -ms-overflow-style: none; // IE / Edge legacy
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}

@@ -194,3 +194,119 @@
   .dph-table .p-paginator-last { display: none; }
   .dph-table .p-paginator-rpp-options { margin-left: 0; }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// PRIMENG PAPERCUT FIXES (P0.3)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Two structural quirks in PrimeNG v21 that don't fit any specific
+// component, applied globally so they're invisible until needed.
+
+// ── Browser autofill suppression ──────────────────────────────────────────
+//
+// PROBLEM
+//   Chrome / Edge / Brave fill remembered credentials with their own
+//   yellow-cream background that ignores our theme — visually broken on
+//   light, catastrophically broken on dark (yellow text-on-dark surface
+//   is unreadable). Setting `background` on the input does not work
+//   because Chrome paints autofill via a privileged style layer.
+//
+// SOLUTION
+//   The well-known hack: `box-shadow: 0 0 0 1000px <surface> inset` paints
+//   over the autofill layer with our token-driven surface colour. The
+//   `transition: background-color 5000s` defers Chrome's autofill repaint
+//   long enough that the box-shadow wins forever in practice. **Do NOT
+//   shorten this duration** — it is load-bearing.
+//
+// TARGETS
+//   Every PrimeNG primitive that renders an `<input>` users can autofill.
+//   `p-checkbox`, `p-radio`, `p-toggleswitch` are excluded — they don't
+//   participate in autofill.
+//
+// SCOPE
+//   Live OUTSIDE any cascade layer so they reliably beat PrimeNG's runtime
+//   theme-engine injection. The selectors are highly specific
+//   (`-webkit-autofill` is a webkit pseudo-class; only matches autofilled
+//   inputs) so collateral damage is impossible.
+//
+// REFERENCE
+//   https://stackoverflow.com/q/2781549 (the canonical answer dating to 2010,
+//   still works in Chrome 130+).
+
+.p-inputtext,
+.p-password input,
+.p-autocomplete input,
+.p-inputnumber input,
+.p-inputmask,
+.p-datepicker input,
+.p-iconfield input,
+.p-floatlabel input,
+.p-floatlabel textarea {
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--ep-bg-elevated) inset !important;
+    -webkit-text-fill-color: var(--ep-text-primary) !important;
+    caret-color: var(--ep-text-primary);
+    transition: background-color 5000s ease-in-out 0s;
+    transition-property: background-color, color;
+  }
+}
+
+// Dark-mode override — autofill should land on the dark elevated surface.
+:root.dark {
+  .p-inputtext,
+  .p-password input,
+  .p-autocomplete input,
+  .p-inputnumber input,
+  .p-inputmask,
+  .p-datepicker input,
+  .p-iconfield input,
+  .p-floatlabel input,
+  .p-floatlabel textarea {
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus,
+    &:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--ep-bg-elevated) inset !important;
+      -webkit-text-fill-color: var(--ep-text-primary) !important;
+    }
+  }
+}
+
+// ── Force-block hosts ────────────────────────────────────────────────────
+//
+// PROBLEM
+//   PrimeNG component HOSTS (the Angular custom-element wrappers like
+//   `<p-datepicker>`, `<p-select>`) default to `display: inline-block`.
+//   Inside a flex / grid form layout this means `width: 100%` has no
+//   effect — the host shrinks to its content's intrinsic width, leaving
+//   form fields visibly misaligned. Single most common
+//   "why-is-my-form-broken" bug in PrimeNG land.
+//
+// SOLUTION
+//   Force every form host to `display: block; width: 100%`. Inputs that
+//   should NOT span their column (e.g. inline date pickers in toolbars)
+//   can override locally via `[styleClass]="'inline-block'"` plus a
+//   matching local rule. The default fits 95%+ of cases.
+//
+// SCOPE
+//   Only the listed hosts. We deliberately exclude `p-button`, `p-checkbox`,
+//   `p-radio`, `p-toggleswitch`, `p-chip` — those are intentionally inline.
+
+p-datepicker,
+p-password,
+p-autocomplete,
+p-inputnumber,
+p-select,
+p-multiselect,
+p-inputgroup,
+p-inputmask,
+p-iconfield,
+p-floatlabel,
+p-treeselect,
+p-cascadeselect {
+  display: block;
+  width: 100%;
+}

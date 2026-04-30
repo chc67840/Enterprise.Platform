@@ -71,6 +71,7 @@ public static class UserEndpoints
 
         group.MapPost("/", CreateUserAsync)
             .RequireAuthorization(PermissionPolicy(UserPermissions.Create))
+            .RequireIdempotencyKey()
             .WithName("CreateUser")
             .WithSummary("Registers a new platform user.")
             .Produces<UserDto>(StatusCodes.Status201Created)
@@ -81,6 +82,7 @@ public static class UserEndpoints
 
         group.MapPut("/{id:guid}/name", RenameUserAsync)
             .RequireAuthorization(PermissionPolicy(UserPermissions.Write))
+            .RequireIdempotencyKey()
             .WithName("RenameUser")
             .WithSummary("Replaces the user's first/last name.")
             .Produces(StatusCodes.Status204NoContent)
@@ -92,6 +94,7 @@ public static class UserEndpoints
 
         group.MapPut("/{id:guid}/email", ChangeUserEmailAsync)
             .RequireAuthorization(PermissionPolicy(UserPermissions.Write))
+            .RequireIdempotencyKey()
             .WithName("ChangeUserEmail")
             .WithSummary("Replaces the user's canonical email.")
             .Produces(StatusCodes.Status204NoContent)
@@ -103,6 +106,7 @@ public static class UserEndpoints
 
         group.MapPost("/{id:guid}/activate", ActivateUserAsync)
             .RequireAuthorization(PermissionPolicy(UserPermissions.Activate))
+            .RequireIdempotencyKey()
             .WithName("ActivateUser")
             .WithSummary("Reactivates a deactivated user.")
             .Produces(StatusCodes.Status204NoContent)
@@ -113,6 +117,7 @@ public static class UserEndpoints
 
         group.MapPost("/{id:guid}/deactivate", DeactivateUserAsync)
             .RequireAuthorization(PermissionPolicy(UserPermissions.Deactivate))
+            .RequireIdempotencyKey()
             .WithName("DeactivateUser")
             .WithSummary("Deactivates an active user (reversible).")
             .Produces(StatusCodes.Status204NoContent)

@@ -56,6 +56,10 @@ public sealed partial class ProxyController(
         Message = "Bff.Proxy.CopyFailed — {Target} response copy threw {Reason}")]
     private partial void LogCopyFailed(Uri target, string reason, Exception ex);
 
+    [LoggerMessage(EventId = 4004, Level = LogLevel.Information,
+        Message = "Bff.Proxy.BodyRead — {Method} {DownstreamPath} contentType={ContentType} declaredLength={DeclaredLength} bytesRead={BytesRead} preview={Preview}")]
+    private partial void LogBodyRead(string method, string downstreamPath, string? contentType, long? declaredLength, int bytesRead, string preview);
+
     /// <summary>Named HTTP client registered in Program.cs.</summary>
     public const string HttpClientName = "ep-proxy-api";
 
@@ -88,10 +92,63 @@ public sealed partial class ProxyController(
 
         using var request = new HttpRequestMessage(new HttpMethod(HttpContext.Request.Method), target);
 
-        // Forward body when present (POST/PUT/PATCH).
+        // Forward body when present (POST/PUT/PATCH). We materialise the
+        // request body into a byte array so the downstream HttpClient sees a
+        // known Content-Length AND we don't depend on the request body stream
+        // staying readable past whatever the action-filter pipeline does to it
+        // (the StreamContent variant silently produced empty bodies under
+        // [AutoValidateAntiforgeryToken] in a way that surfaced as backend
+        // FluentValidation errors with "field must not be empty" on every
+        // mutation, even though the SPA sent the values correctly).
         if (HttpContext.Request.ContentLength > 0 || HttpContext.Request.Headers.ContainsKey("Transfer-Encoding"))
         {
-            request.Content = new StreamContent(HttpContext.Request.Body);
+            // EnableBuffering wraps the request body in a re-readable stream
+            // (memory + spill-to-disk past 30KB by default). We then rewind to
+            // 0 before reading — guarantees we get the full body even if some
+            // earlier middleware peeked at it.
+            HttpContext.Request.EnableBuffering();
+            HttpContext.Request.Body.Position = 0;
+
+            // The body read MUST NOT honour HttpContext.RequestAborted —
+            // Kestrel toggles that token transiently during the action filter
+            // chain (a transient cancellation surfaces as TaskCanceledException
+            // that bypasses the SendAsync try/catch and 500s the request).
+            // Wrap defensively so any failure here is caught and surfaced as a
+            // 502 alongside the SendAsync error path, never a raw 500.
+            byte[] bodyBytes;
+            try
+            {
+                using var bodyBuffer = new MemoryStream();
+                await HttpContext.Request.Body.CopyToAsync(bodyBuffer, CancellationToken.None).ConfigureAwait(false);
+                bodyBytes = bodyBuffer.ToArray();
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException)
+            {
+                LogUnreachable(target, $"body-read:{ex.GetType().Name}", ex);
+                return StatusCode(StatusCodes.Status502BadGateway, new
+                {
+                    detail = "Could not read upstream request body.",
+                    reason = ex.GetType().Name,
+                });
+            }
+
+            // Diagnostic: the SPA's Create/Edit user dialog was hitting the
+            // API with an empty JSON body and FluentValidation was rejecting
+            // every field as required. Logging the bytes read here tells us
+            // whether the BFF received the body at all (vs. lost it inside
+            // the action filter chain).
+            var preview = bodyBytes.Length == 0
+                ? "<empty>"
+                : System.Text.Encoding.UTF8.GetString(bodyBytes, 0, Math.Min(bodyBytes.Length, 500));
+            LogBodyRead(
+                HttpContext.Request.Method,
+                downstreamPath,
+                HttpContext.Request.ContentType,
+                HttpContext.Request.ContentLength,
+                bodyBytes.Length,
+                preview);
+
+            request.Content = new ByteArrayContent(bodyBytes);
             if (!string.IsNullOrEmpty(HttpContext.Request.ContentType))
             {
                 request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(HttpContext.Request.ContentType);

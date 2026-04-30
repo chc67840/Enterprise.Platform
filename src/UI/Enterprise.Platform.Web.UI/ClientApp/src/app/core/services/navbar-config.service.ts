@@ -1,133 +1,102 @@
 /**
  * ─── core/services/navbar-config.service ────────────────────────────────────────
  *
- * Single signal-backed source for the active `DomainChromeConfig`. The shell
- * subscribes via signals; everything reactive flows from here:
- *
- *   - Domain change (`DomainStore.currentDomain()` flips) → reload
- *   - Auth state change (sign in / sign out / role grant) → reload
- *   - Manual `refresh()` (e.g. after admin grants the user a new permission)
- *
- * The service hides which provider is wired (static vs backend) — feature
- * code reads `service.navbar()` and `service.footer()` regardless.
+ * Signal-backed source of truth for the active `ChromeConfig`. Hydrated once
+ * by `AuthService.refreshSession()` after the BFF returns the post-login
+ * `SessionInfo` envelope (which carries `chrome` alongside identity +
+ * permissions).
  *
  * STATE
- *   - `loading()`     — first load in flight (true → false on first success/fail)
- *   - `error()`       — last error from the provider, or null
- *   - `lastKnown()`   — last successful config (used as fallback while
- *                       refreshing or on transient error)
- *   - `navbar()` / `footer()` — current view-of-truth, prefers fresh value
- *                       and falls back to lastKnown on error
+ *   - `loading()`     — true until the first hydrate() call lands (success or fallback)
+ *   - `error()`       — last hydration error (null on success)
+ *   - `lastKnown()`   — last successfully hydrated config — kept across
+ *                       transient errors so the SPA never flickers empty chrome
+ *   - `chrome()` / `navbar()` / `footer()` — current view; falls back to
+ *                       `STATIC_FALLBACK_CHROME` until the first real hydrate
  *
  * PRINCIPLE
- *   The shell never sees `null` for `navbar()`/`footer()` after first load
- *   completes — even on error we fall back to the last-known good config so
- *   the UI doesn't flash empty chrome. First-time errors fall through to
- *   the static `DOMAIN_CHROME_REGISTRY[domain]` snapshot.
+ *   This service is a pure cache — no HTTP, no DI on AuthService / AuthStore /
+ *   DomainStore. The shell injects only this service; whoever holds the
+ *   session response (today: `AuthService`) hands it config via `hydrate()`.
+ *   That keeps the dependency arrows acyclic and keeps the chrome path
+ *   reactive to a single concrete event ("session loaded").
  */
-import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, of } from 'rxjs';
+import { Injectable, computed, signal } from '@angular/core';
 
-import { AuthService } from '@core/auth';
-import { AuthStore } from '@core/auth/auth.store';
-
-import { DOMAIN_CHROME_REGISTRY, type DomainKey } from '@shared/layout/domains';
 import {
-  type DomainChromeConfig,
-  type FooterConfig,
-  type NavbarConfig,
-  type UserProfile,
-} from '@shared/layout';
-import { NAVBAR_CONFIG_PROVIDER } from '@shared/layout/providers';
-
-import { DomainStore } from './domain.store';
+  MINIMAL_FALLBACK_CHROME,
+  STATIC_FALLBACK_CHROME,
+} from '@shared/layout/chrome-fallback';
+import type {
+  ChromeConfig,
+  FooterConfig,
+  NavbarConfig,
+} from '@shared/layout/models/nav.models';
 
 @Injectable({ providedIn: 'root' })
 export class NavbarConfigService {
-  private readonly provider = inject(NAVBAR_CONFIG_PROVIDER);
-  private readonly domains = inject(DomainStore);
-  private readonly authService = inject(AuthService);
-  private readonly authStore = inject(AuthStore);
-  /**
-   * Captured at construction so `takeUntilDestroyed(destroyRef)` works from
-   * `fetch()` — which is invoked from the `_autoReload` effect callback and
-   * from the public `refresh()` method, neither of which runs in injection
-   * context. The arg-less overload would NG0203 there.
-   */
-  private readonly destroyRef = inject(DestroyRef);
-
   // ── state signals ──────────────────────────────────────────────────────
 
-  /** First load in flight. Toggles to false after the first response (success or failure). */
+  /** First load in flight. Toggles to false after the first hydrate (success or fallback). */
   readonly loading = signal<boolean>(true);
 
-  /** Last error from the provider; null when most recent load succeeded. */
+  /** Last hydration error; null when most recent hydrate succeeded. */
   readonly error = signal<unknown | null>(null);
 
-  /** Last successful config — survives transient errors as the fallback. */
-  private readonly lastKnown = signal<DomainChromeConfig | null>(null);
+  /** Last successfully hydrated config — survives transient errors as the fallback. */
+  private readonly _lastKnown = signal<ChromeConfig | null>(null);
+
+  /** Public read of the lastKnown snapshot — needed by the shell to detect cold-boot vs warm-error. */
+  readonly lastKnown = computed<ChromeConfig | null>(() => this._lastKnown());
 
   /**
-   * Current chrome — prefers the freshest successful response; falls back
-   * to lastKnown on error; falls through to the static registry as the
-   * absolute last resort. Never null after boot.
+   * Current chrome — prefers the last successful hydrate; falls back to the
+   * static config until the first real response lands; falls back to the
+   * minimal "safe chrome" only when an error fires AND no lastKnown exists.
    */
-  readonly chrome = computed<DomainChromeConfig>(() => {
-    const fresh = this.lastKnown();
+  readonly chrome = computed<ChromeConfig>(() => {
+    const fresh = this._lastKnown();
     if (fresh) return fresh;
-    return DOMAIN_CHROME_REGISTRY[this.domains.currentDomain()];
+    if (this.error()) return MINIMAL_FALLBACK_CHROME;
+    return STATIC_FALLBACK_CHROME;
   });
 
   readonly navbar = computed<NavbarConfig>(() => this.chrome().navbar);
   readonly footer = computed<FooterConfig>(() => this.chrome().footer);
 
+  // ── mutators ───────────────────────────────────────────────────────────
+
   /**
-   * Reactive auto-reload. Re-fires whenever the domain changes OR the user
-   * authentication state changes. The provider gets the current snapshot
-   * so the BFF impl can include user identity in the request.
+   * Push a fresh chrome config in. Called by `AuthService.refreshSession()`
+   * with the `chrome` field off the BFF's `SessionInfo` response.
+   *
+   * Pass `null` when the session is anonymous OR the response had no chrome
+   * (the SPA renders the login page in that case so the static fallback is
+   * unused but still wired in case a route renders the shell pre-auth).
    */
-  private readonly _autoReload = effect(() => {
-    const domain = this.domains.currentDomain();
-    const user = this.currentUser();
-    this.fetch(domain, user);
-  });
-
-  /** Force a reload (e.g. after a permission grant in admin tooling). */
-  refresh(): void {
-    this.fetch(this.domains.currentDomain(), this.currentUser());
+  hydrate(config: ChromeConfig | null | undefined): void {
+    if (config) {
+      this._lastKnown.set(config);
+      this.error.set(null);
+    }
+    this.loading.set(false);
   }
 
-  // ── internals ──────────────────────────────────────────────────────────
-
-  /** Adapter: AuthService signals → UserProfile shape (or null when unauthenticated). */
-  private currentUser(): UserProfile | null {
-    if (!this.authService.isAuthenticated()) return null;
-    return {
-      id: '',
-      displayName: this.authService.displayName() || this.authService.email(),
-      email: this.authService.email(),
-      role: this.authStore.roles()[0],
-    };
+  /**
+   * Mark a hydration failure. Keeps the lastKnown snapshot if there is one
+   * (so the shell renders stale-but-valid chrome rather than flickering to
+   * the static fallback) and surfaces the error so the shell can show a
+   * status banner with a retry affordance.
+   */
+  markError(err: unknown): void {
+    this.error.set(err);
+    this.loading.set(false);
   }
 
-  private fetch(domain: DomainKey, user: UserProfile | null): void {
+  /** Drop all state — used by `AuthService.logout()` so the next login boot starts clean. */
+  reset(): void {
+    this._lastKnown.set(null);
+    this.error.set(null);
     this.loading.set(true);
-    this.provider
-      .load({ domain, user })
-      .pipe(
-        catchError((err) => {
-          this.error.set(err);
-          return of<DomainChromeConfig | null>(null);
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((cfg) => {
-        if (cfg) {
-          this.lastKnown.set(cfg);
-          this.error.set(null);
-        }
-        this.loading.set(false);
-      });
   }
 }

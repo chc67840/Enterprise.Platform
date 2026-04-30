@@ -14,8 +14,16 @@
  * cleanly in both directions.
  */
 
-/** A single user as returned by `/api/v1/users/{id}` and embedded in `ListUsersResponse.items`. */
-export interface UserDto {
+/**
+ * A single user as returned by `/api/v1/users/{id}` and embedded in
+ * `ListUsersResponse.items`.
+ *
+ * The `Record<string, unknown>` extension is required for compatibility with
+ * the dph-data-table generic constraint — at runtime it has no effect; on the
+ * type side it lets the table's column-renderer index into the row by string
+ * field name without an explicit cast at every callsite.
+ */
+export interface UserDto extends Record<string, unknown> {
   readonly id: string;
   readonly email: string;
   readonly firstName: string;

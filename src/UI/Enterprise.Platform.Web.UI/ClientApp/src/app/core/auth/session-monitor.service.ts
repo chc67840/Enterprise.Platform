@@ -178,6 +178,9 @@ export class SessionMonitorService {
       const session = await firstValueFrom(
         this.http.get<SessionInfo>('/api/auth/session', {
           withCredentials: true,
+          // Background renewal — opt out of the global progress bar so the
+          // top bar doesn't flash on every "Stay signed in" click.
+          headers: { 'X-Skip-Loading': 'true' },
         }),
       );
       if (!session.isAuthenticated) {
@@ -208,6 +211,10 @@ export class SessionMonitorService {
       const session = await firstValueFrom(
         this.http.get<SessionInfo>('/api/auth/session', {
           withCredentials: true,
+          // Silent background poll — every tick previously flashed the global
+          // progress bar above the navbar, presenting as a permanent thin
+          // gray line. The interceptor strips this header before forwarding.
+          headers: { 'X-Skip-Loading': 'true' },
         }),
       );
       if (!session.isAuthenticated) {
