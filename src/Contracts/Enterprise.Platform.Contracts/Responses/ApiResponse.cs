@@ -9,6 +9,22 @@ namespace Enterprise.Platform.Contracts.Responses;
 /// <see cref="ProblemDetailsExtended"/> instead — never overload this envelope with
 /// error fields.
 /// </summary>
+/// <remarks>
+/// SUCCESS-FLAG SEMANTICS — see Docs/Architecture/MasterConfigModels.cs §F9.
+/// <para>
+/// <see cref="Success"/> here is a CARRIED FLAG (always <c>true</c> on a 2xx
+/// envelope) — it is NOT the same concept as <see cref="Results.Result.IsSuccess"/>.
+/// </para>
+/// <list type="bullet">
+///   <item><see cref="Results.Result.IsSuccess"/> is the railway-pattern
+///         CONTROL FLOW used inside handlers; it is unwrapped before
+///         returning a response — only the success payload reaches this
+///         envelope.</item>
+///   <item><see cref="Success"/> is a sanity bit for older clients that
+///         don't inspect status codes. New code reads HTTP status, not
+///         this flag.</item>
+/// </list>
+/// </remarks>
 /// <typeparam name="T">Payload type.</typeparam>
 public sealed class ApiResponse<T>
 {

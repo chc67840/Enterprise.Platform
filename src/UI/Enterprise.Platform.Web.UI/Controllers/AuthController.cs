@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Enterprise.Platform.Application.Common.Authorization;
+using Enterprise.Platform.Contracts.DTOs.Auth;
 using Enterprise.Platform.Web.UI.Controllers.Models;
 using Enterprise.Platform.Web.UI.Services.Chrome;
 using Enterprise.Platform.Web.UI.Services.Graph;
@@ -370,8 +371,8 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
     /// </remarks>
     [Authorize]
     [HttpGet("me/permissions")]
-    [ProducesResponseType<EffectivePermissions>(StatusCodes.Status200OK)]
-    public ActionResult<EffectivePermissions> MePermissions()
+    [ProducesResponseType<EffectivePermissionsDto>(StatusCodes.Status200OK)]
+    public ActionResult<EffectivePermissionsDto> MePermissions()
     {
         LogPermissionsPlaceholder();
 
@@ -381,10 +382,9 @@ public sealed partial class AuthController(ILogger<AuthController> logger) : Con
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        return Ok(new EffectivePermissions(
+        return Ok(new EffectivePermissionsDto(
             Roles: roles,
             Permissions: BuildPhase1Permissions(),
-            TenantId: null,
             Bypass: false,
             TtlSeconds: 300));
     }

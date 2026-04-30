@@ -16,7 +16,23 @@ import type { TemplateRef } from '@angular/core';
 
 // ─── Primitives ──────────────────────────────────────────────────────────────
 
-/** Severity used by buttons, messages, badges, banners. */
+/**
+ * Severity used by DPH UI Kit components (buttons, messages, badges, banners,
+ * inline alerts).
+ *
+ * VOCABULARY DISTINCTIONS — see Docs/Architecture/master-config.models.ts §F1.
+ *   • This type ('success' | 'warning' | 'danger' | 'info' | 'neutral') is the
+ *     CANONICAL UI vocabulary used by every dph-* component in this folder.
+ *   • The chrome wire shape (`NavBadgeDto.variant` in ChromeDtos.cs) uses
+ *     PrimeNG's badge severity — same five labels except `'neutral'` is
+ *     `'secondary'`. `NavbarConfigService` normalises `'secondary'` → `'neutral'`
+ *     when hydrating, so consumers always see the canonical form.
+ *   • `ErrorSeverity` (.NET, Info|Warning|Critical) is a SEPARATE concern
+ *     for logging / alerting — it is NOT a UI vocabulary.
+ *
+ * Adding a new value here requires updating each dph-* component's variant
+ * mapping AND the chrome normaliser.
+ */
 export type Severity = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Size used by inputs, buttons, tables, lists. */
@@ -25,7 +41,20 @@ export type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 /** Visual variant. */
 export type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'link' | 'danger';
 
-/** Sort direction. */
+/**
+ * Tri-state column-sort direction used by the DPH data-table's header-click
+ * cycle (asc → desc → null = unsorted).
+ *
+ * NOT THE SAME AS `@core/models#SortDirection` — see Docs/Architecture/
+ * master-config.models.ts §F2:
+ *   • THIS type   : tri-state for the click cycle. `null` is meaningful
+ *                   ("no sort applied") and must not be sent to the server.
+ *   • Core type   : two-state ('asc' | 'desc') used in `QueryParams.sort`
+ *                   and the `sortDir` query string parameter.
+ *
+ * Convert tri-state → wire by skipping the `null` case (don't include `sort`
+ * in the request when the column reports `null`).
+ */
 export type SortDirection = 'asc' | 'desc' | null;
 
 // ─── Option, pagination, sort ────────────────────────────────────────────────

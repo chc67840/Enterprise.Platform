@@ -33,15 +33,14 @@ import { type HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { finalize } from 'rxjs';
 
+import { X_CORRELATION_ID } from '@core/http';
 import { CorrelationContextService } from '@core/services/correlation-context.service';
 import { generateCorrelationId } from '@utils';
 
-const CORRELATION_HEADER = 'X-Correlation-ID';
-
 export const correlationInterceptor: HttpInterceptorFn = (req, next) => {
-  const existing = req.headers.get(CORRELATION_HEADER);
+  const existing = req.headers.get(X_CORRELATION_ID);
   const id = existing ?? generateCorrelationId();
-  const stampedReq = existing ? req : req.clone({ setHeaders: { [CORRELATION_HEADER]: id } });
+  const stampedReq = existing ? req : req.clone({ setHeaders: { [X_CORRELATION_ID]: id } });
 
   const ctx = inject(CorrelationContextService);
   const restore = ctx.pushActive(id);

@@ -4,6 +4,14 @@ namespace Enterprise.Platform.Shared.Results;
 /// Severity classification for an <see cref="Error"/>. Used by logging, alerting,
 /// and response mapping to decide how loud the failure should be.
 /// </summary>
+/// <remarks>
+/// NOT A UI VOCABULARY. Distinct from the SPA's DPH severity
+/// (<c>'success' | 'warning' | 'danger' | 'info' | 'neutral'</c>) and the
+/// chrome wire severity (<c>NavBadgeDto.Variant</c>). See
+/// Docs/Architecture/MasterConfigModels.cs §F1 for the cross-tier mapping.
+/// Values here are tuned for log/alert routing — adding a new value here is
+/// a logging concern and does NOT require a UI vocabulary update.
+/// </remarks>
 public enum ErrorSeverity
 {
     /// <summary>Informational — not a failure on its own; typically paired with warnings.</summary>

@@ -29,7 +29,12 @@
  */
 import { type HttpInterceptorFn } from '@angular/common/http';
 
-const XSRF_COOKIE_NAME = 'XSRF-TOKEN';
+import {
+  X_CONTENT_TYPE_OPTIONS,
+  X_REQUESTED_WITH,
+  X_XSRF_TOKEN,
+  XSRF_TOKEN_COOKIE,
+} from '@core/http';
 
 /** Returns `true` when the URL points at our platform API. */
 function isPlatformApi(url: string): boolean {
@@ -58,13 +63,13 @@ export const securityInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   const headers: Record<string, string> = {
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Content-Type-Options': 'nosniff',
+    [X_REQUESTED_WITH]: 'XMLHttpRequest',
+    [X_CONTENT_TYPE_OPTIONS]: 'nosniff',
   };
 
-  const xsrf = readCookie(XSRF_COOKIE_NAME);
+  const xsrf = readCookie(XSRF_TOKEN_COOKIE);
   if (xsrf) {
-    headers['X-XSRF-TOKEN'] = xsrf;
+    headers[X_XSRF_TOKEN] = xsrf;
   }
 
   return next(req.clone({ setHeaders: headers }));

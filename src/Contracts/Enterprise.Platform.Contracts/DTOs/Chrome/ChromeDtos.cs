@@ -52,7 +52,14 @@ public sealed record NavPermissionDto(
 
 /// <summary>Visual badge decoration on a nav / footer item.</summary>
 /// <param name="Value">Display string ("Live", "Beta", "99"). Numbers serialise as their string form.</param>
-/// <param name="Variant">PrimeNG severity vocabulary: info / success / warning / danger / secondary.</param>
+/// <param name="Variant">
+/// PrimeNG badge severity vocabulary: <c>info</c> / <c>success</c> /
+/// <c>warning</c> / <c>danger</c> / <c>secondary</c>. The SPA's
+/// <c>NavbarConfigService.hydrate()</c> normalises <c>secondary</c> →
+/// <c>neutral</c> before consumers see it (the DPH UI Kit canonical
+/// vocabulary uses <c>neutral</c>; this wire vocabulary uses <c>secondary</c>).
+/// See Docs/Architecture/MasterConfigModels.cs §F1 for the cross-tier mapping.
+/// </param>
 /// <param name="Pulse">When true the badge pulses — reserved for live-data signals.</param>
 public sealed record NavBadgeDto(
     string Value,

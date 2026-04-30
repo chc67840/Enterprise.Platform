@@ -63,9 +63,15 @@ export interface PagedResponse<T> {
 /**
  * A single-resource response envelope.
  *
- * The `success` flag is always `true` on 2xx — it's a sanity bit for older
- * clients that don't inspect status codes. New code branches on `IsSuccess`
- * returned by the HTTP layer (Observable error vs. next), not on this flag.
+ * SUCCESS-FLAG SEMANTICS — see Docs/Architecture/master-config.models.ts §F9.
+ *   • `success` here is a CARRIED FLAG, always `true` on a 2xx envelope —
+ *     a sanity bit for older clients that don't inspect status codes.
+ *   • The .NET `Result<T>.IsSuccess` is CONTROL FLOW on the server (railway-
+ *     pattern). It is unwrapped inside the handler; only the `data` field
+ *     of this envelope reaches the wire on success. Failures take a
+ *     completely separate path (`ProblemDetailsExtended` 4xx / 5xx body).
+ *   • New SPA code MUST branch on the Observable success/error channels (or
+ *     `try/catch` for promises), NOT on this flag.
  */
 export interface ApiResponse<T> {
   /** The single resource returned by the endpoint. */
@@ -74,7 +80,7 @@ export interface ApiResponse<T> {
   /** Optional human-readable message (rarely used — most endpoints are silent). */
   readonly message?: string;
 
-  /** Sanity flag; always `true` on a successful envelope. */
+  /** Sanity flag; always `true` on a successful envelope. See doc-comment for full semantics. */
   readonly success: boolean;
 }
 

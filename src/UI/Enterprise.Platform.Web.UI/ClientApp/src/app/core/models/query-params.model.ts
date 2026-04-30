@@ -28,7 +28,21 @@
  *     them more tightly would force a change here for every new filter.
  */
 
-/** Sort direction — names match what the backend expects in the `sortDir` query param. */
+/**
+ * Wire-format sort direction — values match what the backend expects in the
+ * `sortDir` query parameter.
+ *
+ * NOT THE SAME AS `@shared/components/dph#SortDirection` — see
+ * Docs/Architecture/master-config.models.ts §F2:
+ *   • THIS type (two-state)  : used in `QueryParams.sort`, sent on the wire.
+ *   • DPH type   (tri-state) : adds `null` for "no sort applied" — local to
+ *                              the data-table column-click cycle and must
+ *                              never reach the wire.
+ *
+ * Wire convention is camelCase ('asc' / 'desc'). The .NET `SortDirection`
+ * enum serialises as PascalCase ('Asc' / 'Desc') by default — the BFF maps
+ * between the two on request ingest.
+ */
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {

@@ -63,14 +63,13 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 
+import { X_CORRELATION_ID, X_SKIP_ERROR_HANDLING } from '@core/http';
 import type { ApiError } from '@core/models';
 import { NotificationService } from '@core/services/notification.service';
 
-const SKIP_HEADER = 'X-Skip-Error-Handling';
-
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
-  const skip = req.headers.has(SKIP_HEADER);
-  const cleanReq = skip ? req.clone({ headers: req.headers.delete(SKIP_HEADER) }) : req;
+  const skip = req.headers.has(X_SKIP_ERROR_HANDLING);
+  const cleanReq = skip ? req.clone({ headers: req.headers.delete(X_SKIP_ERROR_HANDLING) }) : req;
 
   const notify = inject(NotificationService);
   const router = inject(Router);
@@ -123,7 +122,7 @@ function normalize(err: unknown): ApiError {
     statusCode: httpErr.status,
     code: (body['code'] as string | undefined) ?? (body['type'] as string | undefined),
     errors: body['errors'] as Record<string, string[]> | undefined,
-    correlationId: httpErr.headers?.get?.('X-Correlation-ID') ?? undefined,
+    correlationId: httpErr.headers?.get?.(X_CORRELATION_ID) ?? undefined,
     timestamp: (body['timestamp'] as string | undefined) ?? new Date().toISOString(),
   };
 }

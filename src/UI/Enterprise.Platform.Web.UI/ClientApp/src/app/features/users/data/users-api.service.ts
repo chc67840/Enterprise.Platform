@@ -35,6 +35,7 @@ import { Injectable, inject } from '@angular/core';
 import { type Observable, map } from 'rxjs';
 
 import { API_BASE_URL } from '@core/http/api-config.token';
+import { X_IDEMPOTENCY_KEY, X_SKIP_ERROR_HANDLING } from '@core/http';
 import { generateIdempotencyKey } from '@utils';
 
 import {
@@ -170,15 +171,15 @@ export class UsersApiService {
    */
   private mutationHeaders(options: MutationOptions): HttpHeaders {
     const key = options.idempotencyKey?.trim() || generateIdempotencyKey();
-    let headers = new HttpHeaders({ 'X-Idempotency-Key': key });
+    let headers = new HttpHeaders({ [X_IDEMPOTENCY_KEY]: key });
     if (options.suppressGlobalError) {
-      headers = headers.set('X-Skip-Error-Handling', 'true');
+      headers = headers.set(X_SKIP_ERROR_HANDLING, 'true');
     }
     return headers;
   }
 
   /** Builds the headers for read endpoints (only suppression — no idempotency). */
   private suppressionHeader(suppress: boolean | undefined): HttpHeaders | undefined {
-    return suppress ? new HttpHeaders({ 'X-Skip-Error-Handling': 'true' }) : undefined;
+    return suppress ? new HttpHeaders({ [X_SKIP_ERROR_HANDLING]: 'true' }) : undefined;
   }
 }
