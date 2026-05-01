@@ -422,3 +422,101 @@ public sealed record FooterConfigDto(
     FooterCopyrightConfigDto? Copyright,
     FooterMetaConfigDto? Meta,
     FooterFlagConfigDto? Flag);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 7 — Login page
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Wire shape served on the anonymous endpoint GET /api/auth/login-config.
+// Mirrors the SPA's `LoginPageConfig` 1:1; the architecture contract test
+// diffs property names between this file and the TS interface.
+//
+// Reuses footer primitives where the contract overlaps (compliance, links,
+// copyright, language switcher) — a tenant rebrand touches one set of
+// strings, not two.
+
+/// <summary>Brand mark + product name + tagline at the top of the card.</summary>
+public sealed record LoginBrandConfigDto(
+    string? LogoSrc,
+    string LogoAlt,
+    string ProductName,
+    string? Tagline,
+    int? LogoMaxHeightPx);
+
+/// <summary>One bullet in the hero pane's value-prop list.</summary>
+public sealed record LoginHeroBulletDto(
+    string? Icon,
+    string Text);
+
+/// <summary>Left-pane content for the 'split' variant.</summary>
+public sealed record LoginHeroConfigDto(
+    string Headline,
+    string? Description,
+    IReadOnlyList<LoginHeroBulletDto>? Bullets,
+    string? ImageSrc,
+    string? BackgroundGradient);
+
+/// <summary>One sign-in button — the renderer maps each provider to default branding.</summary>
+/// <param name="ProviderKey">'microsoft' | 'google' | 'apple' | 'github' | 'okta' | 'auth0' | 'saml' | 'oidc-generic' | 'local'</param>
+/// <param name="EntraPrompt">OIDC `prompt` parameter — 'login' | 'select_account' | 'consent' | 'none'</param>
+public sealed record LoginProviderConfigDto(
+    string ProviderKey,
+    string Label,
+    string? IconClass,
+    string? EntraPrompt,
+    bool? Disabled,
+    string? DisabledReason,
+    NavBadgeDto? Badge,
+    string? ReturnUrl);
+
+/// <summary>Company contact block — address, phone, support email.</summary>
+public sealed record LoginCompanyConfigDto(
+    string? DisplayName,
+    IReadOnlyList<string>? AddressLines,
+    string? SupportEmail,
+    string? SupportPhone,
+    string? SupportLabel);
+
+/// <summary>Legal footer below the card — copyright + privacy / terms links.</summary>
+public sealed record LoginLegalFooterConfigDto(
+    FooterCopyrightConfigDto? Copyright,
+    IReadOnlyList<FooterLinkDto>? Links);
+
+/// <summary>Above-the-card outage / maintenance announcement.</summary>
+/// <param name="Severity">'info' | 'success' | 'warning' | 'danger'</param>
+public sealed record LoginStatusBannerDto(
+    string Severity,
+    string? Title,
+    string Message,
+    bool? Dismissible);
+
+/// <summary>Full-viewport background paint behind the card.</summary>
+/// <param name="Kind">'gradient' | 'image' | 'pattern' | 'solid'</param>
+/// <param name="ImagePositionMobile">'cover' | 'contain' | 'top' — defaults to 'cover'.</param>
+/// <param name="TokenAlias">Design-token reference like `var(--ep-gradient-brand-cool)` — preferred over a raw <see cref="Gradient"/> string.</param>
+public sealed record LoginBackgroundConfigDto(
+    string Kind,
+    string? Gradient,
+    string? ImageSrc,
+    string? ImagePositionMobile,
+    string? TokenAlias);
+
+/// <summary>
+/// Whole login-page config served to the SPA on an anonymous endpoint.
+/// `Brand` and `Providers` are required — a sign-in surface with no IDP
+/// buttons is non-functional. All other blocks are optional and the
+/// renderer stamps each populated block in the documented visual order.
+/// </summary>
+/// <param name="Variant">'centered' | 'split' | 'fullscreen' — layout preset.</param>
+public sealed record LoginPageConfigDto(
+    LoginBrandConfigDto Brand,
+    IReadOnlyList<LoginProviderConfigDto> Providers,
+    string? Variant,
+    LoginHeroConfigDto? Hero,
+    FooterComplianceConfigDto? Compliance,
+    LoginCompanyConfigDto? Company,
+    IReadOnlyList<FooterLinkDto>? HelpLinks,
+    LoginLegalFooterConfigDto? LegalFooter,
+    NavLanguageSwitcherConfigDto? LanguageSwitcher,
+    LoginStatusBannerDto? StatusBanner,
+    LoginBackgroundConfigDto? Background);

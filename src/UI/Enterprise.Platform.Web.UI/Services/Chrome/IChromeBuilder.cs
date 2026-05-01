@@ -38,4 +38,18 @@ public interface IChromeBuilder
     /// <param name="user">The authenticated principal off <c>HttpContext.User</c>.</param>
     /// <param name="cancellationToken">Cooperative cancellation for Phase 2 SQL work.</param>
     Task<ChromeConfigDto> BuildAsync(ClaimsPrincipal user, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Builds the login-page config served on the anonymous endpoint
+    /// <c>GET /api/auth/login-config</c>. The user is NOT authenticated yet,
+    /// so the only input is a tenant hint resolved from the request
+    /// (subdomain, custom-domain header, or <c>?tenant=</c> query) — Phase 2
+    /// uses this to fan out per-tenant branding before sign-in.
+    /// </summary>
+    /// <param name="tenantHint">
+    /// Tenant identifier resolved from the request, or <c>null</c> for the
+    /// default branding. Phase 1 ignores this argument.
+    /// </param>
+    /// <param name="cancellationToken">Cooperative cancellation for Phase 2 SQL work.</param>
+    Task<LoginPageConfigDto> BuildLoginAsync(string? tenantHint, CancellationToken cancellationToken);
 }

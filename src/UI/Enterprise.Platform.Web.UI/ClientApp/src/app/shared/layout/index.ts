@@ -88,6 +88,21 @@ export type {
   FooterSocialConfig,
   FooterUtilityBarConfig,
   FooterVariant,
+
+  // ── login page ───────────────────────────────────────────────────────────
+  LoginBackgroundConfig,
+  LoginBackgroundKind,
+  LoginBrandConfig,
+  LoginCompanyConfig,
+  LoginHeroBullet,
+  LoginHeroConfig,
+  LoginLayoutVariant,
+  LoginLegalFooterConfig,
+  LoginPageConfig,
+  LoginProviderConfig,
+  LoginProviderKey,
+  LoginStatusBanner,
+  LoginStatusBannerSeverity,
 } from './models/nav.models';
 
 // ── F.2 components ─────────────────────────────────────────────────────────

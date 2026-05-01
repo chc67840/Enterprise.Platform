@@ -27,11 +27,13 @@ namespace Enterprise.Platform.Web.UI.Services.Chrome;
 public sealed class StaticChromeBuilder : IChromeBuilder
 {
     private readonly ChromeConfigDto _config;
+    private readonly LoginPageConfigDto _login;
 
     /// <summary>Constructs the builder + materialises the singleton chrome config.</summary>
     public StaticChromeBuilder()
     {
         _config = BuildStaticConfig();
+        _login = BuildLoginConfig();
     }
 
     /// <inheritdoc />
@@ -42,6 +44,17 @@ public sealed class StaticChromeBuilder : IChromeBuilder
         _ = user;
         _ = cancellationToken;
         return Task.FromResult(_config);
+    }
+
+    /// <inheritdoc />
+    public Task<LoginPageConfigDto> BuildLoginAsync(string? tenantHint, CancellationToken cancellationToken)
+    {
+        // Phase 1 ignores the tenant hint — every visitor sees the same
+        // sign-in surface. Phase 2 will fan out branding per tenant
+        // (subdomain → tenant id → tenant_branding row in the catalog DB).
+        _ = tenantHint;
+        _ = cancellationToken;
+        return Task.FromResult(_login);
     }
 
     // ── private helpers ─────────────────────────────────────────────────────
@@ -379,4 +392,74 @@ public sealed class StaticChromeBuilder : IChromeBuilder
         ExternalUrl: null,
         ActionKey: actionKey,
         IsLogout: true);
+
+    // ── Login page ──────────────────────────────────────────────────────────
+    //
+    // Single anonymous sign-in surface — every block populated for the demo
+    // so a tenant rebrand exercises every code path in the renderer. Domains
+    // that don't want a hero pane drop the `Hero` field; ones that don't
+    // need a status banner drop `StatusBanner`; and so on. `Brand` and
+    // `Providers` are the only required blocks.
+
+    private static LoginPageConfigDto BuildLoginConfig() => new(
+        Brand: new LoginBrandConfigDto(
+            LogoSrc: "/rounded_logo_svg.svg",
+            LogoAlt: "Enterprise Platform",
+            ProductName: "Enterprise Platform",
+            Tagline: "Sign in to continue",
+            LogoMaxHeightPx: 64),
+        Providers:
+        [
+            new LoginProviderConfigDto(
+                ProviderKey: "microsoft",
+                Label: "Sign in with Microsoft",
+                IconClass: "pi pi-microsoft",
+                EntraPrompt: "select_account",
+                Disabled: null,
+                DisabledReason: null,
+                Badge: null,
+                ReturnUrl: null),
+        ],
+        Variant: "centered",
+        Hero: null,
+        Compliance: new FooterComplianceConfigDto(
+            Badges: ["soc2", "gdpr"],
+            Disclaimer: null,
+            CookieConsent: false,
+            CookieConsentLabels: null),
+        Company: new LoginCompanyConfigDto(
+            DisplayName: "Enterprise Platform Inc.",
+            AddressLines:
+            [
+                "Enterprise Platform HQ",
+                "400 Otarre Parkway",
+                "Cayce, SC 29033",
+            ],
+            SupportEmail: "support@example.com",
+            SupportPhone: null,
+            SupportLabel: "Need help?"),
+        HelpLinks:
+        [
+            new FooterLinkDto("Trouble signing in?", null, "https://example.com/sign-in-help", null, null),
+            new FooterLinkDto("System status",       null, "https://status.example.com",       null, null),
+        ],
+        LegalFooter: new LoginLegalFooterConfigDto(
+            Copyright: new FooterCopyrightConfigDto(
+                Owner: "Enterprise Platform Inc.",
+                Year: null,
+                Text: null),
+            Links:
+            [
+                new FooterLinkDto("Privacy", null, "https://example.com/privacy", null, null),
+                new FooterLinkDto("Terms",   null, "https://example.com/terms",   null, null),
+                new FooterLinkDto("Cookies", null, "https://example.com/cookies", null, null),
+            ]),
+        LanguageSwitcher: null,
+        StatusBanner: null,
+        Background: new LoginBackgroundConfigDto(
+            Kind: "gradient",
+            Gradient: null,
+            ImageSrc: null,
+            ImagePositionMobile: null,
+            TokenAlias: "var(--ep-gradient-brand-subtle)"));
 }

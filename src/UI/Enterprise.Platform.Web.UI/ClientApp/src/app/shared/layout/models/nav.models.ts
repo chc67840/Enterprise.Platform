@@ -809,6 +809,192 @@ export interface ChromeConfig {
   readonly footer: FooterConfig;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 10 — Login page
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Composable, config-driven sign-in surface served by the BFF on an
+// anonymous endpoint (`GET /api/auth/login-config`). The user is NOT
+// authenticated yet, so this config is built from the request alone:
+// tenant resolution from subdomain / custom-domain header / `?tenant=`,
+// locale from `Accept-Language`, etc.
+//
+// VISUAL ORDER (the renderer stamps each populated block in this order)
+//   1. statusBanner          (above-the-card outage / maintenance message)
+//   2. background            (full-viewport gradient / image / pattern)
+//   3. hero                  (left pane in 'split' variant; absent otherwise)
+//   4. brand                 (logo + product name + tagline INSIDE the card)
+//   5. providers[]           (one branded button per IDP)
+//   6. helpLinks             ("Trouble signing in?" / "Contact support")
+//   7. company               (address + phone + support email)
+//   8. compliance            (badges + cookie banner — reuses footer types)
+//   9. legalFooter           (copyright + privacy / terms links)
+//  10. languageSwitcher      (locale picker — top-right of the card)
+//
+// Variants are presets that hint layout — the renderer is free to ignore
+// them, but they signal whether the hero pane should render and how
+// dense the surface should be.
+
+/** Layout preset — drives whether the hero pane renders + density. */
+export type LoginLayoutVariant =
+  /** Single centred card on a tinted backdrop (current behaviour). */
+  | 'centered'
+  /** Two-pane: hero (illustration + value-prop) on the left, card on the right. */
+  | 'split'
+  /** Edge-to-edge marketing surface with the card overlaid (consumer / portal). */
+  | 'fullscreen';
+
+/** Brand mark + product name + tagline rendered at the top of the card. */
+export interface LoginBrandConfig {
+  /** Optional logo image. When absent the renderer falls back to a glyph. */
+  readonly logoSrc?: string;
+  readonly logoAlt: string;
+  /** Display name shown next to / under the logo. */
+  readonly productName: string;
+  /** Short subtitle ("Sign in to continue", "Welcome back" etc). */
+  readonly tagline?: string;
+  /** Pixel height cap — defaults to 64. */
+  readonly logoMaxHeightPx?: number;
+}
+
+/** Single bullet in the hero pane's value-prop list. */
+export interface LoginHeroBullet {
+  /** PrimeIcon class — defaults to a check mark. */
+  readonly icon?: string;
+  readonly text: string;
+}
+
+/**
+ * Left-pane content for the `'split'` variant. `imageSrc` and
+ * `backgroundGradient` are mutually compatible — the gradient renders
+ * underneath the image when both are present.
+ */
+export interface LoginHeroConfig {
+  readonly headline: string;
+  readonly description?: string;
+  readonly bullets?: readonly LoginHeroBullet[];
+  readonly imageSrc?: string;
+  /** CSS gradient string OR a `var(--ep-gradient-*)` token reference. */
+  readonly backgroundGradient?: string;
+}
+
+/**
+ * Supported identity-provider keys. The renderer picks default branding
+ * (icon + colour) per key; `local` is reserved for username/password and
+ * is intentionally limited — Entra owns credentials in this platform.
+ */
+export type LoginProviderKey =
+  | 'microsoft'
+  | 'google'
+  | 'apple'
+  | 'github'
+  | 'okta'
+  | 'auth0'
+  | 'saml'
+  | 'oidc-generic'
+  | 'local';
+
+/**
+ * Single sign-in button. Each provider stacks vertically inside the card.
+ * The `entraPrompt` lever maps to the OIDC `prompt` parameter — the SPA
+ * forwards it to `AuthService.login(returnUrl, prompt)`.
+ */
+export interface LoginProviderConfig {
+  readonly providerKey: LoginProviderKey;
+  /** Button label ("Sign in with Microsoft"). */
+  readonly label: string;
+  /** PrimeIcon class — overrides the per-provider default. */
+  readonly iconClass?: string;
+  /** OIDC `prompt` parameter — only meaningful for OIDC-family providers. */
+  readonly entraPrompt?: 'login' | 'select_account' | 'consent' | 'none';
+  /** When true the button renders disabled with the `disabledReason` tooltip. */
+  readonly disabled?: boolean;
+  readonly disabledReason?: string;
+  /** Optional pill on the button ("SSO", "Beta"). */
+  readonly badge?: NavBadge;
+  /** Override the captured `returnUrl` (rare — prefer the default). */
+  readonly returnUrl?: string;
+}
+
+/**
+ * Company contact block rendered below the card or in the legal footer.
+ * Common for regulated tenants who must surface a postal address + a
+ * support phone number on every public surface.
+ */
+export interface LoginCompanyConfig {
+  readonly displayName?: string;
+  readonly addressLines?: readonly string[];
+  readonly supportEmail?: string;
+  readonly supportPhone?: string;
+  /** Heading above the contact block. Defaults to "Need help?". */
+  readonly supportLabel?: string;
+}
+
+/** Legal footer below the card — copyright + privacy / terms / cookies links. */
+export interface LoginLegalFooterConfig {
+  readonly copyright?: FooterCopyrightConfig;
+  readonly links?: readonly FooterLink[];
+}
+
+/** Severity vocabulary aligned with the chrome's status-banner-host. */
+export type LoginStatusBannerSeverity = 'info' | 'success' | 'warning' | 'danger';
+
+/**
+ * Above-the-card announcement for outages / scheduled maintenance.
+ * Rendered before the user can interact with any provider button —
+ * actively prevents wasted sign-in attempts during known outages.
+ */
+export interface LoginStatusBanner {
+  readonly severity: LoginStatusBannerSeverity;
+  readonly title?: string;
+  readonly message: string;
+  readonly dismissible?: boolean;
+}
+
+/** Background-paint kind — drives the renderer's CSS strategy. */
+export type LoginBackgroundKind = 'gradient' | 'image' | 'pattern' | 'solid';
+
+/**
+ * Full-viewport background behind the card. `tokenAlias` references a
+ * design-token gradient (`var(--ep-gradient-brand-cool)`) so per-tenant
+ * rebrands stay in the token layer instead of hardcoded colour strings.
+ */
+export interface LoginBackgroundConfig {
+  readonly kind: LoginBackgroundKind;
+  /** Raw CSS gradient value when `kind === 'gradient'`. Mutually exclusive with `tokenAlias`. */
+  readonly gradient?: string;
+  readonly imageSrc?: string;
+  /** `'cover' | 'contain' | 'top'` — defaults to `'cover'`. */
+  readonly imagePositionMobile?: 'cover' | 'contain' | 'top';
+  /** Design-token alias for the background — preferred over a raw `gradient` string. */
+  readonly tokenAlias?: string;
+}
+
+/**
+ * Whole login-page config served on `GET /api/auth/login-config` (anonymous).
+ * Every block is optional except `brand` + `providers` — a sign-in page
+ * with no IDP buttons is non-functional, so a missing or empty `providers`
+ * array is a server bug and the renderer surfaces it as a console error
+ * rather than a silent blank card.
+ *
+ * Reuses footer primitives where the contract overlaps (compliance, links,
+ * copyright, language switcher) so a tenant rebrand touches one set of
+ * tokens / strings, not two.
+ */
+export interface LoginPageConfig {
+  readonly variant?: LoginLayoutVariant;
+  readonly brand: LoginBrandConfig;
+  readonly hero?: LoginHeroConfig;
+  readonly providers: readonly LoginProviderConfig[];
+  readonly compliance?: FooterComplianceConfig;
+  readonly company?: LoginCompanyConfig;
+  readonly helpLinks?: readonly FooterLink[];
+  readonly legalFooter?: LoginLegalFooterConfig;
+  readonly languageSwitcher?: NavLanguageSwitcherConfig;
+  readonly statusBanner?: LoginStatusBanner;
+  readonly background?: LoginBackgroundConfig;
+}
+
 /**
  * Re-export so consumers don't need to import `Routes` directly when they
  * type a feature module's route exports — keeps F.6's domain modules from
