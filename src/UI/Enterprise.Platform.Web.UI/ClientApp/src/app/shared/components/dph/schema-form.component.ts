@@ -47,8 +47,16 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { ApiError } from '@core/models';
 
 import { ButtonComponent } from './button.component';
+import { CheckboxComponent, type CheckboxFieldConfig } from './checkbox.component';
+import { DatePickerComponent, type DatePickerFieldConfig } from './date-picker.component';
+import { FileUploadComponent } from './file-upload.component';
 import { FormLayoutComponent } from './form-layout.component';
 import { InputComponent } from './input.component';
+import { MultiSelectComponent, type MultiSelectFieldConfig } from './multi-select.component';
+import { RadioGroupComponent, type RadioGroupFieldConfig } from './radio-group.component';
+import { SelectComponent, type SelectFieldConfig } from './select.component';
+import { SwitchComponent, type SwitchFieldConfig } from './switch.component';
+import type { FileItem, FileUploadConfig } from './dph.types';
 import type { FormSchema, SchemaField, SchemaFormEvent } from './schema-form.types';
 
 @Component({
@@ -61,6 +69,13 @@ import type { FormSchema, SchemaField, SchemaFormEvent } from './schema-form.typ
     InputComponent,
     FormLayoutComponent,
     ButtonComponent,
+    SelectComponent,
+    MultiSelectComponent,
+    CheckboxComponent,
+    SwitchComponent,
+    RadioGroupComponent,
+    DatePickerComponent,
+    FileUploadComponent,
   ],
   template: `
     <form
@@ -81,14 +96,87 @@ import type { FormSchema, SchemaField, SchemaFormEvent } from './schema-form.typ
           <div
             class="dph-schema-form__field"
             [attr.data-span]="spanFor(field)"
+            [attr.data-type]="field.type"
           >
-            <dph-input
-              #firstField
-              [config]="inputConfigFor(field)"
-              [value]="valueFor(field.key)"
-              (valueChange)="onFieldChange(field.key, $event)"
-              (blur)="onFieldBlur(field.key)"
-            />
+            @switch (field.type) {
+              @case ('select') {
+                <dph-select
+                  [config]="selectConfigFor(field)"
+                  [value]="valueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+              @case ('multiselect') {
+                <dph-multi-select
+                  [config]="multiSelectConfigFor(field)"
+                  [value]="multiValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+              @case ('radio') {
+                <dph-radio-group
+                  [config]="radioConfigFor(field)"
+                  [value]="valueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                />
+              }
+              @case ('checkbox') {
+                <dph-checkbox
+                  [config]="checkboxConfigFor(field)"
+                  [value]="booleanValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                />
+              }
+              @case ('switch') {
+                <dph-switch
+                  [config]="switchConfigFor(field)"
+                  [value]="booleanValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                />
+              }
+              @case ('date') {
+                <dph-date-picker
+                  [config]="dateConfigFor(field, 'date')"
+                  [value]="dateValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+              @case ('datetime') {
+                <dph-date-picker
+                  [config]="dateConfigFor(field, 'datetime')"
+                  [value]="dateValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+              @case ('time') {
+                <dph-date-picker
+                  [config]="dateConfigFor(field, 'time')"
+                  [value]="dateValueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+              @case ('file') {
+                <dph-file-upload
+                  [config]="fileConfigFor(field)"
+                  [files]="fileValueFor(field.key)"
+                  (filesChange)="onFieldChange(field.key, $event)"
+                />
+              }
+              @default {
+                <dph-input
+                  #firstField
+                  [config]="inputConfigFor(field)"
+                  [value]="valueFor(field.key)"
+                  (valueChange)="onFieldChange(field.key, $event)"
+                  (blur)="onFieldBlur(field.key)"
+                />
+              }
+            }
           </div>
         }
 
@@ -198,7 +286,7 @@ export class SchemaFormComponent {
         next[field.key] =
           init?.[field.key] ??
           field.defaultValue ??
-          (field.type === 'number' ? null : '');
+          defaultValueFor(field);
       }
       form.reset(next, { emitEvent: false });
       this.submitAttempted.set(false);
@@ -288,7 +376,38 @@ export class SchemaFormComponent {
     return v as string | number | null;
   }
 
-  protected onFieldChange(key: string, value: string | number | null): void {
+  /** Typed accessors for the new field renderers. Each ticks the same signal. */
+  protected booleanValueFor(key: string): boolean {
+    this._formStateTick();
+    return !!this.form().controls[key]?.value;
+  }
+
+  protected multiValueFor(key: string): readonly unknown[] | null {
+    this._formStateTick();
+    const v = this.form().controls[key]?.value;
+    return Array.isArray(v) ? (v as readonly unknown[]) : null;
+  }
+
+  protected dateValueFor(key: string): Date | null {
+    this._formStateTick();
+    const v = this.form().controls[key]?.value;
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    if (typeof v === 'string') {
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  protected fileValueFor(key: string): FileItem[] {
+    this._formStateTick();
+    const v = this.form().controls[key]?.value;
+    // Returned mutable to satisfy dph-file-upload's [(files)] model contract.
+    return Array.isArray(v) ? ([...v] as FileItem[]) : [];
+  }
+
+  protected onFieldChange(key: string, value: unknown): void {
     const ctrl = this.form().controls[key];
     if (!ctrl) return;
     if (ctrl.value === value) return;
@@ -314,8 +433,153 @@ export class SchemaFormComponent {
     });
   }
 
+  // ── Phase A — per-type config builders ───────────────────────────────
+  //
+  // Each helper materialises the typed config object the matching renderer
+  // expects. `errors` + `invalid` flow uniformly via `errorsFor()` so
+  // server-side errors apply identically across every field type.
+
+  protected selectConfigFor(field: SchemaField): SelectFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      label: field.label,
+      placeholder: field.placeholder,
+      hint: field.hint,
+      options: field.options ?? [],
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      clearable: field.clearable ?? !field.required,
+      filterable: field.filterable ?? (field.options?.length ?? 0) > 8,
+      emptyOptionsText: field.emptyOptionsText,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected multiSelectConfigFor(field: SchemaField): MultiSelectFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      label: field.label,
+      placeholder: field.placeholder,
+      hint: field.hint,
+      options: field.options ?? [],
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      filterable: field.filterable ?? (field.options?.length ?? 0) > 8,
+      chipDisplay: field.chipDisplay,
+      emptyOptionsText: field.emptyOptionsText,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected radioConfigFor(field: SchemaField): RadioGroupFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      label: field.label,
+      hint: field.hint,
+      options: field.options ?? [],
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected checkboxConfigFor(field: SchemaField): CheckboxFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      label: field.label,
+      hint: field.hint,
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected switchConfigFor(field: SchemaField): SwitchFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      label: field.label,
+      hint: field.hint,
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected dateConfigFor(field: SchemaField, kind: 'date' | 'datetime' | 'time'): DatePickerFieldConfig {
+    const errors = this.fieldErrors(field);
+    return {
+      kind,
+      label: field.label,
+      placeholder: field.placeholder,
+      hint: field.hint,
+      required: field.required,
+      disabled: field.disabled,
+      readonly: field.readonly,
+      clearable: field.clearable ?? !field.required,
+      inlineCalendar: field.inlineCalendar,
+      minDate: field.minDate,
+      maxDate: field.maxDate,
+      disabledDates: field.disabledDates,
+      showSeconds: field.showSeconds,
+      hourFormat: field.hourFormat,
+      id: `dph-schema-${field.key}`,
+      name: field.key,
+      errors,
+      invalid: errors.length > 0,
+    };
+  }
+
+  protected fileConfigFor(field: SchemaField): FileUploadConfig {
+    return {
+      variant: field.fileVariant ?? 'dropzone',
+      accept: field.accept,
+      multiple: field.multiple ?? false,
+      autoUpload: false,
+      showPreview: true,
+      showFileList: true,
+      disabled: field.disabled,
+      label: field.label,
+      hint: field.hint,
+    };
+  }
+
+  /**
+   * Shared helper — pulls error strings + ticks the form-state signal so
+   * every config helper above re-evaluates on each form-state change.
+   */
+  private fieldErrors(field: SchemaField): readonly string[] {
+    this._formStateTick();
+    const ctrl = this.form().controls[field.key];
+    return this.errorsFor(field, ctrl);
+  }
+
   protected inputConfigFor(field: SchemaField): {
-    type: SchemaField['type'];
+    /**
+     * Narrowed to the primitive set `dph-input` accepts. Only the @default
+     * branch of the schema-form @switch reaches this helper, so the field
+     * type is guaranteed to be one of these eight values.
+     */
+    type: 'text' | 'email' | 'password' | 'tel' | 'url' | 'search' | 'textarea' | 'number';
     label: string;
     placeholder?: string;
     hint?: string;
@@ -338,7 +602,7 @@ export class SchemaFormComponent {
     const ctrl = this.form().controls[field.key];
     const errors = this.errorsFor(field, ctrl);
     return {
-      type: field.type,
+      type: field.type as 'text' | 'email' | 'password' | 'tel' | 'url' | 'search' | 'textarea' | 'number',
       label: field.label,
       placeholder: field.placeholder,
       hint: field.hint,
@@ -388,8 +652,7 @@ export class SchemaFormComponent {
     const init = this.initialValue();
     const next: Record<string, unknown> = {};
     for (const field of this.schema().fields) {
-      next[field.key] =
-        init?.[field.key] ?? field.defaultValue ?? (field.type === 'number' ? null : '');
+      next[field.key] = init?.[field.key] ?? field.defaultValue ?? defaultValueFor(field);
     }
     this.form().reset(next, { emitEvent: false });
     this.submitAttempted.set(false);
@@ -451,6 +714,14 @@ export class SchemaFormComponent {
         const max = ctrl.errors['max'].max as number;
         messages.push(specMessage(validators.max, `Must be at most ${max}.`));
       }
+      if (ctrl.errors['minSelected']) {
+        const min = ctrl.errors['minSelected'].requiredLength as number;
+        messages.push(specMessage(validators.minSelected, `Select at least ${min}.`));
+      }
+      if (ctrl.errors['maxSelected']) {
+        const max = ctrl.errors['maxSelected'].requiredLength as number;
+        messages.push(specMessage(validators.maxSelected, `Select at most ${max}.`));
+      }
     }
 
     // 2. Server-side errors (always visible — the user already submitted)
@@ -489,13 +760,33 @@ function buildFormGroup(fb: FormBuilder, schema: FormSchema): FormGroup {
 }
 
 function defaultValueFor(field: SchemaField): unknown {
-  return field.type === 'number' ? null : '';
+  switch (field.type) {
+    case 'number':              return null;
+    case 'checkbox':            return false;
+    case 'switch':              return false;
+    case 'multiselect':         return [];
+    case 'select':              return null;
+    case 'radio':               return null;
+    case 'date':                return null;
+    case 'datetime':            return null;
+    case 'time':                return null;
+    case 'file':                return [];
+    default:                    return '';
+  }
 }
 
 function collectValidators(field: SchemaField): ValidatorFn[] {
   const out: ValidatorFn[] = [];
   const v = field.validators ?? {};
-  if (field.required || v.required) out.push(Validators.required);
+  if (field.required || v.required) {
+    // checkbox required = must be true (terms-of-service style); other types
+    // use the standard "value must be present" required.
+    if (field.type === 'checkbox' && (v.mustBeTrue ?? field.required)) {
+      out.push(Validators.requiredTrue);
+    } else {
+      out.push(Validators.required);
+    }
+  }
   if (v.email || field.type === 'email') out.push(Validators.email);
   const minLen = unwrapValue(v.minLength) ?? field.minLength;
   if (minLen !== undefined) out.push(Validators.minLength(minLen));
@@ -507,7 +798,31 @@ function collectValidators(field: SchemaField): ValidatorFn[] {
   if (min !== undefined) out.push(Validators.min(min));
   const max = unwrapValue(v.max);
   if (max !== undefined) out.push(Validators.max(max));
+
+  // Multiselect cardinality validators — bespoke since Validators.minLength
+  // counts string chars, not array length.
+  const minSel = unwrapValue(v.minSelected);
+  if (minSel !== undefined) out.push(minSelectedValidator(minSel));
+  const maxSel = unwrapValue(v.maxSelected);
+  if (maxSel !== undefined) out.push(maxSelectedValidator(maxSel));
+
   return out;
+}
+
+function minSelectedValidator(min: number): ValidatorFn {
+  return (control) => {
+    const value = control.value;
+    const length = Array.isArray(value) ? value.length : 0;
+    return length >= min ? null : { minSelected: { requiredLength: min, actualLength: length } };
+  };
+}
+
+function maxSelectedValidator(max: number): ValidatorFn {
+  return (control) => {
+    const value = control.value;
+    const length = Array.isArray(value) ? value.length : 0;
+    return length <= max ? null : { maxSelected: { requiredLength: max, actualLength: length } };
+  };
 }
 
 function unwrapValue<T>(spec: T | { value: T; message: string } | undefined): T | undefined {

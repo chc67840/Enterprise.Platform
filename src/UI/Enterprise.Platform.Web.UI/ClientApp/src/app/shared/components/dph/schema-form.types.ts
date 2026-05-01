@@ -16,10 +16,27 @@
  *     resolve to the `email` field) so PascalCase ProblemDetails and
  *     camelCase JSON validators both work without per-field config.
  */
-import type { Size } from './dph.types';
+import type { OptionItem, Size } from './dph.types';
 
-/** Renderable input types — subset of `InputConfig.type` that schema-form supports. */
+/**
+ * Renderable input types supported by the schema-form dispatcher.
+ *
+ * Phase A — 2026-05-01 — expanded from the original 8 primitive inputs to
+ * include selects, booleans, dates, and files. The `SchemaFormComponent`
+ * `@switch (field.type)` block routes each value to the correct DPH
+ * renderer; per-type config props on `SchemaField` (e.g. `options`,
+ * `accept`, `min`, `max`) feed the renderer's `[config]` input.
+ *
+ * Existing 8 primitives retain their behaviour (route to `<dph-input>`).
+ *
+ *   PRIMITIVE TEXT-LIKE  text / email / password / tel / url / search / textarea / number
+ *   CHOICE               select / multiselect / radio
+ *   BOOLEAN              checkbox / switch
+ *   TEMPORAL             date / datetime / time
+ *   FILE                 file
+ */
 export type SchemaFieldType =
+  // ── primitives (route to dph-input) ──────────────────────────────────
   | 'text'
   | 'email'
   | 'password'
@@ -27,11 +44,28 @@ export type SchemaFieldType =
   | 'url'
   | 'search'
   | 'textarea'
-  | 'number';
+  | 'number'
+  // ── choice (single / multi) ──────────────────────────────────────────
+  | 'select'
+  | 'multiselect'
+  | 'radio'
+  // ── boolean ──────────────────────────────────────────────────────────
+  | 'checkbox'
+  | 'switch'
+  // ── temporal ─────────────────────────────────────────────────────────
+  | 'date'
+  | 'datetime'
+  | 'time'
+  // ── file ─────────────────────────────────────────────────────────────
+  | 'file';
 
 /**
  * Validators for a single field. Each entry can either be a value (using the
  * default error message) or a `{ value, message }` pair to override it.
+ *
+ * Phase A — extended with `minSelected` / `maxSelected` for `multiselect`,
+ * `accept` / `maxFileSize` / `maxFiles` for `file`, and `mustBeTrue` for
+ * `checkbox` (terms-of-service style).
  */
 export interface FieldValidatorSpec {
   readonly required?: boolean | string;
@@ -41,6 +75,20 @@ export interface FieldValidatorSpec {
   readonly email?: boolean | string;
   readonly min?: number | { readonly value: number; readonly message: string };
   readonly max?: number | { readonly value: number; readonly message: string };
+
+  // ── Phase A additions ───────────────────────────────────────────────
+  /** Minimum count for `multiselect` field types. */
+  readonly minSelected?: number | { readonly value: number; readonly message: string };
+  /** Maximum count for `multiselect` field types. */
+  readonly maxSelected?: number | { readonly value: number; readonly message: string };
+  /** Comma-separated MIME types / extensions for `file` field types. */
+  readonly accept?: string | { readonly value: string; readonly message: string };
+  /** Maximum size (bytes) per uploaded file for `file` field types. */
+  readonly maxFileSize?: number | { readonly value: number; readonly message: string };
+  /** Maximum number of files for `file` field types when `multiple: true`. */
+  readonly maxFiles?: number | { readonly value: number; readonly message: string };
+  /** Force `checkbox` to be checked — terms-of-service / GDPR consent. */
+  readonly mustBeTrue?: boolean | string;
 }
 
 /** Single field definition. */
@@ -75,8 +123,81 @@ export interface SchemaField {
   readonly nullIfEmpty?: boolean;
 
   // Defaults / layout
-  readonly defaultValue?: string | number | null;
+  /**
+   * Initial value for the field's FormControl. Type widened in Phase A —
+   * choice fields take their option value, booleans take a boolean, dates
+   * take a `Date | string`, files take a `File[]`. Schema authors must
+   * match the value to the field's render type.
+   */
+  readonly defaultValue?: string | number | boolean | Date | readonly unknown[] | null;
   readonly columnSpan?: 1 | 2 | 3 | 4 | 'full';
+
+  // ── Phase A — per-type config props ──────────────────────────────────
+  //
+  // Each block below is meaningful only for matching `type` values; the
+  // renderer ignores irrelevant ones. Kept on the SchemaField root (not
+  // a discriminated union) so the existing 8 primitive types keep their
+  // shape unchanged — only the new types reference these.
+
+  /**
+   * Option list for `select` / `multiselect` / `radio`. Each `OptionItem`
+   * carries `label` + `value`; `disabled`, `icon`, `badge`, nested `items`
+   * (for grouping) are optional decorations the renderer respects.
+   */
+  readonly options?: readonly OptionItem[];
+
+  /** Empty-state text shown when no option matches the search filter. */
+  readonly emptyOptionsText?: string;
+
+  /**
+   * For `select` / `multiselect` — show the search filter input above
+   * the dropdown list. Default `true` once option count exceeds 8.
+   */
+  readonly filterable?: boolean;
+
+  /**
+   * For `multiselect` — render selected options as chips inside the
+   * trigger box (PrimeNG `display="chip"`). Default `true`.
+   */
+  readonly chipDisplay?: boolean;
+
+  /**
+   * For `date` / `datetime` — minimum/maximum selectable instant.
+   * Accept a Date or an ISO-8601 string; renderer normalises.
+   */
+  readonly minDate?: Date | string;
+  readonly maxDate?: Date | string;
+
+  /**
+   * For `date` / `datetime` — disable specific dates (holidays, blackouts).
+   */
+  readonly disabledDates?: readonly (Date | string)[];
+
+  /** For `date` / `datetime` — show the inline calendar instead of a popup. */
+  readonly inlineCalendar?: boolean;
+
+  /** For `time` / `datetime` — show seconds + 24h vs 12h toggle. */
+  readonly showSeconds?: boolean;
+  readonly hourFormat?: '12' | '24';
+
+  /**
+   * For `file` — comma-separated MIME types / extensions
+   * (`'image/*,.pdf'`). Mirrors the validators.accept value but wins for
+   * the native `accept=` attribute (browser-side filtering).
+   */
+  readonly accept?: string;
+
+  /** For `file` — allow selecting multiple files at once. */
+  readonly multiple?: boolean;
+
+  /** For `file` — display variant the renderer forwards to `dph-file-upload`. */
+  readonly fileVariant?: 'dropzone' | 'button' | 'inline';
+
+  /**
+   * Step value for `number`. Already supported via `dph-input`; documented
+   * here for parity with `min`/`max` validators in `FieldValidatorSpec`.
+   */
+  readonly step?: number;
 
   /**
    * Additional server-error keys that should map to this field. The field's

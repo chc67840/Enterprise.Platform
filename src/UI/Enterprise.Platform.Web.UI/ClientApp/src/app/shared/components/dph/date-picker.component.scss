@@ -1,0 +1,24 @@
+.dph-date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.dph-date-picker__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ep-text-primary);
+}
+.dph-date-picker__required {
+  color: var(--ep-color-danger);
+  font-weight: 700;
+}
+.dph-date-picker__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ep-text-muted);
+}
+:host ::ng-deep .p-datepicker { width: 100%; }

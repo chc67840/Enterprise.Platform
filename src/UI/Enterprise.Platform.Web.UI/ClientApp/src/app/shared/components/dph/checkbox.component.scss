@@ -1,0 +1,26 @@
+.dph-checkbox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.dph-checkbox__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dph-checkbox__label {
+  font-size: 0.875rem;
+  color: var(--ep-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+.dph-checkbox__required {
+  color: var(--ep-color-danger);
+  font-weight: 700;
+  margin-left: 0.125rem;
+}
+.dph-checkbox__hint {
+  margin: 0 0 0 1.75rem;
+  font-size: 0.75rem;
+  color: var(--ep-text-muted);
+}

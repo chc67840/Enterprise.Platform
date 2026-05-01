@@ -1,0 +1,30 @@
+/*
+ * Layout matches dph-input — block container, label above, control row,
+ * hint + error below. Brand tokens drive every colour / spacing.
+ */
+.dph-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.dph-select__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ep-text-primary);
+}
+.dph-select__required {
+  color: var(--ep-color-danger);
+  font-weight: 700;
+}
+.dph-select__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ep-text-muted);
+}
+
+/* PrimeNG p-select fills the container. */
+:host ::ng-deep .p-select { width: 100%; }

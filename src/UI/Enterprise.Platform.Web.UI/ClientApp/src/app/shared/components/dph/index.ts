@@ -21,6 +21,20 @@ export { FormLayoutComponent } from './form-layout.component';
 export { SchemaFormComponent } from './schema-form.component';
 export { DrawerComponent } from './drawer.component';
 
+// Phase B+ (2026-05-01) — schema-form field renderers
+export { SelectComponent } from './select.component';
+export type { SelectFieldConfig } from './select.component';
+export { MultiSelectComponent } from './multi-select.component';
+export type { MultiSelectFieldConfig } from './multi-select.component';
+export { CheckboxComponent } from './checkbox.component';
+export type { CheckboxFieldConfig } from './checkbox.component';
+export { SwitchComponent } from './switch.component';
+export type { SwitchFieldConfig } from './switch.component';
+export { RadioGroupComponent } from './radio-group.component';
+export type { RadioGroupFieldConfig } from './radio-group.component';
+export { DatePickerComponent } from './date-picker.component';
+export type { DatePickerFieldConfig, DatePickerKind } from './date-picker.component';
+
 // Phase C — data
 export { DataTableComponent, LocalDataSource } from './data-table.component';
 export { LiveDataTableComponent } from './live-data-table.component';
