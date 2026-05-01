@@ -1,0 +1,33 @@
+.dph-tree-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.dph-tree-select__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ep-text-primary);
+}
+.dph-tree-select__required {
+  color: var(--ep-color-danger);
+  font-weight: 700;
+}
+.dph-tree-select__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ep-text-muted);
+}
+.dph-tree-select__panel {
+  border: 1px solid var(--ep-color-neutral-300);
+  border-radius: var(--ep-radius-md, 0.5rem);
+  padding: 0.25rem;
+  background: var(--ep-surface-primary);
+
+  &[data-invalid='true'] {
+    border-color: var(--ep-color-danger);
+  }
+}

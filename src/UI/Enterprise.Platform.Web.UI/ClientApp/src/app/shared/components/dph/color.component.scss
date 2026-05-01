@@ -1,0 +1,31 @@
+.dph-color {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.dph-color__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ep-text-primary);
+}
+.dph-color__required {
+  color: var(--ep-color-danger);
+  font-weight: 700;
+}
+.dph-color__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ep-text-muted);
+}
+
+:host ::ng-deep .p-colorpicker { display: inline-block; }
+:host ::ng-deep .p-colorpicker-preview {
+  width: 2.5rem;
+  height: 2rem;
+  border-radius: var(--ep-radius-sm, 0.25rem);
+  border: 1px solid var(--ep-color-neutral-300);
+}

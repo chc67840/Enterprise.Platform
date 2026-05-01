@@ -319,27 +319,22 @@ export interface MessageDescriptor {
 }
 
 // ─── Form layout ─────────────────────────────────────────────────────────────
-
-export interface FormSection {
-  readonly id: string;
-  readonly title?: string;
-  readonly description?: string;
-  readonly icon?: string;
-  readonly columns?: 1 | 2 | 3 | 4;
-  readonly collapsible?: boolean;
-  readonly defaultCollapsed?: boolean;
-}
+//
+// `FormLayoutConfig` is a thin presentational wrapper for the `dph-form-layout`
+// component. It is INTENTIONALLY narrow — only the props the layout actually
+// honours (grid/stacked/inline + columns + gap + label-pos + dense).
+//
+// Section grouping, wizard / tabbed layouts, and per-field column-span all
+// live in `FormSchemaLayout` (`schema-form.types.ts`) — that's the structural
+// authoring API. Mixing them here is what created the "two sources of truth"
+// problem we fixed in 2026-05-01.
 
 export interface FormLayoutConfig {
-  readonly variant: 'grid' | 'stacked' | 'inline' | 'wizard' | 'tabbed';
+  readonly variant: 'grid' | 'stacked' | 'inline';
   readonly columns?: 1 | 2 | 3 | 4;
   readonly gap?: Size;
   readonly labelPosition?: 'top' | 'left' | 'floating';
-  readonly labelWidth?: string;
-  readonly sections?: readonly FormSection[];
   readonly dense?: boolean;
-  readonly readonly?: boolean;
-  readonly showRequiredIndicator?: boolean;
 }
 
 // ─── Input ───────────────────────────────────────────────────────────────────
@@ -353,10 +348,7 @@ export interface InputConfig {
     | 'tel'
     | 'url'
     | 'search'
-    | 'textarea'
-    | 'mask'
-    | 'color'
-    | 'range';
+    | 'textarea';
   readonly label?: string;
   readonly placeholder?: string;
   readonly hint?: string;

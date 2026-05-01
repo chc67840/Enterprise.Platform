@@ -21,7 +21,7 @@ export { FormLayoutComponent } from './form-layout.component';
 export { SchemaFormComponent } from './schema-form.component';
 export { DrawerComponent } from './drawer.component';
 
-// Phase B+ (2026-05-01) — schema-form field renderers
+// Phase B+ (2026-05-01) — schema-form field renderers (Phase A)
 export { SelectComponent } from './select.component';
 export type { SelectFieldConfig } from './select.component';
 export { MultiSelectComponent } from './multi-select.component';
@@ -34,6 +34,22 @@ export { RadioGroupComponent } from './radio-group.component';
 export type { RadioGroupFieldConfig } from './radio-group.component';
 export { DatePickerComponent } from './date-picker.component';
 export type { DatePickerFieldConfig, DatePickerKind } from './date-picker.component';
+
+// Phase D (2026-05-01) — advanced schema-form field renderers
+export { TreeSelectComponent } from './tree-select.component';
+export type { TreeSelectFieldConfig } from './tree-select.component';
+export { TablePickerComponent } from './table-picker.component';
+export type { TablePickerFieldConfig } from './table-picker.component';
+export { AutocompleteComponent } from './autocomplete.component';
+export type { AutocompleteFieldConfig } from './autocomplete.component';
+export { CurrencyComponent } from './currency.component';
+export type { CurrencyFieldConfig } from './currency.component';
+export { MaskComponent } from './mask.component';
+export type { MaskFieldConfig } from './mask.component';
+export { ColorComponent } from './color.component';
+export type { ColorFieldConfig } from './color.component';
+export { RangeComponent } from './range.component';
+export type { RangeFieldConfig, RangeValue } from './range.component';
 
 // Phase C — data
 export { DataTableComponent, LocalDataSource } from './data-table.component';
@@ -90,7 +106,6 @@ export type {
   FilterValue,
   FloatLabelConfig,
   FormLayoutConfig,
-  FormSection,
   GalleryConfig,
   ImageConfig,
   InlineMessageConfig,
@@ -128,16 +143,64 @@ export type {
   SchemaFieldType,
   FieldValidatorSpec,
   ServerErrorIndex,
+  // Discriminated field variants (2026-05-01-v2 brutal-review pass)
+  TextLikeField,
+  SelectField,
+  MultiSelectField,
+  RadioField,
+  CheckboxField,
+  SwitchField,
+  DateField,
+  FileField,
+  TreeSelectField,
+  TablePickerField,
+  AutocompleteField,
+  CurrencyField,
+  MaskField,
+  ColorField,
+  RangeField,
+  // Conditional rendering
+  SchemaWhenPredicate,
+  SchemaWhenContext,
+  // FormSchema-level extras
+  CrossFieldRule,
+  SchemaActionDescriptor,
+  FieldKeyOf,
+  // Phase B — display widgets that sit between form fields
+  SchemaItem,
+  SchemaSpan,
+  SchemaWidget,
+  SchemaWidgetMessage,
+  SchemaWidgetChart,
+  SchemaWidgetImage,
+  SchemaWidgetDivider,
+  SchemaWidgetHeading,
+  SchemaWidgetSpacer,
+  // Phase C — structured layouts (sections / tabs / wizard)
+  FormSchemaLayout,
+  FormSchemaSection,
+  FormSchemaSectionsLayout,
+  FormSchemaTab,
+  FormSchemaTabsLayout,
+  FormSchemaStep,
+  FormSchemaWizardLayout,
   // P1.1 — single-channel event union + per-kind subtypes for pattern matching
   SchemaFormEvent,
   SchemaFormFormEvent,
   SchemaFormFieldEvent,
   SchemaFormSectionEvent,
   SchemaFormActionEvent,
+  SchemaFormWizardEvent,
 } from './schema-form.types';
 export {
+  isSchemaWidget,
+  isSchemaField,
+  isSectionsLayout,
+  isTabsLayout,
+  isWizardLayout,
   isSchemaFormFormEvent,
   isSchemaFormFieldEvent,
   isSchemaFormSectionEvent,
   isSchemaFormActionEvent,
+  isSchemaFormWizardEvent,
 } from './schema-form.types';

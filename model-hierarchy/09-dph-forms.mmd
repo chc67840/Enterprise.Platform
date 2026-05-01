@@ -1,50 +1,339 @@
 ---
-title: DPH UI Kit — Forms · Schema · Validators · Events
+title: DPH UI Kit — Forms · Discriminated Schema · Layouts · Validators · Events
 ---
 %%{init: {'theme':'neutral'}}%%
 classDiagram
   direction LR
 
-  class FormSchema {
+  %% ════════════════════════════════════════════════════════════════
+  %% TOP-LEVEL — FormSchema is generic over the value type T
+  %% ════════════════════════════════════════════════════════════════
+
+  class FormSchema~T~ {
     <<interface>>
-    +readonly fields : readonly SchemaField[]
+    +readonly fields? : readonly SchemaField~K~[]
+    +readonly items? : readonly SchemaItem~K~[]
+    +readonly layout? : FormSchemaLayout~K~
     +readonly columns? : 1 | 2 | 3 | 4
     +readonly gap? : Size
     +readonly trim? : boolean
     +readonly disableSubmitWhenPristine? : boolean
+    +readonly crossFieldValidators? : readonly CrossFieldRule[]
+    +readonly actions? : readonly SchemaActionDescriptor[]
   }
 
-  class SchemaField {
-    <<interface>>
-    +readonly key : string
+  class FieldKeyOf~T~ {
+    <<type alias>>
+    Extract&lt;keyof T, string&gt;
+    fallback to string for legacy callers
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% FIELDS — discriminated union (15 variants on `type`)
+  %% ════════════════════════════════════════════════════════════════
+
+  class SchemaField~K~ {
+    <<discriminated union · 15 variants>>
+    TextLikeField | SelectField |
+    MultiSelectField | RadioField |
+    CheckboxField | SwitchField |
+    DateField | FileField |
+    TreeSelectField | TablePickerField |
+    AutocompleteField | CurrencyField |
+    MaskField | ColorField | RangeField
+  }
+
+  class BaseField~K~ {
+    <<interface (shared)>>
+    +readonly key : K
     +readonly label : string
-    +readonly type : SchemaFieldType
     +readonly placeholder? : string
     +readonly hint? : string
+    +readonly disabled? : boolean
+    +readonly readonly? : boolean
+    +readonly required? : boolean
+    +readonly columnSpan? : SchemaSpan
+    +readonly validators? : FieldValidatorSpec
+    +readonly trim? : boolean
+    +readonly nullIfEmpty? : boolean
+    +readonly serverErrorKeys? : readonly string[]
+    +readonly statusErrorMessages? : Readonly~Record~number,string~~
+    +readonly when? : SchemaWhenPredicate
+  }
+
+  class TextLikeField~K~ {
+    <<type: text|email|password|tel|url|search|textarea|number>>
     +readonly autocomplete? : string
     +readonly prefixIcon? : string
     +readonly suffixIcon? : string
     +readonly rows? : number
-    +readonly disabled? : boolean
-    +readonly readonly? : boolean
-    +readonly clearable? : boolean
-    +readonly required? : boolean
     +readonly maxLength? : number
     +readonly minLength? : number
-    +readonly validators? : FieldValidatorSpec
-    +readonly trim? : boolean
-    +readonly nullIfEmpty? : boolean
+    +readonly clearable? : boolean
     +readonly defaultValue? : string | number | null
-    +readonly columnSpan? : 1 | 2 | 3 | 4 | 'full'
-    +readonly serverErrorKeys? : readonly string[]
-    +readonly statusErrorMessages? : Readonly~Record~number,string~~
+    +readonly step? : number
   }
 
-  class SchemaFieldType {
-    <<type>>
-    text | email | password | tel | url |
-    search | textarea | number
+  class SelectField~K~ {
+    <<type: 'select'>>
+    +readonly options : readonly OptionItem[]
+    +readonly clearable? : boolean
+    +readonly filterable? : boolean
+    +readonly emptyOptionsText? : string
+    +readonly defaultValue? : unknown
   }
+
+  class MultiSelectField~K~ {
+    <<type: 'multiselect'>>
+    +readonly options : readonly OptionItem[]
+    +readonly filterable? : boolean
+    +readonly chipDisplay? : boolean
+    +readonly emptyOptionsText? : string
+    +readonly defaultValue? : readonly unknown[]
+  }
+
+  class RadioField~K~ {
+    <<type: 'radio'>>
+    +readonly options : readonly OptionItem[]
+    +readonly defaultValue? : unknown
+  }
+
+  class CheckboxField~K~ {
+    <<type: 'checkbox'>>
+    +readonly defaultValue? : boolean
+  }
+
+  class SwitchField~K~ {
+    <<type: 'switch'>>
+    +readonly defaultValue? : boolean
+  }
+
+  class DateField~K~ {
+    <<type: 'date'|'datetime'|'time'>>
+    +readonly clearable? : boolean
+    +readonly inlineCalendar? : boolean
+    +readonly minDate? : Date | string
+    +readonly maxDate? : Date | string
+    +readonly disabledDates? : readonly DateOrStr[]
+    +readonly showSeconds? : boolean
+    +readonly hourFormat? : '12' | '24'
+    +readonly defaultValue? : Date | string | null
+  }
+
+  class FileField~K~ {
+    <<type: 'file'>>
+    +readonly accept? : string
+    +readonly multiple? : boolean
+    +readonly fileVariant? : 'dropzone'|'button'|'inline'
+    +readonly defaultValue? : readonly unknown[]
+  }
+
+  class TreeSelectField~K~ {
+    <<type: 'tree-select'>>
+    +readonly treeNodes : readonly TreeNode[]
+    +readonly treeSelectionMode? : 'single'|'multiple'|'checkbox'|null
+    +readonly treeConfig? : TreeConfig
+    +readonly defaultValue? : string | readonly string[] | null
+  }
+
+  class TablePickerField~K~ {
+    <<type: 'table-picker'>>
+    +readonly tableConfig : TableConfig
+    +readonly tableRows? : readonly Record~string,unknown~[]
+    +readonly defaultValue? : unknown
+  }
+
+  class AutocompleteField~K~ {
+    <<type: 'autocomplete'>>
+    +readonly optionsLoader : OptionsLoaderFn
+    +readonly autocompleteDebounceMs? : number
+    +readonly multiple? : boolean
+    +readonly clearable? : boolean
+    +readonly emptyOptionsText? : string
+    +readonly defaultValue? : unknown
+  }
+
+  class CurrencyField~K~ {
+    <<type: 'currency'>>
+    +readonly currency : string
+    +readonly locale? : string
+    +readonly clearable? : boolean
+    +readonly step? : number
+    +readonly defaultValue? : number | null
+  }
+
+  class MaskField~K~ {
+    <<type: 'mask'>>
+    +readonly mask : string
+    +readonly slotChar? : string
+    +readonly defaultValue? : string
+  }
+
+  class ColorField~K~ {
+    <<type: 'color'>>
+    +readonly colorFormat? : 'hex'|'rgb'|'hsb'
+    +readonly defaultValue? : string | null
+  }
+
+  class RangeField~K~ {
+    <<type: 'range'>>
+    +readonly rangeMode? : boolean
+    +readonly rangeStep? : number
+    +readonly defaultValue? : number | readonly [number,number] | null
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% WIDGETS — display-only items (no FormControl)
+  %% ════════════════════════════════════════════════════════════════
+
+  class SchemaWidget {
+    <<discriminated union · 6 kinds>>
+    SchemaWidgetMessage | SchemaWidgetChart |
+    SchemaWidgetImage | SchemaWidgetDivider |
+    SchemaWidgetHeading | SchemaWidgetSpacer
+  }
+
+  class BaseWidget {
+    <<interface (shared)>>
+    +readonly id : string
+    +readonly columnSpan? : SchemaSpan
+    +readonly when? : SchemaWhenPredicate
+  }
+
+  class SchemaWidgetMessage {
+    <<kind: 'message'>>
+    +readonly severity : Severity
+    +readonly summary? : string
+    +readonly detail? : string
+    +readonly icon? : string
+    +readonly closable? : boolean
+  }
+  class SchemaWidgetChart {
+    <<kind: 'chart'>>
+    +readonly config : ChartWidgetConfig
+  }
+  class SchemaWidgetImage {
+    <<kind: 'image'>>
+    +readonly config : ImageConfig
+  }
+  class SchemaWidgetDivider {
+    <<kind: 'divider'>>
+    +readonly orientation? : 'horizontal'|'vertical'
+    +readonly label? : string
+  }
+  class SchemaWidgetHeading {
+    <<kind: 'heading'>>
+    +readonly text : string
+    +readonly level? : 2 | 3 | 4 | 5 | 6
+    +readonly subtitle? : string
+    +readonly icon? : string
+  }
+  class SchemaWidgetSpacer {
+    <<kind: 'spacer'>>
+    +readonly size? : Size
+  }
+
+  class SchemaItem~K~ {
+    <<type alias>>
+    SchemaField~K~ | SchemaWidget
+  }
+
+  class SchemaSpan {
+    <<type>>
+    1 | 2 | 3 | 4 | 'full'
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% CONDITIONAL RENDERING
+  %% ════════════════════════════════════════════════════════════════
+
+  class SchemaWhenPredicate~T~ {
+    <<type alias>>
+    fn : ctx → boolean
+    where ctx is SchemaWhenContext
+  }
+
+  class SchemaWhenContext~T~ {
+    <<interface>>
+    +readonly value$ : T
+    +readonly dirty : boolean
+    +readonly touched : boolean
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% LAYOUTS — sections / tabs / wizard
+  %% ════════════════════════════════════════════════════════════════
+
+  class FormSchemaLayout~K~ {
+    <<discriminated union · 3 kinds>>
+    FormSchemaSectionsLayout |
+    FormSchemaTabsLayout |
+    FormSchemaWizardLayout
+  }
+
+  class FormSchemaSectionsLayout~K~ {
+    <<kind: 'sections'>>
+    +readonly sections : readonly FormSchemaSection~K~[]
+  }
+
+  class FormSchemaSection~K~ {
+    <<interface>>
+    +readonly id : string
+    +readonly title? : string
+    +readonly description? : string
+    +readonly icon? : string
+    +readonly badge? : BadgeMeta
+    +readonly collapsible? : boolean
+    +readonly defaultCollapsed? : boolean
+    +readonly columns? : 1 | 2 | 3 | 4
+    +readonly items : readonly SchemaItem~K~[]
+    +readonly when? : SchemaWhenPredicate
+  }
+
+  class FormSchemaTabsLayout~K~ {
+    <<kind: 'tabs'>>
+    +readonly tabs : readonly FormSchemaTab~K~[]
+    +readonly defaultTabId? : string
+  }
+
+  class FormSchemaTab~K~ {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly icon? : string
+    +readonly badge? : BadgeMeta
+    +readonly disabled? : boolean
+    +readonly items : readonly SchemaItem~K~[]
+    +readonly when? : SchemaWhenPredicate
+  }
+
+  class FormSchemaWizardLayout~K~ {
+    <<kind: 'wizard'>>
+    +readonly steps : readonly FormSchemaStep~K~[]
+    +readonly variant? : StepsVariant
+    +readonly orientation? : 'horizontal'|'vertical'
+    +readonly buttons? : WizardButtonsConfig
+    +readonly initialStep? : number
+    +readonly validatePerStep? : boolean
+    +readonly allowBackNav? : boolean
+  }
+
+  class FormSchemaStep~K~ {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly description? : string
+    +readonly icon? : string
+    +readonly help? : string
+    +readonly optional? : boolean
+    +readonly skipValidation? : boolean
+    +readonly items : readonly SchemaItem~K~[]
+    +readonly when? : SchemaWhenPredicate
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% VALIDATION — sync + async + cross-field
+  %% ════════════════════════════════════════════════════════════════
 
   class FieldValidatorSpec {
     <<interface>>
@@ -55,17 +344,52 @@ classDiagram
     +readonly email? : boolean | string
     +readonly min? : number | ValueWithMessage
     +readonly max? : number | ValueWithMessage
+    +readonly minSelected? : number | ValueWithMessage
+    +readonly maxSelected? : number | ValueWithMessage
+    +readonly accept? : string | ValueWithMessage
+    +readonly maxFileSize? : number | ValueWithMessage
+    +readonly maxFiles? : number | ValueWithMessage
+    +readonly mustBeTrue? : boolean | string
+    +readonly custom? : readonly ValidatorFn[]
+    +readonly async? : readonly AsyncValidatorFn[]
+  }
+
+  class CrossFieldRule {
+    <<interface>>
+    +readonly id : string
+    +readonly fields : readonly string[]
+    +readonly validate : fn values → string or null
   }
 
   class ServerErrorIndex {
-    <<type>>
+    <<type alias>>
     Readonly~Record~string,string~~
   }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% ACTIONS — declarative action-bar buttons
+  %% ════════════════════════════════════════════════════════════════
+
+  class SchemaActionDescriptor {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly variant? : ButtonVariant
+    +readonly icon? : string
+    +readonly disabled? : boolean
+    +readonly loading? : boolean
+    +readonly hideOnInvalid? : boolean
+  }
+
+  %% ════════════════════════════════════════════════════════════════
+  %% EVENT CHANNEL — single discriminated-union output
+  %% ════════════════════════════════════════════════════════════════
 
   class SchemaFormEvent~T~ {
     <<discriminated union>>
     SchemaFormFormEvent | SchemaFormFieldEvent |
-    SchemaFormSectionEvent | SchemaFormActionEvent
+    SchemaFormSectionEvent | SchemaFormActionEvent |
+    SchemaFormWizardEvent
   }
 
   class SchemaFormFormEvent~T~ {
@@ -85,67 +409,119 @@ classDiagram
 
   class SchemaFormSectionEvent {
     <<union>>
-    +section:toggle     → key, expanded
-    +section:tab-change → key, index
+    +section:toggle      → key, expanded
+    +tab:change          → id, index
+    +section:tab-change  → key, index (deprecated)
   }
 
-  class SchemaFormActionEvent {
-    <<interface>>
-    +readonly type : 'action:click'
+  class SchemaFormActionEvent~T~ {
+    <<interface · 'action:click'>>
     +readonly action : string
-    +readonly value$ : Readonly~Record~string,unknown~~
+    +readonly value$ : T
   }
 
-  class FormSection {
-    <<interface>>
-    +readonly id : string
-    +readonly title? : string
-    +readonly description? : string
-    +readonly icon? : string
-    +readonly columns? : 1 | 2 | 3 | 4
-    +readonly collapsible? : boolean
-    +readonly defaultCollapsed? : boolean
+  class SchemaFormWizardEvent~T~ {
+    <<union · Phase C>>
+    +step:advance   → from, to, value$: T
+    +step:back      → from, to, value$: T
+    +step:jump      → from, to, value$: T
+    +step:complete  → key, value$: T
+    +step:cancel    → key
+    +step:skip      → from, to, value$: T
   }
 
-  class FormLayoutConfig {
-    <<interface>>
-    +readonly variant : 'grid'|'stacked'|'inline'|'wizard'|'tabbed'
-    +readonly columns? : 1 | 2 | 3 | 4
-    +readonly gap? : Size
-    +readonly labelPosition? : 'top'|'left'|'floating'
-    +readonly labelWidth? : string
-    +readonly sections? : readonly FormSection[]
-    +readonly dense? : boolean
-    +readonly readonly? : boolean
-    +readonly showRequiredIndicator? : boolean
-  }
+  %% ════════════════════════════════════════════════════════════════
+  %% RELATIONSHIPS
+  %% ════════════════════════════════════════════════════════════════
 
-  class InputConfig {
-    <<interface>>
-    +readonly type : InputType
-    +readonly label? : string
-    +readonly size? : Size
-    +readonly variant? : 'outlined' | 'filled'
-    +readonly required? : boolean
-    +readonly disabled? : boolean
-    +readonly readonly? : boolean
-    +readonly clearable? : boolean
-    +readonly invalid? : boolean
-    +readonly errors? : readonly string[]
-    +readonly + 25 more options
-  }
+  FormSchema *-- SchemaItem : "items[] (preferred)"
+  FormSchema *-- SchemaField : "fields[] (legacy)"
+  FormSchema *-- FormSchemaLayout : "layout?"
+  FormSchema *-- CrossFieldRule : "crossFieldValidators[]"
+  FormSchema *-- SchemaActionDescriptor : "actions[]"
+  FormSchema --> FieldKeyOf : "K = FieldKeyOf<T>"
 
-  FormSchema *-- SchemaField : "fields[]"
-  SchemaField --> SchemaFieldType : uses
-  SchemaField o-- FieldValidatorSpec : optional
+  SchemaItem <|-- SchemaField
+  SchemaItem <|-- SchemaWidget
+
+  SchemaField <|-- TextLikeField
+  SchemaField <|-- SelectField
+  SchemaField <|-- MultiSelectField
+  SchemaField <|-- RadioField
+  SchemaField <|-- CheckboxField
+  SchemaField <|-- SwitchField
+  SchemaField <|-- DateField
+  SchemaField <|-- FileField
+  SchemaField <|-- TreeSelectField
+  SchemaField <|-- TablePickerField
+  SchemaField <|-- AutocompleteField
+  SchemaField <|-- CurrencyField
+  SchemaField <|-- MaskField
+  SchemaField <|-- ColorField
+  SchemaField <|-- RangeField
+
+  TextLikeField --|> BaseField
+  SelectField --|> BaseField
+  MultiSelectField --|> BaseField
+  RadioField --|> BaseField
+  CheckboxField --|> BaseField
+  SwitchField --|> BaseField
+  DateField --|> BaseField
+  FileField --|> BaseField
+  TreeSelectField --|> BaseField
+  TablePickerField --|> BaseField
+  AutocompleteField --|> BaseField
+  CurrencyField --|> BaseField
+  MaskField --|> BaseField
+  ColorField --|> BaseField
+  RangeField --|> BaseField
+
+  SchemaWidget <|-- SchemaWidgetMessage
+  SchemaWidget <|-- SchemaWidgetChart
+  SchemaWidget <|-- SchemaWidgetImage
+  SchemaWidget <|-- SchemaWidgetDivider
+  SchemaWidget <|-- SchemaWidgetHeading
+  SchemaWidget <|-- SchemaWidgetSpacer
+
+  SchemaWidgetMessage --|> BaseWidget
+  SchemaWidgetChart --|> BaseWidget
+  SchemaWidgetImage --|> BaseWidget
+  SchemaWidgetDivider --|> BaseWidget
+  SchemaWidgetHeading --|> BaseWidget
+  SchemaWidgetSpacer --|> BaseWidget
+
+  BaseField --> SchemaWhenPredicate : "when?"
+  BaseField o-- FieldValidatorSpec : "validators?"
+  BaseField --> SchemaSpan : "columnSpan?"
+
+  BaseWidget --> SchemaWhenPredicate : "when?"
+
+  FormSchemaLayout <|-- FormSchemaSectionsLayout
+  FormSchemaLayout <|-- FormSchemaTabsLayout
+  FormSchemaLayout <|-- FormSchemaWizardLayout
+
+  FormSchemaSectionsLayout *-- FormSchemaSection : "sections[]"
+  FormSchemaTabsLayout *-- FormSchemaTab : "tabs[]"
+  FormSchemaWizardLayout *-- FormSchemaStep : "steps[]"
+
+  FormSchemaSection *-- SchemaItem : "items[]"
+  FormSchemaTab *-- SchemaItem : "items[]"
+  FormSchemaStep *-- SchemaItem : "items[]"
+
+  FormSchemaSection --> SchemaWhenPredicate : "when?"
+  FormSchemaTab --> SchemaWhenPredicate : "when?"
+  FormSchemaStep --> SchemaWhenPredicate : "when?"
+
+  SchemaWhenPredicate ..> SchemaWhenContext
 
   SchemaFormEvent <|-- SchemaFormFormEvent
   SchemaFormEvent <|-- SchemaFormFieldEvent
   SchemaFormEvent <|-- SchemaFormSectionEvent
   SchemaFormEvent <|-- SchemaFormActionEvent
+  SchemaFormEvent <|-- SchemaFormWizardEvent
 
-  FormLayoutConfig *-- FormSection : "sections[]"
-
-  note for SchemaFormEvent "Single discriminated-union output (P1.1)\nreplaces per-event @Output proliferation.\nHosts switch on event.type."
-  note for SchemaField "key = FormGroup control name +\nAPI field name (must match backend)."
-  note for ServerErrorIndex "Built once at component construction\n— constant-time per-field lookup\nfrom RFC-7807 errors[key]."
+  note for FormSchema "FormSchema&lt;T&gt; is generic over the value type.\nWhen T is supplied (e.g. CreateUserCommand),\nfield keys are constrained to keyof T &amp; string —\ntypos are COMPILE errors. Default permissive\nfor legacy callers."
+  note for SchemaField "Discriminated union — each variant declares\nONLY the props that make sense for its type.\nA text field can no longer carry options /\nmask / currency at compile time."
+  note for SchemaWhenPredicate "Pure predicate evaluated on every form-state\ntick. Returning false REMOVES the control\nfrom the FormGroup until it flips back —\nso hidden required fields don't block submit."
+  note for CrossFieldRule "FormGroup-level validator. Runs on every\nvalue change, registers errors keyed by\n'xfield:&lt;rule.id&gt;' on each targeted control,\nso the field-level error renderer surfaces them."
+  note for SchemaFormSectionEvent "tab:change is the canonical event.\nsection:tab-change is preserved for back-\ncompat — both fire on tab navigation\nuntil the legacy name is removed."
