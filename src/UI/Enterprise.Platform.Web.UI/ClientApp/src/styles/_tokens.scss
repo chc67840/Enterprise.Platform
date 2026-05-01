@@ -266,6 +266,14 @@
     0 2px 20px rgba(0, 0, 0, 0.18),
     0 1px 4px rgba(0, 0, 0, 0.10);
 
+  /* ── Shell inset ──────────────────────────────────────────────────────
+   *  Document-level gutter painted around the .ep-app-shell so the chrome
+   *  reads as a floating card rather than a viewport-flush page. The
+   *  navbar's sticky offset + the sub-nav's sticky offset both reference
+   *  this token so the gutter survives scrolling.
+   */
+  --ep-shell-inset: 0.15rem;      /* 12px — matches --ep-nav-radius-top */
+
   /* ── Typography: families ────────────────────────────────────────────
    *
    *  Three-role typography system (see Docs/Architecture/UI-Typography-Strategy.md

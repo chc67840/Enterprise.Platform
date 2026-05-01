@@ -303,6 +303,11 @@ public sealed record NavbarConfigDto(
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 6 — Footer
 // ═══════════════════════════════════════════════════════════════════════════════
+//
+// The footer is a list of optional, composable section blocks. Domains opt
+// into whichever sections they need by populating the corresponding field.
+// The wire shape mirrors the SPA's `FooterConfig` 1:1 — the architecture
+// contract test diffs property names between this file and the TS interface.
 
 /// <summary>Single footer link.</summary>
 public sealed record FooterLinkDto(
@@ -312,53 +317,108 @@ public sealed record FooterLinkDto(
     string? Icon,
     NavBadgeDto? Badge);
 
-/// <summary>One column of footer links.</summary>
+/// <summary>
+/// One column of footer links. Heading is optional — agency footers often
+/// omit headings on highlighted link clusters.
+/// </summary>
+/// <param name="Tone">'default' | 'highlight' — drives link style (yellow underlined for highlight).</param>
 public sealed record FooterLinkColumnDto(
-    string Heading,
+    string? Heading,
+    string? Tone,
     IReadOnlyList<FooterLinkDto> Links);
 
-/// <summary>Newsletter-signup widget shown in the footer top section.</summary>
+/// <summary>Newsletter-signup widget shown in the footer top row.</summary>
 public sealed record FooterNewsletterConfigDto(
     bool Enabled,
     string? Heading,
     string? Placeholder,
     string? SubmitLabel,
-    string? ActionKey);
+    string? ActionKey,
+    string? ThanksMessage);
 
 /// <summary>Compliance certifications + disclaimer + cookie-consent prompt.</summary>
 public sealed record FooterComplianceConfigDto(
     IReadOnlyList<string>? Badges,                // 'soc2' | 'hipaa' | 'iso27001' | 'gdpr' | 'pci' | 'eeoc' | 'finra'
     string? Disclaimer,
-    bool? CookieConsent);
+    bool? CookieConsent,
+    FooterCookieConsentLabelsDto? CookieConsentLabels);
+
+/// <summary>Optional content overrides for the cookie-consent bar.</summary>
+public sealed record FooterCookieConsentLabelsDto(
+    string? Body,
+    string? AcceptLabel,
+    string? RejectLabel,
+    string? PolicyUrl,
+    string? PolicyLabel);
 
 /// <summary>Social-media shortcut entry.</summary>
 public sealed record SocialLinkDto(
-    string Platform,                              // 'twitter' | 'linkedin' | 'github' | …
-    string Url);
+    string Platform,                              // 'twitter' | 'linkedin' | 'github' | 'youtube' | 'facebook' | 'instagram' | 'mastodon' | 'discord' | 'rss' | 'tiktok' | 'pinterest'
+    string Url,
+    string? AriaLabel);
 
-/// <summary>Footer bottom-bar copyright + version + legal links.</summary>
-public sealed record FooterBottomBarConfigDto(
-    string CopyrightOwner,
-    int? CopyrightYear,
+/// <summary>Social-icon row with an optional heading next to the icons.</summary>
+public sealed record FooterSocialConfigDto(
+    string? Heading,
+    IReadOnlyList<SocialLinkDto> Links);
+
+/// <summary>Brand block — logo + tagline + multi-line address.</summary>
+public sealed record FooterBrandConfigDto(
+    string? ImageSrc,
+    string Alt,
+    string? BrandName,
+    string? Tagline,
+    IReadOnlyList<string>? AddressLines,
+    string? HomeRoute);
+
+/// <summary>Centered accreditation block — round badge image with caption.</summary>
+public sealed record FooterAccreditationConfigDto(
+    string ImageSrc,
+    string ImageAlt,
+    string? Caption,
+    int? ImageWidthPx,
+    string? ExternalUrl);
+
+/// <summary>Hairline-separated row of utility links.</summary>
+public sealed record FooterUtilityBarConfigDto(
+    IReadOnlyList<FooterLinkDto> Links);
+
+/// <summary>Centered copyright block.</summary>
+/// <param name="Text">Full override of the rendered string ("Copyright © 2026 ...").</param>
+public sealed record FooterCopyrightConfigDto(
+    string Owner,
+    int? Year,
+    string? Text);
+
+/// <summary>Build / version / status-page row.</summary>
+public sealed record FooterMetaConfigDto(
     string? AppVersion,
     string? BuildId,
     string? StatusPageUrl,
-    IReadOnlyList<FooterLinkDto>? Links,
+    string? StatusLabel,
     NavLanguageSwitcherConfigDto? LanguageSwitcher);
 
-/// <summary>Footer logo (text + optional image).</summary>
-public sealed record FooterLogoConfigDto(
-    string? ImageSrc,
+/// <summary>Tiny image badge — country flag, accessibility seal, etc.</summary>
+public sealed record FooterFlagConfigDto(
+    string ImageSrc,
     string Alt,
-    string? BrandName);
+    int? HeightPx);
 
-/// <summary>Whole-footer config returned to the SPA.</summary>
+/// <summary>
+/// Whole-footer config returned to the SPA. Every section block is
+/// nullable including <see cref="Copyright"/> — the SPA renderer falls
+/// back to a current-year string when missing. Required-on-the-wire
+/// would crash the chrome on first paint during legacy-shape deployments.
+/// </summary>
 public sealed record FooterConfigDto(
     string Variant,                               // 'full' | 'minimal' | 'app'
-    FooterLogoConfigDto? Logo,
-    string? Tagline,
+    FooterBrandConfigDto? Brand,
+    FooterSocialConfigDto? Social,
     IReadOnlyList<FooterLinkColumnDto>? Columns,
-    IReadOnlyList<SocialLinkDto>? Social,
     FooterNewsletterConfigDto? Newsletter,
+    FooterAccreditationConfigDto? Accreditation,
     FooterComplianceConfigDto? Compliance,
-    FooterBottomBarConfigDto BottomBar);
+    FooterUtilityBarConfigDto? UtilityBar,
+    FooterCopyrightConfigDto? Copyright,
+    FooterMetaConfigDto? Meta,
+    FooterFlagConfigDto? Flag);

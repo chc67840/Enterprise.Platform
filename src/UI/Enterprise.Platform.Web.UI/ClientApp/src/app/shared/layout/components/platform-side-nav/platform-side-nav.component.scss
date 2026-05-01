@@ -23,24 +23,34 @@
 }
 
 .ep-side-nav {
-  // Sticky positioning relative to the body's scrolling viewport. The
-  // top bar is fixed-height (--nav-height) and lives ABOVE the flex
-  // row that contains this rail, so we offset the sticky pin by that
-  // height — once the body scrolls, the rail glues to the bottom edge
-  // of the top bar instead of disappearing behind it.
+  // Sticky + `align-self: stretch` (no explicit height) is the load-bearing
+  // pair. `align-self: stretch` makes the rail's box fill the body row's
+  // height, so the rail's bg always extends from the navbar bottom to the
+  // body bottom — no matter how short or long the page is. `position:
+  // sticky` then visually pins the nav-items at viewport-top+nav-height
+  // until the user scrolls past the body's end, at which point the rail
+  // releases and the footer renders edge-to-edge below it.
+  //
+  // We deliberately do NOT declare an explicit `height: calc(100vh - X)`
+  // here: that would force the body's flex row to be at least that tall
+  // even on short pages, leaving slack between main-col content and the
+  // footer. Stretching adapts to the body's actual height instead.
   position: sticky;
-  top: var(--nav-height, 64px);
-  align-self: flex-start;
-  height: calc(100vh - var(--nav-height, 64px));
+  // Pin below the navbar's stuck position. The navbar pins at
+  // `top: var(--ep-shell-inset)`, so the rail must add the navbar's own
+  // height on top of that to land flush against its bottom edge.
+  top: calc(var(--nav-height, 64px) + var(--ep-shell-inset, 0px));
+  align-self: stretch;
   width: var(--ep-side-nav-width-expanded);
+  max-height: calc(100vh - var(--nav-height, 64px) - var(--ep-shell-inset, 0px));
   background: var(--ep-color-neutral-50);
   border-right: 1px solid var(--ep-color-neutral-200);
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
+  z-index: 5;
   transition: width calc(var(--ep-duration-fast, 120ms) * var(--ep-motion-scale, 1)) var(--ep-ease-standard, ease);
 
-  // Custom scrollbar treatment — see styles/_scrollbars.scss for the utility.
   scrollbar-width: thin;
 
   &--collapsed {

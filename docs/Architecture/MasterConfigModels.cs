@@ -781,28 +781,36 @@ public sealed record NavbarConfigDto(
     NavRightZoneConfigDto RightZone,
     bool? Sticky, bool? GlassMorphism, int? HeightPx);
 
-// Footer
+// Footer — composable section blocks. Mirrors `FooterConfig` in
+// shared/layout/models/nav.models.ts. The architecture contract test
+// diffs property names between this file and the TS interface; renaming
+// either side breaks CI.
 public sealed record FooterLinkDto(string Label, string? RoutePath, string? ExternalUrl, string? Icon, NavBadgeDto? Badge);
-public sealed record FooterLinkColumnDto(string Heading, IReadOnlyList<FooterLinkDto> Links);
-public sealed record FooterNewsletterConfigDto(bool Enabled, string? Heading, string? Placeholder, string? SubmitLabel, string? ActionKey);
-public sealed record FooterComplianceConfigDto(IReadOnlyList<string>? Badges, string? Disclaimer, bool? CookieConsent);
-public sealed record SocialLinkDto(string Platform, string Url);
-public sealed record FooterBottomBarConfigDto(
-    string CopyrightOwner, int? CopyrightYear,
-    string? AppVersion, string? BuildId, string? StatusPageUrl,
-    IReadOnlyList<FooterLinkDto>? Links,
-    NavLanguageSwitcherConfigDto? LanguageSwitcher);
-public sealed record FooterLogoConfigDto(string? ImageSrc, string Alt, string? BrandName);
+public sealed record FooterLinkColumnDto(string? Heading, string? Tone, IReadOnlyList<FooterLinkDto> Links);   // Tone: "default" | "highlight"
+public sealed record FooterNewsletterConfigDto(bool Enabled, string? Heading, string? Placeholder, string? SubmitLabel, string? ActionKey, string? ThanksMessage);
+public sealed record FooterCookieConsentLabelsDto(string? Body, string? AcceptLabel, string? RejectLabel, string? PolicyUrl, string? PolicyLabel);
+public sealed record FooterComplianceConfigDto(IReadOnlyList<string>? Badges, string? Disclaimer, bool? CookieConsent, FooterCookieConsentLabelsDto? CookieConsentLabels);
+public sealed record SocialLinkDto(string Platform, string Url, string? AriaLabel);                              // Platform: 'twitter'|'linkedin'|'github'|'youtube'|'facebook'|'instagram'|'mastodon'|'discord'|'rss'|'tiktok'|'pinterest'
+public sealed record FooterSocialConfigDto(string? Heading, IReadOnlyList<SocialLinkDto> Links);
+public sealed record FooterBrandConfigDto(string? ImageSrc, string Alt, string? BrandName, string? Tagline, IReadOnlyList<string>? AddressLines, string? HomeRoute);
+public sealed record FooterAccreditationConfigDto(string ImageSrc, string ImageAlt, string? Caption, int? ImageWidthPx, string? ExternalUrl);
+public sealed record FooterUtilityBarConfigDto(IReadOnlyList<FooterLinkDto> Links);
+public sealed record FooterCopyrightConfigDto(string Owner, int? Year, string? Text);
+public sealed record FooterMetaConfigDto(string? AppVersion, string? BuildId, string? StatusPageUrl, string? StatusLabel, NavLanguageSwitcherConfigDto? LanguageSwitcher);
+public sealed record FooterFlagConfigDto(string ImageSrc, string Alt, int? HeightPx);
 
 public sealed record FooterConfigDto(
     string Variant,                                   // "full" | "minimal" | "app"
-    FooterLogoConfigDto? Logo,
-    string? Tagline,
+    FooterBrandConfigDto? Brand,
+    FooterSocialConfigDto? Social,
     IReadOnlyList<FooterLinkColumnDto>? Columns,
-    IReadOnlyList<SocialLinkDto>? Social,
     FooterNewsletterConfigDto? Newsletter,
+    FooterAccreditationConfigDto? Accreditation,
     FooterComplianceConfigDto? Compliance,
-    FooterBottomBarConfigDto BottomBar);
+    FooterUtilityBarConfigDto? UtilityBar,
+    FooterCopyrightConfigDto? Copyright,                                            // SPA falls back to "© {currentYear}" when absent
+    FooterMetaConfigDto? Meta,
+    FooterFlagConfigDto? Flag);
 
 // ═════════════════════════════════════════════════════════════════════════════════
 //

@@ -1,27 +1,7 @@
 /**
- * ─── shared/layout/components/platform-footer ───────────────────────────────────
- *
- * F.5 — config-driven footer per spec D7 + types D6 (`FooterConfig`).
- *
- * Variants (single template, @switch):
- *   - 'full'    → top brand + columns + newsletter, then compliance, then bottom bar
- *   - 'minimal' → compliance + bottom bar only
- *   - 'app'     → bottom bar only
- *
- * Compliance: 7 badge values (`soc2|hipaa|iso27001|gdpr|pci|eeoc|finra`)
- * mapped to PrimeIcons + tooltip + colour pill. Disclaimer body capped at 800 px.
- *
- * Cookie consent: dismissible bottom-of-viewport bar, localStorage-backed
- * (`ep:cookie-consent:accepted`); only renders when
- * `compliance.cookieConsent === true` AND not yet dismissed.
- *
- * Newsletter: simple email input + submit; emits `(navAction)` with
- * `source: 'newsletter'` + the configured `actionKey`. Host owns the actual
- * subscribe HTTP call.
- *
- * Outputs:
- *   - (navAction) for newsletter submit
- * Otherwise the footer is link-and-display only.
+ * Composable, config-driven footer. Stamps each section block in document
+ * order; domains opt in by populating fields on the FooterConfig literal.
+ * `variant` is a preset that hides whole sets of blocks for dense surfaces.
  */
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -41,12 +21,23 @@ import { STORAGE_KEYS } from '@constants';
 import type {
   ComplianceBadge,
   FooterConfig,
-  FooterLink,
+  FooterVariant,
   NavActionEvent,
   SocialPlatform,
 } from '@shared/layout';
 
 const COOKIE_CONSENT_KEY = STORAGE_KEYS.COOKIE_CONSENT;
+
+// Default copy when the corresponding config field is absent. Centralised
+// here so a single edit (or a future i18n provider) covers the chrome.
+const DEFAULT_NEWSLETTER_THANKS = 'Thanks! Check your inbox to confirm.';
+const DEFAULT_STATUS_LABEL = 'All systems operational';
+const DEFAULT_COOKIE_BODY =
+  'By clicking "Accept all", you agree to the storing of cookies on your device for analytics + marketing.';
+const DEFAULT_COOKIE_ACCEPT = 'Accept all';
+const DEFAULT_COOKIE_REJECT = 'Reject';
+const DEFAULT_COOKIE_POLICY_URL = '/cookies';
+const DEFAULT_COOKIE_POLICY_LABEL = 'cookie policy';
 
 interface ComplianceMeta {
   readonly icon: string;
@@ -72,6 +63,9 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
   instagram: 'pi pi-instagram',
   mastodon: 'pi pi-globe',
   discord: 'pi pi-discord',
+  rss: 'pi pi-rss',
+  tiktok: 'pi pi-volume-up',
+  pinterest: 'pi pi-bookmark',
 };
 
 @Component({
@@ -82,71 +76,131 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
   template: `
     <footer
       class="ep-footer"
-      [class.ep-footer--full]="config().variant === 'full'"
-      [class.ep-footer--minimal]="config().variant === 'minimal'"
-      [class.ep-footer--app]="config().variant === 'app'"
+      [class.ep-footer--full]="variant() === 'full'"
+      [class.ep-footer--minimal]="variant() === 'minimal'"
+      [class.ep-footer--app]="variant() === 'app'"
       role="contentinfo"
     >
-      <!-- 4 px brand-cool gradient accent strip -->
-      <div class="ep-footer__accent" aria-hidden="true"></div>
-
-      <!-- ───── TOP SECTION (full only) ───── -->
-      @if (config().variant === 'full') {
+      <!-- ── BRAND + SOCIAL + COLUMNS + NEWSLETTER ── -->
+      @if (showTopRow()) {
         <div class="ep-footer__top">
-          <div class="ep-footer__container">
-            <div class="ep-footer__top-row">
-              <!-- Brand block -->
+          <div class="ep-footer__container ep-footer__top-row">
+            @if (config().brand; as brand) {
               <div class="ep-footer__brand">
-                @if (config().logo?.imageSrc) {
-                  <img
-                    [src]="config().logo!.imageSrc!"
-                    [alt]="config().logo!.alt"
-                    width="40"
-                    height="40"
-                    loading="lazy"
-                    class="ep-footer__brand-logo"
-                  />
+                @if (brand.imageSrc) {
+                  @if (brand.homeRoute) {
+                    <a [routerLink]="brand.homeRoute" class="ep-footer__brand-link" [attr.aria-label]="brand.alt">
+                      <img [src]="brand.imageSrc" [alt]="brand.alt" loading="lazy" class="ep-footer__brand-logo" />
+                    </a>
+                  } @else {
+                    <img [src]="brand.imageSrc" [alt]="brand.alt" loading="lazy" class="ep-footer__brand-logo" />
+                  }
                 } @else {
                   <span class="ep-footer__brand-glyph" aria-hidden="true"><i class="pi pi-bolt"></i></span>
                 }
-                <div>
-                  <div class="ep-footer__brand-name">
-                    {{ config().logo?.brandName ?? config().logo?.alt }}
-                  </div>
-                  @if (config().tagline) {
-                    <div class="ep-footer__brand-tag">{{ config().tagline }}</div>
+                <div class="ep-footer__brand-text">
+                  @if (brand.brandName) {
+                    <div class="ep-footer__brand-name">{{ brand.brandName }}</div>
+                  }
+                  @if (brand.tagline) {
+                    <div class="ep-footer__brand-tag">{{ brand.tagline }}</div>
+                  }
+                  @if (brand.addressLines?.length && brand.addressLines; as addressLines) {
+                    <address class="ep-footer__address">
+                      @for (line of addressLines; track line) {
+                        <span class="ep-footer__address-line">{{ line }}</span>
+                      }
+                    </address>
                   }
                 </div>
               </div>
+            }
 
-              <!-- Link columns -->
-              @if (config().columns?.length) {
-                <div class="ep-footer__columns">
-                  @for (column of config().columns!; track column.heading) {
-                    <div class="ep-footer__column">
-                      <h3 class="ep-footer__column-heading">{{ column.heading }}</h3>
-                      <ul class="ep-footer__column-links" role="list">
-                        @for (link of column.links; track link.label) {
-                          <li>
-                            <ng-container *ngTemplateOutlet="footerLink; context: { $implicit: link }" />
-                          </li>
-                        }
-                      </ul>
-                    </div>
+            @if (showSocialZone()) {
+              <div class="ep-footer__social">
+                @if (config().social; as social) {
+                  @if (social.links.length) {
+                    @if (social.heading) {
+                      <span class="ep-footer__social-heading">{{ social.heading }}</span>
+                    }
+                    <ul class="ep-footer__social-list" role="list">
+                      @for (link of social.links; track link.platform) {
+                        <li>
+                          <a
+                            [href]="link.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="ep-footer__social-link"
+                            [attr.aria-label]="link.ariaLabel ?? socialAriaLabel(link.platform)"
+                          >
+                            <i [class]="socialIcon(link.platform)" aria-hidden="true"></i>
+                          </a>
+                        </li>
+                      }
+                    </ul>
                   }
-                </div>
-              }
+                }
+                @if (config().accreditation; as ac) {
+                  <div class="ep-footer__accreditation-inline">
+                    @if (ac.externalUrl) {
+                      <a [href]="ac.externalUrl" target="_blank" rel="noopener noreferrer" class="ep-footer__accreditation-link">
+                        <img
+                          [src]="ac.imageSrc"
+                          [alt]="ac.imageAlt"
+                          [width]="ac.imageWidthPx ?? 96"
+                          loading="lazy"
+                          class="ep-footer__accreditation-img"
+                        />
+                      </a>
+                    } @else {
+                      <img
+                        [src]="ac.imageSrc"
+                        [alt]="ac.imageAlt"
+                        [width]="ac.imageWidthPx ?? 96"
+                        loading="lazy"
+                        class="ep-footer__accreditation-img"
+                      />
+                    }
+                    @if (ac.caption) {
+                      <p class="ep-footer__accreditation-caption">{{ ac.caption }}</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
 
-              <!-- Newsletter -->
-              @if (config().newsletter?.enabled) {
+            @if (config().columns?.length && config().columns; as columns) {
+              <div class="ep-footer__columns">
+                @for (column of columns; track column.heading || $index) {
+                  <div
+                    class="ep-footer__column"
+                    [class.ep-footer__column--highlight]="column.tone === 'highlight'"
+                  >
+                    @if (column.heading) {
+                      <h3 class="ep-footer__column-heading">{{ column.heading }}</h3>
+                    }
+                    <ul class="ep-footer__column-links" role="list">
+                      @for (link of column.links; track link.label) {
+                        <li>
+                          <ng-container *ngTemplateOutlet="footerLink; context: { $implicit: link }" />
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (config().newsletter; as newsletter) {
+              @if (newsletter.enabled) {
                 <div class="ep-footer__newsletter">
                   <h3 class="ep-footer__column-heading">
-                    {{ config().newsletter!.heading ?? 'Subscribe to our newsletter' }}
+                    {{ newsletter.heading ?? 'Subscribe to our newsletter' }}
                   </h3>
                   @if (newsletterSubmitted()) {
                     <p class="ep-footer__newsletter-thanks">
                       <i class="pi pi-check-circle text-[color:var(--ep-color-palmetto-700)]" aria-hidden="true"></i>
-                      Thanks! Check your inbox to confirm.
+                      {{ newsletterThanksMessage() }}
                     </p>
                   } @else {
                     <form [formGroup]="newsletterForm" (ngSubmit)="onNewsletterSubmit()" class="ep-footer__newsletter-form">
@@ -154,7 +208,7 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
                         type="email"
                         formControlName="email"
                         class="ep-footer__newsletter-input"
-                        [placeholder]="config().newsletter!.placeholder ?? 'you@example.com'"
+                        [placeholder]="newsletter.placeholder ?? 'you@example.com'"
                         aria-label="Email address"
                         required
                       />
@@ -163,42 +217,24 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
                         class="ep-footer__newsletter-btn"
                         [disabled]="newsletterForm.invalid"
                       >
-                        {{ config().newsletter!.submitLabel ?? 'Subscribe' }}
+                        {{ newsletter.submitLabel ?? 'Subscribe' }}
                       </button>
                     </form>
                   }
                 </div>
               }
-            </div>
-
-            @if (config().social?.length) {
-              <ul class="ep-footer__social" role="list">
-                @for (social of config().social!; track social.platform) {
-                  <li>
-                    <a
-                      [href]="social.url"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="ep-footer__social-link"
-                      [attr.aria-label]="socialAriaLabel(social.platform)"
-                    >
-                      <i [class]="socialIcon(social.platform)" aria-hidden="true"></i>
-                    </a>
-                  </li>
-                }
-              </ul>
             }
           </div>
         </div>
       }
 
-      <!-- ───── COMPLIANCE (full + minimal) ───── -->
-      @if (showCompliance()) {
+      <!-- ── COMPLIANCE (full + minimal) ── -->
+      @if (showCompliance() && config().compliance; as compliance) {
         <div class="ep-footer__compliance">
           <div class="ep-footer__container">
-            @if (config().compliance!.badges?.length) {
+            @if (compliance.badges?.length && compliance.badges; as badges) {
               <ul class="ep-footer__badges" role="list" aria-label="Compliance certifications">
-                @for (badge of config().compliance!.badges!; track badge) {
+                @for (badge of badges; track badge) {
                   <li>
                     <span
                       class="ep-footer__badge"
@@ -212,91 +248,111 @@ const SOCIAL_ICONS: Record<SocialPlatform, string> = {
                 }
               </ul>
             }
-            @if (config().compliance!.disclaimer) {
-              <p class="ep-footer__disclaimer">{{ config().compliance!.disclaimer }}</p>
+            @if (compliance.disclaimer; as disclaimer) {
+              <p class="ep-footer__disclaimer">{{ disclaimer }}</p>
             }
           </div>
         </div>
       }
 
-      <!-- ───── BOTTOM BAR (always) ───── -->
-      <div class="ep-footer__bottom">
-        <div class="ep-footer__container ep-footer__bottom-row">
-          <div class="ep-footer__bottom-left">
-            <span>© {{ copyrightYear() }} {{ config().bottomBar.copyrightOwner }}. All rights reserved.</span>
-            @if (config().bottomBar.appVersion || config().bottomBar.buildId) {
+      <!-- ── UTILITY BAR (full + minimal) ── -->
+      @if (showUtilityBar() && config().utilityBar; as ub) {
+        <div class="ep-footer__utility">
+          <div class="ep-footer__container">
+            <ul class="ep-footer__utility-list" role="list">
+              @for (link of ub.links; track link.label) {
+                <li>
+                  <ng-container *ngTemplateOutlet="footerLink; context: { $implicit: link }" />
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+      }
+
+      <!-- ── COPYRIGHT (always — every variant) ── -->
+      <div class="ep-footer__copyright">
+        <div class="ep-footer__container">
+          <p class="ep-footer__copyright-text">{{ copyrightText() }}</p>
+        </div>
+      </div>
+
+      <!-- ── META: version / build / status-page (full only) ── -->
+      @if (showMeta() && config().meta; as meta) {
+        <div class="ep-footer__meta">
+          <div class="ep-footer__container ep-footer__meta-row">
+            @if (meta.appVersion || meta.buildId) {
               <span
                 class="ep-footer__version-pill"
-                [attr.title]="config().bottomBar.buildId ? 'Build ' + config().bottomBar.buildId : null"
+                [attr.title]="meta.buildId ? 'Build ' + meta.buildId : null"
               >
-                @if (config().bottomBar.appVersion) {
-                  <span>v{{ config().bottomBar.appVersion }}</span>
-                }
-                @if (config().bottomBar.appVersion && config().bottomBar.buildId) {
-                  <span class="opacity-50">·</span>
-                }
-                @if (config().bottomBar.buildId) {
-                  <span class="font-mono">{{ config().bottomBar.buildId!.slice(0, 7) }}</span>
+                @if (meta.appVersion) { <span>v{{ meta.appVersion }}</span> }
+                @if (meta.appVersion && meta.buildId) { <span class="opacity-50">·</span> }
+                @if (meta.buildId) {
+                  <span class="font-mono">{{ meta.buildId.slice(0, 7) }}</span>
                 }
               </span>
             }
-            @if (config().bottomBar.statusPageUrl) {
+            @if (meta.statusPageUrl) {
               <a
-                [href]="config().bottomBar.statusPageUrl!"
+                [href]="meta.statusPageUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="ep-footer__status"
                 aria-label="System status (opens in a new tab)"
               >
                 <span class="ep-footer__status-dot"></span>
-                <span>All systems operational</span>
+                <span>{{ meta.statusLabel ?? defaultStatusLabel }}</span>
               </a>
             }
-          </div>
-
-          <div class="ep-footer__bottom-right">
-            @if (config().bottomBar.links?.length) {
-              <ul class="ep-footer__legal" role="list">
-                @for (link of config().bottomBar.links!; track link.label) {
-                  <li>
-                    <ng-container *ngTemplateOutlet="footerLink; context: { $implicit: link }" />
-                  </li>
-                }
-              </ul>
-            }
-            @if (config().bottomBar.languageSwitcher?.enabled) {
-              <select
-                class="ep-footer__lang"
-                aria-label="Change language"
-                (change)="onFooterLanguageChange($event)"
-              >
-                @for (lang of config().bottomBar.languageSwitcher!.languages; track lang.code) {
-                  <option [value]="lang.code">
-                    {{ lang.flagEmoji ? lang.flagEmoji + ' ' : '' }}{{ lang.label }}
-                  </option>
-                }
-              </select>
+            @if (meta.languageSwitcher; as langSwitcher) {
+              @if (langSwitcher.enabled) {
+                <select
+                  class="ep-footer__lang"
+                  aria-label="Change language"
+                  (change)="onFooterLanguageChange($event)"
+                >
+                  @for (lang of langSwitcher.languages; track lang.code) {
+                    <option [value]="lang.code">
+                      {{ lang.flagEmoji ? lang.flagEmoji + ' ' : '' }}{{ lang.label }}
+                    </option>
+                  }
+                </select>
+              }
             }
           </div>
         </div>
-      </div>
+      }
+
+      <!-- ── FLAG (full only) ── -->
+      @if (showFlag() && config().flag; as flag) {
+        <div class="ep-footer__flag">
+          <img
+            [src]="flag.imageSrc"
+            [alt]="flag.alt"
+            [height]="flag.heightPx ?? 16"
+            loading="lazy"
+            class="ep-footer__flag-img"
+          />
+        </div>
+      }
     </footer>
 
-    <!-- ───── COOKIE CONSENT BAR ───── -->
+    <!-- ── COOKIE CONSENT ── -->
     @if (showCookieConsent()) {
       <div class="ep-cookie" role="region" aria-label="Cookie consent">
         <div class="ep-cookie__inner">
           <p class="ep-cookie__copy">
             <strong>We use cookies.</strong>
-            By clicking "Accept all", you agree to the storing of cookies on your device for analytics + marketing.
-            See our <a href="/cookies" class="underline">cookie policy</a>.
+            {{ cookieBody() }}
+            See our <a [href]="cookiePolicyUrl()" class="underline">{{ cookiePolicyLabel() }}</a>.
           </p>
           <div class="ep-cookie__actions">
             <button type="button" class="ep-cookie__btn ep-cookie__btn--ghost" (click)="rejectCookies()">
-              Reject
+              {{ cookieRejectLabel() }}
             </button>
             <button type="button" class="ep-cookie__btn ep-cookie__btn--filled" (click)="acceptCookies()">
-              Accept all
+              {{ cookieAcceptLabel() }}
             </button>
           </div>
         </div>
@@ -338,24 +394,91 @@ export class PlatformFooterComponent {
     email: ['', [Validators.required, Validators.email]],
   });
 
-  protected readonly copyrightYear = computed(
-    () => this.config().bottomBar.copyrightYear ?? new Date().getFullYear(),
+  protected readonly variant = computed<FooterVariant>(() => this.config().variant);
+
+  /** Default fallback exposed to the template (status pill copy). */
+  protected readonly defaultStatusLabel = DEFAULT_STATUS_LABEL;
+
+  protected readonly newsletterThanksMessage = computed(
+    () => this.config().newsletter?.thanksMessage ?? DEFAULT_NEWSLETTER_THANKS,
   );
 
-  /** Compliance section renders for full + minimal variants. */
-  protected readonly showCompliance = computed(() => {
-    if (this.config().variant === 'app') return false;
-    const c = this.config().compliance;
-    return !!c && (c.badges?.length || c.disclaimer);
+  protected readonly cookieBody = computed(
+    () => this.config().compliance?.cookieConsentLabels?.body ?? DEFAULT_COOKIE_BODY,
+  );
+  protected readonly cookieAcceptLabel = computed(
+    () => this.config().compliance?.cookieConsentLabels?.acceptLabel ?? DEFAULT_COOKIE_ACCEPT,
+  );
+  protected readonly cookieRejectLabel = computed(
+    () => this.config().compliance?.cookieConsentLabels?.rejectLabel ?? DEFAULT_COOKIE_REJECT,
+  );
+  protected readonly cookiePolicyUrl = computed(
+    () => this.config().compliance?.cookieConsentLabels?.policyUrl ?? DEFAULT_COOKIE_POLICY_URL,
+  );
+  protected readonly cookiePolicyLabel = computed(
+    () => this.config().compliance?.cookieConsentLabels?.policyLabel ?? DEFAULT_COOKIE_POLICY_LABEL,
+  );
+
+  /**
+   * Rendered copyright string. Tolerates a missing `copyright` block (e.g.
+   * a legacy-shape wire response mid-deployment) by falling back to a
+   * year-only line — the chrome still renders rather than crashing.
+   */
+  protected readonly copyrightText = computed(() => {
+    const c = this.config().copyright;
+    if (c?.text) return c.text;
+    const year = c?.year ?? new Date().getFullYear();
+    if (!c?.owner) return `© ${year}`;
+    return `© ${year} ${c.owner}. All rights reserved.`;
   });
 
-  /** Cookie bar shows iff configured + not yet dismissed. */
-  protected readonly showCookieConsent = computed(() => {
-    return (
-      this.config().compliance?.cookieConsent === true &&
-      !this.cookieConsentDismissed()
-    );
+  protected readonly showTopRow = computed(
+    () =>
+      this.variant() === 'full' &&
+      !!(
+        this.config().brand ||
+        this.config().social?.links?.length ||
+        this.config().accreditation ||
+        this.config().columns?.length ||
+        this.config().newsletter?.enabled
+      ),
+  );
+
+  /**
+   * Social column renders whenever social links OR an accreditation badge
+   * is configured — the accreditation lives inside the social zone (below
+   * the icons) per the agency-footer layout spec.
+   */
+  protected readonly showSocialZone = computed(
+    () => !!(this.config().social?.links?.length || this.config().accreditation),
+  );
+
+  protected readonly showCompliance = computed(() => {
+    if (this.variant() === 'app') return false;
+    const c = this.config().compliance;
+    return !!c && !!(c.badges?.length || c.disclaimer);
   });
+
+  protected readonly showUtilityBar = computed(() => {
+    if (this.variant() === 'app') return false;
+    return !!this.config().utilityBar?.links?.length;
+  });
+
+  protected readonly showMeta = computed(() => {
+    if (this.variant() !== 'full') return false;
+    const m = this.config().meta;
+    return !!m && !!(m.appVersion || m.buildId || m.statusPageUrl || m.languageSwitcher?.enabled);
+  });
+
+  protected readonly showFlag = computed(
+    () => this.variant() === 'full' && !!this.config().flag,
+  );
+
+  protected readonly showCookieConsent = computed(
+    () =>
+      this.config().compliance?.cookieConsent === true &&
+      !this.cookieConsentDismissed(),
+  );
 
   protected badgeMeta(badge: ComplianceBadge): ComplianceMeta {
     return COMPLIANCE_META[badge];
@@ -373,11 +496,7 @@ export class PlatformFooterComponent {
     if (this.newsletterForm.invalid) return;
     const email = this.newsletterForm.getRawValue().email as string;
     const actionKey = this.config().newsletter?.actionKey ?? 'newsletter.subscribe';
-    this.navAction.emit({
-      source: 'newsletter',
-      actionKey,
-      payload: { email },
-    });
+    this.navAction.emit({ source: 'newsletter', actionKey, payload: { email } });
     this.newsletterSubmitted.set(true);
   }
 
@@ -396,8 +515,6 @@ export class PlatformFooterComponent {
     this.cookieConsentDismissed.set(true);
   }
 
-  // ── localStorage helpers — best-effort (Safari private mode no-ops) ───
-
   private loadCookieDismissed(): boolean {
     try {
       return !!localStorage.getItem(COOKIE_CONSENT_KEY);
@@ -410,7 +527,7 @@ export class PlatformFooterComponent {
     try {
       localStorage.setItem(COOKIE_CONSENT_KEY, value);
     } catch {
-      // No-op — banner will reappear next session.
+      /* swallow — banner will reappear next session */
     }
   }
 }

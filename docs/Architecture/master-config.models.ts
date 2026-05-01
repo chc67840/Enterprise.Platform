@@ -675,6 +675,10 @@ export interface NavbarConfig {
 }
 
 // ─── Footer ────────────────────────────────────────────────────────────────────
+// Composable section blocks. Domains opt in by populating the relevant
+// fields; `variant` is a preset that hides whole sets of blocks for dense
+// surfaces. See `shared/layout/models/nav.models.ts` for the canonical TS
+// definition this mirrors.
 export interface FooterLink {
   readonly label: string;
   readonly routePath?: RoutePath;
@@ -684,8 +688,18 @@ export interface FooterLink {
 }
 
 export interface FooterLinkColumn {
-  readonly heading: string;
+  readonly heading?: string;
+  readonly tone?: 'default' | 'highlight';
   readonly links: readonly FooterLink[];
+}
+
+export interface FooterBrandConfig {
+  readonly imageSrc?: string;
+  readonly alt: string;
+  readonly brandName?: string;
+  readonly tagline?: string;
+  readonly addressLines?: readonly string[];
+  readonly homeRoute?: RoutePath;
 }
 
 export interface FooterNewsletterConfig {
@@ -694,44 +708,79 @@ export interface FooterNewsletterConfig {
   readonly placeholder?: string;
   readonly submitLabel?: string;
   readonly actionKey?: string;
+  readonly thanksMessage?: string;
+}
+
+export interface FooterCookieConsentLabels {
+  readonly body?: string;
+  readonly acceptLabel?: string;
+  readonly rejectLabel?: string;
+  readonly policyUrl?: string;
+  readonly policyLabel?: string;
 }
 
 export interface FooterComplianceConfig {
   readonly badges?: readonly ('soc2' | 'hipaa' | 'iso27001' | 'gdpr' | 'pci' | 'eeoc' | 'finra')[];
   readonly disclaimer?: string;
   readonly cookieConsent?: boolean;
+  readonly cookieConsentLabels?: FooterCookieConsentLabels;
 }
 
 export interface SocialLink {
-  readonly platform: string;   // 'twitter' | 'linkedin' | 'github' | …
+  readonly platform: string;   // 'twitter' | 'linkedin' | 'github' | 'youtube' | 'facebook' | 'instagram' | 'mastodon' | 'discord' | 'rss' | 'tiktok' | 'pinterest'
   readonly url: string;
+  readonly ariaLabel?: string;
 }
 
-export interface FooterBottomBarConfig {
-  readonly copyrightOwner: string;
-  readonly copyrightYear?: number;
+export interface FooterSocialConfig {
+  readonly heading?: string;
+  readonly links: readonly SocialLink[];
+}
+
+export interface FooterAccreditationConfig {
+  readonly imageSrc: string;
+  readonly imageAlt: string;
+  readonly caption?: string;
+  readonly imageWidthPx?: number;
+  readonly externalUrl?: string;
+}
+
+export interface FooterUtilityBarConfig {
+  readonly links: readonly FooterLink[];
+}
+
+export interface FooterCopyrightConfig {
+  readonly owner: string;
+  readonly year?: number;
+  readonly text?: string;
+}
+
+export interface FooterMetaConfig {
   readonly appVersion?: string;
   readonly buildId?: string;
   readonly statusPageUrl?: string;
-  readonly links?: readonly FooterLink[];
+  readonly statusLabel?: string;
   readonly languageSwitcher?: NavLanguageSwitcherConfig;
 }
 
-export interface FooterLogoConfig {
-  readonly imageSrc?: string;
+export interface FooterFlagConfig {
+  readonly imageSrc: string;
   readonly alt: string;
-  readonly brandName?: string;
+  readonly heightPx?: number;
 }
 
 export interface FooterConfig {
   readonly variant: 'full' | 'minimal' | 'app';
-  readonly logo?: FooterLogoConfig;
-  readonly tagline?: string;
+  readonly brand?: FooterBrandConfig;
+  readonly social?: FooterSocialConfig;
   readonly columns?: readonly FooterLinkColumn[];
-  readonly social?: readonly SocialLink[];
   readonly newsletter?: FooterNewsletterConfig;
+  readonly accreditation?: FooterAccreditationConfig;
   readonly compliance?: FooterComplianceConfig;
-  readonly bottomBar: FooterBottomBarConfig;
+  readonly utilityBar?: FooterUtilityBarConfig;
+  readonly copyright?: FooterCopyrightConfig;
+  readonly meta?: FooterMetaConfig;
+  readonly flag?: FooterFlagConfig;
 }
 
 // ─── Composite chrome (what the BFF sends in SessionInfo.chrome) ────────────────

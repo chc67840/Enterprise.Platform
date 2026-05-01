@@ -53,7 +53,7 @@ import {
     PlatformFooterV2Component,
   ],
   template: `
-    <div class="ep-app-shell flex min-h-screen min-w-0 flex-col bg-[color:var(--ep-surface-50)]" style="overflow-x: clip;">
+    <div class="ep-app-shell flex min-w-0 flex-col bg-[color:var(--ep-surface-50)]" style="overflow-x: clip;">
       <app-platform-navbar
         [config]="navbarConfig()"
         [userProfile]="userProfile()"
@@ -83,7 +83,7 @@ import {
           <app-sub-nav-orchestrator (action)="onPageHeaderAction($event)" />
 
           <main
-            class="ep-app-shell__main mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] flex-1 px-4 py-6 sm:px-6"
+            class="ep-app-shell__main mx-auto w-full min-w-0 max-w-[var(--ep-content-max)] px-4 py-6 sm:px-6"
             style="overflow-x: clip; overscroll-behavior: contain;"
             role="main"
             id="main-content"
@@ -105,6 +105,30 @@ import {
     </div>
   `,
   styles: [`
+    /*
+     * Shell sits inside body's --ep-shell-inset gutter. Min-height clamps
+     * to the inset-corrected viewport so the sticky-footer pattern stays
+     * intact (footer pins to viewport bottom on short pages) without
+     * causing body to overflow vertically by the inset amount.
+     *
+     * The 1px hairline + matching border-radius reads as a subtle "browser
+     * window" frame around the floating card; --ep-border-subtle is the
+     * lightest neutral border token (theme-swappable in dark mode).
+     */
+    .ep-app-shell {
+      min-height: calc(100dvh - 2 * var(--ep-shell-inset, 0px));
+      border: 1px solid var(--ep-border-subtle);
+      border-radius: var(--ep-nav-radius-top);
+    }
+    /*
+     * Body absorbs shell slack via flex:1 so the footer pins to the
+     * viewport bottom on short pages (sticky-footer pattern). In row
+     * mode (sidebar), align-items:flex-start keeps main-col content-
+     * height — without it main-col would stretch to body height and
+     * push padded slack inside main-col instead of inside body. The
+     * side-nav uses align-self:stretch to OVERRIDE flex-start so the
+     * rail's bg fills the body height regardless.
+     */
     .ep-app-shell__body {
       display: flex;
       flex-direction: column;
@@ -113,11 +137,8 @@ import {
     }
     .ep-app-shell__body--with-sidebar {
       flex-direction: row;
-      align-items: stretch;
+      align-items: flex-start;
     }
-    /* Right-side stack inside the sidebar layout: sub-nav header sits on
-       top of the routed view; both share the column so the sidebar can
-       run flush against the navbar without gap. */
     .ep-app-shell__main-col {
       display: flex;
       flex-direction: column;

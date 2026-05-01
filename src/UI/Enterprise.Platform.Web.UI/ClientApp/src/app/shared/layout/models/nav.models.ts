@@ -501,8 +501,28 @@ export interface NavbarConfig {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 6 — Footer
 // ═══════════════════════════════════════════════════════════════════════════════
+//
+// The footer is a composable list of optional section blocks. The renderer
+// stamps each block in a fixed visual order; domains opt into whichever
+// blocks they need by populating the corresponding field. This generalises
+// to public-sector / agency / consumer footers as well as the standard
+// SaaS "logo + columns + newsletter + bottom bar" arrangement.
+//
+// VISUAL ORDER (top → bottom)
+//   1. brand + social + columns + newsletter   (responsive row)
+//   2. accreditation                           (centered badge + caption)
+//   3. compliance                              (badges + disclaimer)
+//   4. utilityBar                              (hairline-separated links row)
+//   5. copyright                               (centered)
+//   6. meta                                    (version / build / status pill)
+//   7. flag                                    (small image, e.g. country flag)
+//
+// `variant` is a preset. `'full'` renders every populated block; `'minimal'`
+// hides the top row + accreditation + meta + flag (compliance + utility +
+// copyright remain); `'app'` collapses to copyright only. Domains override
+// the preset by populating / nulling the relevant fields.
 
-/** A single link in a footer column or bottom-bar legal list. */
+/** Single link in any footer block. */
 export interface FooterLink {
   readonly label: string;
   readonly routePath?: RoutePath;
@@ -511,30 +531,50 @@ export interface FooterLink {
   readonly badge?: NavBadge;
 }
 
-/** A column of footer links (Product, Company, Support, Legal etc.). */
+/**
+ * Column tone — drives the column's link styling.
+ *   - `'default'`   neutral text-on-dark
+ *   - `'highlight'` brand-accent (yellow) underlined links — used by public-
+ *                   sector / agency footers to surface "important" link sets
+ *                   (Privacy / FOI / Jobs etc.)
+ */
+export type FooterColumnTone = 'default' | 'highlight';
+
+/** A column of footer links. Heading is optional — agency footers often omit. */
 export interface FooterLinkColumn {
-  readonly heading: string;
+  readonly heading?: string;
+  readonly tone?: FooterColumnTone;
   readonly links: readonly FooterLink[];
 }
 
-/** Newsletter sign-up widget shown in the footer top section. */
+/**
+ * Brand block — logo + optional tagline + optional multi-line address. The
+ * address lines render in document order under the brand name; common use
+ * cases are agency mailing addresses, regional HQ identifiers, etc.
+ */
+export interface FooterBrandConfig {
+  readonly imageSrc?: string;
+  readonly alt: string;
+  readonly brandName?: string;
+  readonly tagline?: string;
+  readonly addressLines?: readonly string[];
+  /** Optional home link — wraps the logo in an anchor when present. */
+  readonly homeRoute?: RoutePath;
+}
+
+/** Newsletter sign-up widget shown in the footer top row. */
 export interface FooterNewsletterConfig {
   readonly enabled: boolean;
   readonly heading?: string;
   readonly placeholder?: string;
   readonly submitLabel?: string;
-  /**
-   * Action key emitted via `(navAction)` on submit. The shell handles the
-   * actual HTTP call so the footer stays free of business code.
-   */
+  /** Action key emitted via `(navAction)` on submit; host owns the HTTP call. */
   readonly actionKey?: string;
+  /** Confirmation copy shown after submit. Default "Thanks! Check your inbox to confirm." */
+  readonly thanksMessage?: string;
 }
 
-/**
- * Compliance certifications + legal disclaimer + cookie consent prompt.
- * `cookieConsent` ON renders the dismissible bottom-of-viewport bar; off
- * means the host has another mechanism (server-side prompt etc.).
- */
+/** Compliance certifications + legal disclaimer + cookie-consent prompt. */
 export type ComplianceBadge =
   | 'soc2'
   | 'hipaa'
@@ -548,11 +588,28 @@ export interface FooterComplianceConfig {
   readonly badges?: readonly ComplianceBadge[];
   /** Long-form disclaimer body; renderer caps width to ~800 px. */
   readonly disclaimer?: string;
-  /** When true, render the cookie-consent bar (only if not yet dismissed). */
+  /** When true, render the dismissible cookie-consent bar. */
   readonly cookieConsent?: boolean;
+  /** Optional content overrides for the cookie-consent bar. */
+  readonly cookieConsentLabels?: FooterCookieConsentLabels;
 }
 
-/** Social-media shortcuts row. Icon + URL pairs. */
+/**
+ * Optional content overrides for the cookie-consent bar. Every field has
+ * a sensible English default in the renderer; supply only the strings you
+ * need to localise / re-word.
+ */
+export interface FooterCookieConsentLabels {
+  /** Body copy. Default: standard "We use cookies…" sentence. */
+  readonly body?: string;
+  readonly acceptLabel?: string;
+  readonly rejectLabel?: string;
+  /** Inline policy link href. Defaults to `/cookies`. */
+  readonly policyUrl?: string;
+  readonly policyLabel?: string;
+}
+
+/** Social-media shortcut platforms. `rss` covers feed icons. */
 export type SocialPlatform =
   | 'twitter'
   | 'linkedin'
@@ -561,55 +618,104 @@ export type SocialPlatform =
   | 'facebook'
   | 'instagram'
   | 'mastodon'
-  | 'discord';
+  | 'discord'
+  | 'rss'
+  | 'tiktok'
+  | 'pinterest';
 
 export interface SocialLink {
   readonly platform: SocialPlatform;
   readonly url: string;
+  /** Optional override for the accessible label. Defaults to platform name. */
+  readonly ariaLabel?: string;
+}
+
+/** Social-icon row with an optional heading next to the icons ("Follow Us:" etc). */
+export interface FooterSocialConfig {
+  readonly heading?: string;
+  readonly links: readonly SocialLink[];
 }
 
 /**
- * Bottom strip of the footer — copyright + version + status link + legal
- * links + (optional) language switch. Always rendered for every variant.
+ * Centered accreditation block — round badge image with caption. Common in
+ * public-sector / healthcare footers (e.g. PHAB, accrediting bodies, ISO).
+ * The badge can optionally link out (accreditor's site).
  */
-export interface FooterBottomBarConfig {
-  readonly copyrightOwner: string;
+export interface FooterAccreditationConfig {
+  readonly imageSrc: string;
+  readonly imageAlt: string;
+  readonly caption?: string;
+  /** Pixel width — height auto-scales. Defaults to 96 px. */
+  readonly imageWidthPx?: number;
+  readonly externalUrl?: string;
+}
+
+/**
+ * Hairline-separated utility row — typically site-wide secondary links
+ * (privacy / help / contact / accessibility / mobile-app downloads). One
+ * line, evenly distributed; wraps on narrow viewports.
+ */
+export interface FooterUtilityBarConfig {
+  readonly links: readonly FooterLink[];
+}
+
+/**
+ * Centered copyright block. `text` overrides the default
+ * "© {year} {owner}. All rights reserved." format when domains need a
+ * different phrasing ("Copyright © 2026 State of South Carolina").
+ */
+export interface FooterCopyrightConfig {
+  readonly owner: string;
   /** Default = current year. */
-  readonly copyrightYear?: number;
-  /** Rendered as a monospace pill. Tooltip carries the full build hash. */
+  readonly year?: number;
+  /** Full override of the rendered string. */
+  readonly text?: string;
+}
+
+/** Build / version / status-page row — secondary trust signal for SaaS. */
+export interface FooterMetaConfig {
   readonly appVersion?: string;
-  /** Long build identifier (commit / CI build id); shown abbreviated. */
   readonly buildId?: string;
-  /** Status-page URL — renderer adds the green pulse dot. */
   readonly statusPageUrl?: string;
-  readonly links?: readonly FooterLink[];
+  /** Status pill copy. Default "All systems operational". */
+  readonly statusLabel?: string;
   readonly languageSwitcher?: NavLanguageSwitcherConfig;
 }
 
-/** Footer variant — drives which sections render. */
-export type FooterVariant =
-  /** Top section + compliance + bottom bar. */
-  | 'full'
-  /** Compliance + bottom bar only. Used on dense app surfaces. */
-  | 'minimal'
-  /** Bottom bar only. Used inside embedded app frames. */
-  | 'app';
-
-export interface FooterLogoConfig {
-  readonly imageSrc?: string;
+/** Tiny image badge — country flag, accessibility seal, etc. */
+export interface FooterFlagConfig {
+  readonly imageSrc: string;
   readonly alt: string;
-  readonly brandName?: string;
+  readonly heightPx?: number;
 }
 
+/**
+ * Footer variant — preset arrangement of which blocks render.
+ *   - `'full'`    every populated block renders.
+ *   - `'minimal'` brand row + accreditation + meta + flag suppressed.
+ *   - `'app'`     copyright only (everything else suppressed).
+ */
+export type FooterVariant = 'full' | 'minimal' | 'app';
+
+/**
+ * Whole-footer config. Every section is optional including `copyright` —
+ * the renderer falls back to `© {currentYear}` when absent. Reason: the
+ * SPA hydrates from a wire response (BFF JSON) that may briefly emit the
+ * legacy shape during a deployment, and a hard-required field would
+ * crash the chrome on first paint instead of degrading gracefully.
+ */
 export interface FooterConfig {
   readonly variant: FooterVariant;
-  readonly logo?: FooterLogoConfig;
-  readonly tagline?: string;
+  readonly brand?: FooterBrandConfig;
+  readonly social?: FooterSocialConfig;
   readonly columns?: readonly FooterLinkColumn[];
-  readonly social?: readonly SocialLink[];
   readonly newsletter?: FooterNewsletterConfig;
+  readonly accreditation?: FooterAccreditationConfig;
   readonly compliance?: FooterComplianceConfig;
-  readonly bottomBar: FooterBottomBarConfig;
+  readonly utilityBar?: FooterUtilityBarConfig;
+  readonly copyright?: FooterCopyrightConfig;
+  readonly meta?: FooterMetaConfig;
+  readonly flag?: FooterFlagConfig;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -73,13 +73,20 @@ export type {
   NavNotificationLevel,
 
   // ── footer ───────────────────────────────────────────────────────────────
-  FooterBottomBarConfig,
+  FooterAccreditationConfig,
+  FooterBrandConfig,
+  FooterColumnTone,
   FooterComplianceConfig,
   FooterConfig,
+  FooterCookieConsentLabels,
+  FooterCopyrightConfig,
+  FooterFlagConfig,
   FooterLink,
   FooterLinkColumn,
-  FooterLogoConfig,
+  FooterMetaConfig,
   FooterNewsletterConfig,
+  FooterSocialConfig,
+  FooterUtilityBarConfig,
   FooterVariant,
 } from './models/nav.models';
 

@@ -36,7 +36,12 @@
 html,
 body {
   height: 100%;
-  background: var(--ep-surface-0);
+  // Doc-level surface — uses the "sunken" tier so the inset gutter painted
+  // by `body { padding: var(--ep-shell-inset) }` reads as a tinted backdrop
+  // BEHIND the .ep-app-shell card (which still paints --ep-surface-50). If
+  // body and the shell painted the same colour the gutter would visually
+  // disappear into the card.
+  background: var(--ep-bg-sunken);
   color: var(--ep-text-primary);
 }
 
@@ -58,6 +63,11 @@ html {
 
 body {
   margin: 0;
+  // Document-level gutter — paints --ep-surface-50 around the shell so the
+  // app-shell reads as a floating, fully-rounded card. Tailwind preflight
+  // sets box-sizing:border-box globally, so this padding is absorbed by
+  // body's 100% height rather than overflowing html.
+  padding: var(--ep-shell-inset);
   // Primary face — Noto Sans w/ deep system fallback. Every page paints
   // with the right typeface even before web-font swap completes.
   font-family: var(--ep-font-primary);
@@ -80,12 +90,12 @@ body {
   body {
     height: auto !important;
     overflow: visible !important;
+    padding: 0 !important;
   }
 
   .ep-navbar,
   .ep-mobile-menu,
   .ep-mobile-backdrop,
-  .ep-footer__accent,
   app-status-banner-host,
   p-toast,
   p-confirmdialog {

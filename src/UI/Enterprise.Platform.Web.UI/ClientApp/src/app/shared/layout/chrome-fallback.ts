@@ -132,43 +132,68 @@ const NAVBAR: NavbarConfig = {
 
 const FOOTER: FooterConfig = {
   variant: 'full',
-  logo: { alt: 'Enterprise Platform', brandName: 'Enterprise Platform' },
-  tagline: 'Workspace',
+  brand: {
+    imageSrc: '/rounded_logo_svg.svg',
+    alt: 'Enterprise Platform',
+    brandName: 'Enterprise Platform',
+    tagline: 'Workspace',
+    addressLines: [
+      'Enterprise Platform HQ',
+      '400 Otarre Parkway',
+      'Cayce, SC 29033',
+    ],
+    homeRoute: '/dashboard',
+  },
+  social: {
+    heading: 'Follow Us:',
+    links: [
+      { platform: 'facebook', url: 'https://facebook.com/enterprise-platform' },
+      { platform: 'linkedin', url: 'https://linkedin.com/company/enterprise-platform' },
+      { platform: 'rss',      url: 'https://example.com/feed.xml' },
+      { platform: 'twitter',  url: 'https://twitter.com/enterprise_platform' },
+      { platform: 'youtube',  url: 'https://youtube.com/@enterprise-platform' },
+    ],
+  },
   columns: [
     {
-      heading: 'Product',
+      tone: 'highlight',
       links: [
-        { label: 'Dashboard', routePath: '/dashboard' },
-        { label: 'Users',     routePath: '/users' },
-        { label: 'Reports',   routePath: '/reports' },
+        { label: 'News',          externalUrl: 'https://example.com/news' },
+        { label: 'Contact Us',    externalUrl: 'https://example.com/contact' },
+        { label: 'Pay an Invoice', externalUrl: 'https://example.com/billing' },
       ],
     },
     {
-      heading: 'Support',
+      tone: 'highlight',
       links: [
-        { label: 'Help',    externalUrl: 'https://docs.example.com' },
-        { label: 'Contact', externalUrl: 'mailto:support@example.com' },
-      ],
-    },
-    {
-      heading: 'Legal',
-      links: [
-        { label: 'Privacy', externalUrl: 'https://example.com/privacy' },
-        { label: 'Terms',   externalUrl: 'https://example.com/terms' },
+        { label: 'Privacy Policy & Accessibility', externalUrl: 'https://example.com/privacy' },
+        { label: 'Request Public Records (FOI)',   externalUrl: 'https://example.com/foi' },
+        { label: 'Jobs & Careers',                 externalUrl: 'https://example.com/careers' },
       ],
     },
   ],
+  accreditation: {
+    imageSrc: '/rounded_logo_svg.svg',
+    imageAlt: 'Accredited platform — verified by an independent body',
+    caption: 'Enterprise Platform is an independently accredited platform for enterprise workloads.',
+    imageWidthPx: 96,
+  },
   compliance: {
     badges: ['soc2', 'gdpr'],
     cookieConsent: true,
   },
-  bottomBar: {
-    copyrightOwner: 'Enterprise Platform Inc.',
+  utilityBar: {
     links: [
-      { label: 'Privacy',       externalUrl: 'https://example.com/privacy' },
-      { label: 'Terms',         externalUrl: 'https://example.com/terms' },
-      { label: 'Accessibility', externalUrl: 'https://example.com/accessibility' },
+      { label: 'Home',                  routePath: '/' },
+      { label: 'Privacy & Security',    externalUrl: 'https://example.com/privacy' },
+      { label: 'Help Center',           externalUrl: 'https://example.com/help' },
+      { label: 'Contact',               externalUrl: 'https://example.com/contact' },
+      { label: 'Download Adobe Reader', externalUrl: 'https://get.adobe.com/reader/' },
     ],
+  },
+  copyright: {
+    owner: 'Enterprise Platform Inc.',
+    text: `Copyright © ${new Date().getFullYear()} Enterprise Platform Inc.`,
   },
 };
 
@@ -206,6 +231,6 @@ export const MINIMAL_FALLBACK_CHROME: ChromeConfig = {
   },
   footer: {
     variant: 'app',
-    bottomBar: { copyrightOwner: 'Enterprise Platform Inc.' },
+    copyright: { owner: 'Enterprise Platform Inc.' },
   },
 };

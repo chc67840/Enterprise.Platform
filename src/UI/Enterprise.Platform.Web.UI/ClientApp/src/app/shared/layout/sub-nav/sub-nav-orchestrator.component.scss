@@ -1,4 +1,22 @@
-:host { display: block; }
+/*
+ * Sticky directly under the navbar. Pinned to viewport-top + nav-height so
+ * it scrolls in place while page content scrolls beneath. Bg is opaque
+ * (--ep-surface-50) so scrolled content doesn't bleed through.
+ *
+ * z-index sits below the navbar (30) but above ordinary page content so
+ * the nav-menu's hamburger flyout / popover overlays can still draw above
+ * if they need to.
+ */
+:host {
+  display: block;
+  position: sticky;
+  // Pin below the navbar's stuck position. The navbar pins at
+  // `top: var(--ep-shell-inset)` so the sub-nav must add the navbar's
+  // own height on top of that to land flush against its bottom edge.
+  top: calc(var(--nav-height, 64px) + var(--ep-shell-inset, 0px));
+  z-index: 20;
+  background-color: var(--ep-surface-50);
+}
 .ep-sub-nav__container {
   max-width: var(--ep-content-max);
   margin: 0 auto;

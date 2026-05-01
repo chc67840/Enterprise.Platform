@@ -59,7 +59,12 @@
 @media print {
   .ep-navbar { border-radius: 0; box-shadow: none; }
 }
-.ep-navbar--sticky { position: sticky; top: 0; }
+/*
+ * Sticky offset references --ep-shell-inset so the document-level gutter
+ * painted by `body { padding }` stays visible while the navbar pins. Falls
+ * back to 0 if the token is unset (e.g. a print stylesheet zeros it out).
+ */
+.ep-navbar--sticky { position: sticky; top: var(--ep-shell-inset, 0px); }
 /*
  * Glass-morphism on scroll — intentionally a no-op. The earlier
  * implementation dropped opacity to 88% + applied backdrop-blur,

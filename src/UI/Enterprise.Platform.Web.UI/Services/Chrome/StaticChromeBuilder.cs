@@ -138,55 +138,76 @@ public sealed class StaticChromeBuilder : IChromeBuilder
 
     private static FooterConfigDto BuildFooter() => new(
         Variant: "full",
-        Logo: new FooterLogoConfigDto(
-            ImageSrc: null,
+        Brand: new FooterBrandConfigDto(
+            ImageSrc: "/rounded_logo_svg.svg",
             Alt: "Enterprise Platform",
-            BrandName: "Enterprise Platform"),
-        Tagline: "Workspace",
+            BrandName: "Enterprise Platform",
+            Tagline: "Workspace",
+            AddressLines:
+            [
+                "Enterprise Platform HQ",
+                "400 Otarre Parkway",
+                "Cayce, SC 29033",
+            ],
+            HomeRoute: "/dashboard"),
+        Social: new FooterSocialConfigDto(
+            Heading: "Follow Us:",
+            Links:
+            [
+                new SocialLinkDto("facebook", "https://facebook.com/enterprise-platform",          null),
+                new SocialLinkDto("linkedin", "https://linkedin.com/company/enterprise-platform",  null),
+                new SocialLinkDto("rss",      "https://example.com/feed.xml",                       null),
+                new SocialLinkDto("twitter",  "https://twitter.com/enterprise_platform",            null),
+                new SocialLinkDto("youtube",  "https://youtube.com/@enterprise-platform",           null),
+            ]),
         Columns:
         [
             new FooterLinkColumnDto(
-                Heading: "Product",
+                Heading: null,
+                Tone: "highlight",
                 Links:
                 [
-                    new FooterLinkDto("Dashboard", "/dashboard", null, null, null),
-                    new FooterLinkDto("Users",     "/users",     null, null, null),
-                    new FooterLinkDto("Reports",   "/reports",   null, null, null),
+                    new FooterLinkDto("News",           null, "https://example.com/news",     null, null),
+                    new FooterLinkDto("Contact Us",     null, "https://example.com/contact",  null, null),
+                    new FooterLinkDto("Pay an Invoice", null, "https://example.com/billing",  null, null),
                 ]),
             new FooterLinkColumnDto(
-                Heading: "Support",
+                Heading: null,
+                Tone: "highlight",
                 Links:
                 [
-                    new FooterLinkDto("Help",    null, "https://docs.example.com", null, null),
-                    new FooterLinkDto("Contact", null, "mailto:support@example.com", null, null),
-                ]),
-            new FooterLinkColumnDto(
-                Heading: "Legal",
-                Links:
-                [
-                    new FooterLinkDto("Privacy", null, "https://example.com/privacy", null, null),
-                    new FooterLinkDto("Terms",   null, "https://example.com/terms",   null, null),
+                    new FooterLinkDto("Privacy Policy & Accessibility", null, "https://example.com/privacy", null, null),
+                    new FooterLinkDto("Request Public Records (FOI)",   null, "https://example.com/foi",     null, null),
+                    new FooterLinkDto("Jobs & Careers",                 null, "https://example.com/careers", null, null),
                 ]),
         ],
-        Social: null,
         Newsletter: null,
+        Accreditation: new FooterAccreditationConfigDto(
+            ImageSrc: "/rounded_logo_svg.svg",
+            ImageAlt: "Accredited platform — verified by an independent body",
+            Caption: "Enterprise Platform is an independently accredited platform for enterprise workloads.",
+            ImageWidthPx: 96,
+            ExternalUrl: null),
         Compliance: new FooterComplianceConfigDto(
             Badges: ["soc2", "gdpr"],
             Disclaimer: null,
-            CookieConsent: true),
-        BottomBar: new FooterBottomBarConfigDto(
-            CopyrightOwner: "Enterprise Platform Inc.",
-            CopyrightYear: null,
-            AppVersion: null,
-            BuildId: null,
-            StatusPageUrl: null,
+            CookieConsent: true,
+            CookieConsentLabels: null),
+        UtilityBar: new FooterUtilityBarConfigDto(
             Links:
             [
-                new FooterLinkDto("Privacy",       null, "https://example.com/privacy",       null, null),
-                new FooterLinkDto("Terms",         null, "https://example.com/terms",         null, null),
-                new FooterLinkDto("Accessibility", null, "https://example.com/accessibility", null, null),
-            ],
-            LanguageSwitcher: null));
+                new FooterLinkDto("Home",                  "/",  null,                            null, null),
+                new FooterLinkDto("Privacy & Security",    null, "https://example.com/privacy",   null, null),
+                new FooterLinkDto("Help Center",           null, "https://example.com/help",      null, null),
+                new FooterLinkDto("Contact",               null, "https://example.com/contact",   null, null),
+                new FooterLinkDto("Download Adobe Reader", null, "https://get.adobe.com/reader/", null, null),
+            ]),
+        Copyright: new FooterCopyrightConfigDto(
+            Owner: "Enterprise Platform Inc.",
+            Year: null,
+            Text: null),
+        Meta: null,
+        Flag: null);
 
     // ── factories — keep per-item construction terse + readable ────────────
 
