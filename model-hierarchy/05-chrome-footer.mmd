@@ -1,0 +1,168 @@
+---
+title: Chrome — Footer Composable Section Blocks
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class FooterConfig {
+    <<interface>>
+    +readonly variant : FooterVariant
+    +readonly brand? : FooterBrandConfig
+    +readonly social? : FooterSocialConfig
+    +readonly columns? : readonly FooterLinkColumn[]
+    +readonly newsletter? : FooterNewsletterConfig
+    +readonly accreditation? : FooterAccreditationConfig
+    +readonly compliance? : FooterComplianceConfig
+    +readonly utilityBar? : FooterUtilityBarConfig
+    +readonly copyright? : FooterCopyrightConfig
+    +readonly meta? : FooterMetaConfig
+    +readonly flag? : FooterFlagConfig
+  }
+
+  class FooterVariant {
+    <<type>>
+    'full' | 'minimal' | 'app'
+  }
+
+  class FooterBrandConfig {
+    <<interface>>
+    +readonly imageSrc? : string
+    +readonly alt : string
+    +readonly brandName? : string
+    +readonly tagline? : string
+    +readonly addressLines? : readonly string[]
+    +readonly homeRoute? : RoutePath
+  }
+
+  class FooterSocialConfig {
+    <<interface>>
+    +readonly heading? : string
+    +readonly links : readonly SocialLink[]
+  }
+
+  class SocialLink {
+    <<interface>>
+    +readonly platform : SocialPlatform
+    +readonly url : string
+    +readonly ariaLabel? : string
+  }
+
+  class SocialPlatform {
+    <<type>>
+    twitter | linkedin | github | youtube | facebook |
+    instagram | mastodon | discord | rss | tiktok | pinterest
+  }
+
+  class FooterLinkColumn {
+    <<interface>>
+    +readonly heading? : string
+    +readonly tone? : FooterColumnTone
+    +readonly links : readonly FooterLink[]
+  }
+
+  class FooterColumnTone {
+    <<type>>
+    'default' | 'highlight'
+  }
+
+  class FooterLink {
+    <<interface>>
+    +readonly label : string
+    +readonly routePath? : RoutePath
+    +readonly externalUrl? : string
+    +readonly icon? : IconClass
+    +readonly badge? : NavBadge
+  }
+
+  class FooterNewsletterConfig {
+    <<interface>>
+    +readonly enabled : boolean
+    +readonly heading? : string
+    +readonly placeholder? : string
+    +readonly submitLabel? : string
+    +readonly actionKey? : string
+    +readonly thanksMessage? : string
+  }
+
+  class FooterAccreditationConfig {
+    <<interface>>
+    +readonly imageSrc : string
+    +readonly imageAlt : string
+    +readonly caption? : string
+    +readonly imageWidthPx? : number
+    +readonly externalUrl? : string
+  }
+
+  class FooterComplianceConfig {
+    <<interface>>
+    +readonly badges? : readonly ComplianceBadge[]
+    +readonly disclaimer? : string
+    +readonly cookieConsent? : boolean
+    +readonly cookieConsentLabels? : FooterCookieConsentLabels
+  }
+
+  class ComplianceBadge {
+    <<type>>
+    soc2 | hipaa | iso27001 | gdpr | pci | eeoc | finra
+  }
+
+  class FooterCookieConsentLabels {
+    <<interface>>
+    +readonly body? : string
+    +readonly acceptLabel? : string
+    +readonly rejectLabel? : string
+    +readonly policyUrl? : string
+    +readonly policyLabel? : string
+  }
+
+  class FooterUtilityBarConfig {
+    <<interface>>
+    +readonly links : readonly FooterLink[]
+  }
+
+  class FooterCopyrightConfig {
+    <<interface>>
+    +readonly owner : string
+    +readonly year? : number
+    +readonly text? : string
+  }
+
+  class FooterMetaConfig {
+    <<interface>>
+    +readonly appVersion? : string
+    +readonly buildId? : string
+    +readonly statusPageUrl? : string
+    +readonly statusLabel? : string
+    +readonly languageSwitcher? : NavLanguageSwitcherConfig
+  }
+
+  class FooterFlagConfig {
+    <<interface>>
+    +readonly imageSrc : string
+    +readonly alt : string
+    +readonly heightPx? : number
+  }
+
+  FooterConfig --> FooterVariant : uses
+  FooterConfig o-- FooterBrandConfig : optional
+  FooterConfig o-- FooterSocialConfig : optional
+  FooterConfig o-- FooterLinkColumn : "columns[]"
+  FooterConfig o-- FooterNewsletterConfig : optional
+  FooterConfig o-- FooterAccreditationConfig : optional
+  FooterConfig o-- FooterComplianceConfig : optional
+  FooterConfig o-- FooterUtilityBarConfig : optional
+  FooterConfig o-- FooterCopyrightConfig : optional
+  FooterConfig o-- FooterMetaConfig : optional
+  FooterConfig o-- FooterFlagConfig : optional
+
+  FooterSocialConfig *-- SocialLink : "links[]"
+  SocialLink --> SocialPlatform : uses
+  FooterLinkColumn --> FooterColumnTone : uses
+  FooterLinkColumn *-- FooterLink : "links[]"
+  FooterUtilityBarConfig *-- FooterLink : "links[]"
+  FooterComplianceConfig --> ComplianceBadge : "badges[]"
+  FooterComplianceConfig *-- FooterCookieConsentLabels : optional
+
+  note for FooterConfig "Composable: domains stamp only the surfaces\nthey need. variant is a preset that hides\nwhole sets of blocks for dense surfaces."
+  note for FooterCopyrightConfig "Optional on the wire — renderer falls\nback to '© {year}' on missing block.\nGuards against legacy-shape responses."

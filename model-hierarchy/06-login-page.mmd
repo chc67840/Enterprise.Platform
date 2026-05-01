@@ -1,0 +1,133 @@
+---
+title: Login Page — LoginPageConfig + sub-types
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class LoginPageConfig {
+    <<interface>>
+    +readonly variant? : LoginLayoutVariant
+    +readonly brand : LoginBrandConfig
+    +readonly hero? : LoginHeroConfig
+    +readonly providers : readonly LoginProviderConfig[]
+    +readonly compliance? : FooterComplianceConfig
+    +readonly company? : LoginCompanyConfig
+    +readonly helpLinks? : readonly FooterLink[]
+    +readonly legalFooter? : LoginLegalFooterConfig
+    +readonly languageSwitcher? : NavLanguageSwitcherConfig
+    +readonly statusBanner? : LoginStatusBanner
+    +readonly background? : LoginBackgroundConfig
+  }
+
+  class LoginLayoutVariant {
+    <<type>>
+    'centered' | 'split' | 'fullscreen'
+  }
+
+  class LoginBrandConfig {
+    <<interface>>
+    +readonly logoSrc? : string
+    +readonly logoAlt : string
+    +readonly productName : string
+    +readonly tagline? : string
+    +readonly logoMaxHeightPx? : number
+  }
+
+  class LoginHeroConfig {
+    <<interface>>
+    +readonly headline : string
+    +readonly description? : string
+    +readonly bullets? : readonly LoginHeroBullet[]
+    +readonly imageSrc? : string
+    +readonly backgroundGradient? : string
+  }
+
+  class LoginHeroBullet {
+    <<interface>>
+    +readonly icon? : string
+    +readonly text : string
+  }
+
+  class LoginProviderConfig {
+    <<interface>>
+    +readonly providerKey : LoginProviderKey
+    +readonly label : string
+    +readonly iconClass? : string
+    +readonly entraPrompt? : 'login' | 'select_account' | 'consent' | 'none'
+    +readonly disabled? : boolean
+    +readonly disabledReason? : string
+    +readonly badge? : NavBadge
+    +readonly returnUrl? : string
+  }
+
+  class LoginProviderKey {
+    <<type>>
+    microsoft | google | apple | github | okta |
+    auth0 | saml | oidc-generic | local
+  }
+
+  class LoginCompanyConfig {
+    <<interface>>
+    +readonly displayName? : string
+    +readonly addressLines? : readonly string[]
+    +readonly supportEmail? : string
+    +readonly supportPhone? : string
+    +readonly supportLabel? : string
+  }
+
+  class LoginLegalFooterConfig {
+    <<interface>>
+    +readonly copyright? : FooterCopyrightConfig
+    +readonly links? : readonly FooterLink[]
+  }
+
+  class LoginStatusBanner {
+    <<interface>>
+    +readonly severity : LoginStatusBannerSeverity
+    +readonly title? : string
+    +readonly message : string
+    +readonly dismissible? : boolean
+  }
+
+  class LoginStatusBannerSeverity {
+    <<type>>
+    'info' | 'success' | 'warning' | 'danger'
+  }
+
+  class LoginBackgroundConfig {
+    <<interface>>
+    +readonly kind : LoginBackgroundKind
+    +readonly gradient? : string
+    +readonly imageSrc? : string
+    +readonly imagePositionMobile? : 'cover' | 'contain' | 'top'
+    +readonly tokenAlias? : string
+  }
+
+  class LoginBackgroundKind {
+    <<type>>
+    'gradient' | 'image' | 'pattern' | 'solid'
+  }
+
+  LoginPageConfig --> LoginLayoutVariant : uses
+  LoginPageConfig *-- LoginBrandConfig : composes
+  LoginPageConfig o-- LoginHeroConfig : optional
+  LoginPageConfig *-- LoginProviderConfig : "providers[]"
+  LoginPageConfig o-- LoginCompanyConfig : optional
+  LoginPageConfig o-- LoginLegalFooterConfig : optional
+  LoginPageConfig o-- LoginStatusBanner : optional
+  LoginPageConfig o-- LoginBackgroundConfig : optional
+
+  LoginHeroConfig *-- LoginHeroBullet : "bullets[]"
+  LoginProviderConfig --> LoginProviderKey : uses
+  LoginStatusBanner --> LoginStatusBannerSeverity : uses
+  LoginBackgroundConfig --> LoginBackgroundKind : uses
+
+  LoginPageConfig ..> FooterComplianceConfig : reuses
+  LoginPageConfig ..> FooterLink : "helpLinks[]"
+  LoginPageConfig ..> NavLanguageSwitcherConfig : reuses
+  LoginLegalFooterConfig ..> FooterCopyrightConfig : reuses
+  LoginLegalFooterConfig ..> FooterLink : "links[]"
+
+  note for LoginPageConfig "brand + providers REQUIRED.\nOther blocks optional — renderer\nstamps each populated block in order."
+  note for LoginProviderConfig "Discriminated by providerKey.\nentraPrompt forwards to OIDC.\nbadge surface 'SSO' / 'Beta' pills."

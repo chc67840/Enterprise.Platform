@@ -1,0 +1,50 @@
+---
+title: Sub-Nav — Breadcrumb + Page Header
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class BreadcrumbItem {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly routePath? : readonly string[] | string
+    +readonly icon? : string
+  }
+
+  class PageHeaderConfig {
+    <<interface>>
+    +readonly title : string
+    +readonly subtitle? : string
+    +readonly icon? : string
+    +readonly badge.label? : string
+    +readonly badge.variant? : PageHeaderBadgeVariant
+    +readonly primaryAction? : PageHeaderAction
+    +readonly secondaryActions? : readonly PageHeaderAction[]
+    +readonly backRoute? : readonly string[] | string
+    +readonly helpTooltip? : string
+  }
+
+  class PageHeaderAction {
+    <<interface>>
+    +readonly label : string
+    +readonly icon? : string
+    +readonly actionKey : string
+    +readonly disabled? : boolean
+    +readonly loading? : boolean
+    +readonly type? : 'button' | 'submit' | 'reset'
+    +readonly requiredPermissions? : readonly string[]
+  }
+
+  class PageHeaderBadgeVariant {
+    <<type>>
+    'success' | 'warning' | 'danger' | 'info' | 'neutral'
+  }
+
+  PageHeaderConfig *-- PageHeaderAction : "primary + secondary[]"
+  PageHeaderConfig --> PageHeaderBadgeVariant : "badge.variant"
+
+  note for BreadcrumbItem "Last item omits routePath\n(it's the current page — non-link)."
+  note for PageHeaderConfig "RouteMetadata.pageHeader carries this\nas Route.data for the orchestrator.\nPages can also push dynamically via\nPageHeaderService.set()."
+  note for PageHeaderAction "actionKey emitted via (action) — host\npages own the side-effect; the\npage-header is dumb chrome."

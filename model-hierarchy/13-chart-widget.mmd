@@ -1,0 +1,63 @@
+---
+title: DPH UI Kit — Chart Widget (Chart.js wrapper)
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class ChartWidgetConfig {
+    <<interface>>
+    +readonly type : ChartWidgetType
+    +readonly title? : string
+    +readonly subtitle? : string
+    +readonly labels : readonly string[]
+    +readonly datasets : readonly ChartWidgetDataset[]
+    +readonly height? : string
+    +readonly showLegend? : boolean
+    +readonly legendPosition? : 'top'|'bottom'|'left'|'right'
+    +readonly stacked? : boolean
+    +readonly aspectRatio? : number
+    +readonly maintainAspectRatio? : boolean
+  }
+
+  class ChartWidgetType {
+    <<type>>
+    'bar' | 'line' | 'doughnut' |
+    'pie' | 'radar' | 'polarArea'
+  }
+
+  class ChartWidgetDataset {
+    <<interface>>
+    +readonly label : string
+    +readonly data : readonly number[]
+    +readonly type? : 'bar' | 'line'
+    +readonly backgroundColor? : string
+    +readonly borderColor? : string
+    +readonly fill? : boolean
+    +readonly tension? : number
+    +readonly yAxisID? : string
+  }
+
+  class CssVarReader {
+    <<type>>
+    +signature : (name: string) string
+  }
+
+  class CHART_PALETTE_TOKENS {
+    <<const>>
+    +slot0 : ep-color-primary-500
+    +slot1 : ep-color-palmetto-500
+    +slot2 : ep-color-jessamine-500
+    +slot3 : ep-color-primary-700
+    +slot4 : ep-color-palmetto-700
+    +slot5 : ep-color-jessamine-700
+    +slot6 : ep-color-primary-300
+    +slot7 : ep-color-palmetto-300
+  }
+
+  ChartWidgetConfig --> ChartWidgetType : "type"
+  ChartWidgetConfig *-- ChartWidgetDataset : "datasets[]"
+  ChartWidgetDataset --> CHART_PALETTE_TOKENS : "auto-assigned"
+
+  note for ChartWidgetConfig "Mixed-type charts: when type='bar'/'line',\nper-dataset .type overrides per row.\nReads ep-* tokens at runtime via\nCssVarReader so dark-mode flips re-skin."
+  note for CHART_PALETTE_TOKENS "Default 8-color palette keyed off the\nplatform's brand tokens. paletteColor()\nresolves at runtime from the host element's\ngetComputedStyle."

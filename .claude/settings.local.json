@@ -189,7 +189,19 @@
       "Bash(awk '{print $NF}')",
       "Bash(where dotnet *)",
       "Bash(git add *)",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "PowerShell(git diff --cached --no-color -- \"src/UI/Enterprise.Platform.Web.UI/ClientApp/src/app/shared/layout/components/platform-footer/platform-footer.component.ts\" | Out-String)",
+      "Bash(git *)",
+      "Bash(git --no-pager diff --cached --no-color -- \"src/UI/Enterprise.Platform.Web.UI/ClientApp/src/app/shared/layout/components/platform-footer/platform-footer.component.ts\")",
+      "Read(//c/temp/**)",
+      "Bash(npx --no-install @mermaid-js/mermaid-cli --version)",
+      "Bash(npm ls *)",
+      "Bash(npx -y @mermaid-js/mermaid-cli@latest -i 00-master-overview.mmd -o 00-master-overview.svg)",
+      "Bash(npx -y @mermaid-js/mermaid-cli@latest -i __TRACKED_VAR__.mmd -o __TRACKED_VAR__.svg)",
+      "Bash(npx -y @mermaid-js/mermaid-cli@latest -i 02-api-contracts.mmd -o 02-api-contracts.svg)",
+      "Bash(npx -y @mermaid-js/mermaid-cli@latest -i 13-chart-widget.mmd -o 13-chart-widget.svg)"
     ]
   }
 }

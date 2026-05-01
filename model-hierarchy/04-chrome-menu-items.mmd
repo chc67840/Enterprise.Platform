@@ -1,0 +1,148 @@
+---
+title: Chrome — Menu Items · Permissions · Badges · UserMenu
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class NavMenuItem {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly icon? : IconClass
+    +readonly routePath? : RoutePath
+    +readonly externalUrl? : string
+    +readonly badge? : NavBadge
+    +readonly permission? : NavPermission
+    +readonly children? : readonly NavMenuItem[]
+    +readonly sections? : readonly NavMenuSection[]
+    +readonly analyticsTag? : string
+    +readonly description? : string
+    +readonly disabled? : boolean
+    +readonly tooltip? : string
+    +readonly activeMatch? : NavActiveMatchStrategy
+  }
+
+  class NavMenuSection {
+    <<interface>>
+    +readonly heading : string
+    +readonly leaves : readonly NavMenuLeaf[]
+    +readonly columnSpan? : 1 | 2 | 3
+  }
+
+  class NavMenuLeaf {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly icon? : IconClass
+    +readonly routePath? : RoutePath
+    +readonly externalUrl? : string
+    +readonly badge? : NavBadge
+    +readonly permission? : NavPermission
+    +readonly analyticsTag? : string
+    +readonly disabled? : boolean
+    +readonly tooltip? : string
+    +readonly description? : string
+  }
+
+  class NavPermission {
+    <<interface>>
+    +readonly requiredPolicy? : string
+    +readonly featureFlag? : string
+    +readonly roles? : readonly string[]
+  }
+
+  class NavBadge {
+    <<interface>>
+    +readonly value : string | number
+    +readonly variant : Severity
+    +readonly pulse? : boolean
+  }
+
+  class NavMenuVariant {
+    <<type>>
+    'flat' | 'mega' | 'icon' | 'tabs' | 'sidebar'
+  }
+
+  class NavActiveMatchStrategy {
+    <<type>>
+    'exact' | 'prefix' | 'prefix-with-redirect'
+  }
+
+  class RoutePath {
+    <<type>>
+    string | readonly (string | number)[] | UrlTree
+  }
+
+  class UserMenuItem {
+    <<discriminated union>>
+    UserMenuLink | UserMenuDivider | UserMenuAction
+  }
+
+  class UserMenuItemBase {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly icon? : IconClass
+    +readonly permission? : NavPermission
+    +readonly disabled? : boolean
+  }
+
+  class UserMenuLink {
+    <<interface>>
+    +readonly kind : 'link'
+    +readonly routePath? : RoutePath
+    +readonly externalUrl? : string
+  }
+
+  class UserMenuDivider {
+    <<interface>>
+    +readonly kind : 'divider'
+    +readonly id : string
+  }
+
+  class UserMenuAction {
+    <<interface>>
+    +readonly kind : 'action'
+    +readonly actionKey : string
+    +readonly isLogout? : boolean
+  }
+
+  class NavUserMenuConfig {
+    <<interface>>
+    +readonly enabled : boolean
+    +readonly avatarStyle? : 'initials' | 'photo' | 'glyph'
+    +readonly fallbackInitials? : (profile)=> string
+    +readonly items : readonly UserMenuItem[]
+    +readonly minViewport? : 'mobile' | 'tablet' | 'desktop'
+    +readonly order? : number
+  }
+
+  class UserProfile {
+    <<interface>>
+    +readonly id : string
+    +readonly displayName : string
+    +readonly email : string
+    +readonly avatarUrl? : string
+    +readonly initials? : string
+    +readonly role? : string
+  }
+
+  NavMenuItem o-- NavMenuItem : "children[]"
+  NavMenuItem *-- NavMenuSection : "sections[]"
+  NavMenuSection *-- NavMenuLeaf : "leaves[]"
+  NavMenuItem o-- NavBadge : optional
+  NavMenuItem o-- NavPermission : optional
+  NavMenuLeaf o-- NavBadge : optional
+  NavMenuLeaf o-- NavPermission : optional
+  NavMenuItem --> NavActiveMatchStrategy : uses
+
+  UserMenuItemBase <|-- UserMenuLink
+  UserMenuItemBase <|-- UserMenuAction
+  UserMenuItem <|-- UserMenuLink : kind='link'
+  UserMenuItem <|-- UserMenuDivider : kind='divider'
+  UserMenuItem <|-- UserMenuAction : kind='action'
+  NavUserMenuConfig *-- UserMenuItem : "items[]"
+
+  note for NavMenuItem "Three modes via field presence:\n  routePath/externalUrl ⇒ leaf\n  children ⇒ sub-tree\n  sections ⇒ mega-menu"
+  note for UserMenuItem "Discriminated by kind.\nExternal link/router-link/action handler\nall flow through one renderer."

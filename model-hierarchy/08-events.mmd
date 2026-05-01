@@ -1,0 +1,58 @@
+---
+title: Chrome — Output Events + Notifications
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class NavActionEvent {
+    <<interface>>
+    +readonly source : NavActionSource
+    +readonly actionKey : string
+    +readonly payload? : Readonly~Record~string,unknown~~
+  }
+
+  class NavActionSource {
+    <<type>>
+    menu | quickAction | userMenu | aiAssistant |
+    notification | message | help | newsletter
+  }
+
+  class NavTenantSwitchEvent {
+    <<interface>>
+    +readonly fromTenantId : string
+    +readonly toTenantId : string
+  }
+
+  class NavSearchEvent {
+    <<interface>>
+    +readonly query : string
+  }
+
+  class NavLogoutEvent {
+    <<interface>>
+    +readonly userId : string
+  }
+
+  class NavNotification {
+    <<interface>>
+    +readonly id : string
+    +readonly level : NavNotificationLevel
+    +readonly title : string
+    +readonly message? : string
+    +readonly createdAt : string
+    +readonly read : boolean
+    +readonly deepLink? : RoutePath
+    +readonly actor? : string
+  }
+
+  class NavNotificationLevel {
+    <<type>>
+    'info' | 'success' | 'warning' | 'critical'
+  }
+
+  NavActionEvent --> NavActionSource : uses
+  NavNotification --> NavNotificationLevel : uses
+
+  note for NavActionEvent "Single dispatcher pattern (D2):\nevery action surface (menu, quick action,\nuser-menu, AI button, notification, etc.)\nfunnels through this one event so the\nshell has ONE switch, not N (output)s."
+  note for NavTenantSwitchEvent "Host owns the tenant flush + reload.\nspec D10 mandates the order:\nlog → flush stores → write cookie → reload."

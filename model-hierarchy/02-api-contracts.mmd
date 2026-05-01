@@ -1,0 +1,79 @@
+---
+title: API Contracts — PagedResponse · ApiResponse · ApiError · QueryParams
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class PagedResponse~T~ {
+    <<interface>>
+    +readonly data : readonly T[]
+    +readonly total : number
+    +readonly page : number
+    +readonly pageSize : number
+    +readonly totalPages : number
+    +readonly hasNext : boolean
+    +readonly hasPrev : boolean
+  }
+
+  class ApiResponse~T~ {
+    <<interface>>
+    +readonly data : T
+    +readonly message? : string
+    +readonly success : boolean
+  }
+
+  class ApiError {
+    <<interface>>
+    +readonly message : string
+    +readonly statusCode : number
+    +readonly code? : string
+    +readonly errors? : Readonly~Record~string,readonly string[]~~
+    +readonly correlationId? : string
+    +readonly timestamp? : string
+  }
+
+  class QueryParams {
+    <<interface>>
+    +readonly sort? : SortConfig
+    +readonly filters? : Readonly~Record~string,unknown~~
+  }
+
+  class PaginationParams {
+    <<interface>>
+    +readonly page : number
+    +readonly pageSize : number
+  }
+
+  class SearchParams {
+    <<interface>>
+    +readonly query? : string
+  }
+
+  class SortConfig {
+    <<interface>>
+    +readonly field : string
+    +readonly direction : SortDirection
+  }
+
+  class SortDirection {
+    <<type>>
+    'asc' | 'desc'
+  }
+
+  class DEFAULT_QUERY_PARAMS {
+    <<const>>
+    +page = 1
+    +pageSize = 20
+    +query = empty string
+    +filters = empty object
+  }
+
+  PaginationParams <|-- QueryParams : extends
+  SearchParams <|-- QueryParams : extends
+  QueryParams *-- SortConfig : composes
+  SortConfig --> SortDirection : uses
+
+  note for ApiResponse "success is a sanity flag\n— ALWAYS true on a 2xx envelope.\nNew code branches on Observable channels."
+  note for ApiError "Normalized by errorInterceptor from\n  - RFC-7807 ProblemDetails\n  - {message, code} legacy envelopes\n  - HttpErrorResponse with no body"
+  note for SortDirection "Two-state ('asc' | 'desc') wire format.\n@shared/components/dph#SortDirection adds\n  null for tri-state click-cycle (UI only)."

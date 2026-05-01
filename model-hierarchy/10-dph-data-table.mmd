@@ -1,0 +1,220 @@
+---
+title: DPH UI Kit — Data Table (TableConfig + Columns + Filters + Sort)
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class TableConfig~T~ {
+    <<interface>>
+    +readonly columns : readonly ColumnDef~T~[]
+    +readonly idField : string
+    +readonly selectionMode? : 'single' | 'multiple' | null
+    +readonly persistSelection? : boolean
+    +readonly sortable? : boolean
+    +readonly multiSort? : boolean
+    +readonly filterable? : boolean
+    +readonly globalFilter? : boolean
+    +readonly pagination? : boolean
+    +readonly pageSizes? : readonly number[]
+    +readonly defaultPageSize? : number
+    +readonly cursorMode? : boolean
+    +readonly rowActions? : readonly RowAction~T~[]
+    +readonly bulkActions? : readonly BulkAction[]
+    +readonly toolbar? : TableToolbarConfig
+    +readonly resizable? : boolean
+    +readonly virtualScroll? : boolean
+    +readonly stickyHeader? : boolean
+    +readonly responsiveMode? : 'scroll'|'stack'|'cards'|'priority'
+    +readonly density? : 'sm' | 'md' | 'lg'
+    +readonly striped? : boolean
+    +readonly expandable? : boolean
+    +readonly nestedConfig? : (row)=> TableConfig | null
+    +readonly persistState? : 'url'|'localStorage'|'both'|null
+    +readonly + 30 more options
+  }
+
+  class ColumnDef~T~ {
+    <<interface>>
+    +readonly field : string
+    +readonly header : string
+    +readonly type? : CellType
+    +readonly sortable? : boolean
+    +readonly filterable? : boolean
+    +readonly filter? : FilterDef
+    +readonly frozen? : 'left' | 'right' | null
+    +readonly width? : string
+    +readonly minWidth? : string
+    +readonly align? : 'left' | 'center' | 'right'
+    +readonly visible? : boolean
+    +readonly priority? : 'high' | 'medium' | 'low'
+    +readonly cssClass? : string | (row)=> string
+    +readonly format? : (value, row)=> string
+    +readonly cellOptions? : CellOptions
+    +readonly editable? : boolean | (row)=> boolean
+    +readonly editor? : 'text'|'number'|'select'|'date'|'boolean'
+    +readonly aggregator? : 'sum'|'avg'|'count'|'min'|'max'
+    +readonly tooltip? : (value, row)=> string | null
+  }
+
+  class CellType {
+    <<type>>
+    text | number | currency | date | datetime | boolean |
+    badge | avatar | link | email | phone | image | rating |
+    progress | sparkline | chips | actions | custom | ...
+  }
+
+  class CellOptions {
+    <<interface>>
+    +readonly currencyCode? : string
+    +readonly dateFormat? : string
+    +readonly hrefField? : string
+    +readonly target? : '_blank' | '_self'
+    +readonly chipSeverity? : (v)=> Severity
+    +readonly badgeSeverityMap? : Record~string,Severity~
+    +readonly statusColors? : Record~string,string~
+    +readonly + 12 more options
+  }
+
+  class FilterDef {
+    <<interface>>
+    +readonly type : FilterType
+    +readonly options? : readonly OptionItem[]
+    +readonly placeholder? : string
+    +readonly debounceMs? : number
+    +readonly mode? : 'instant' | 'apply'
+    +readonly ops? : readonly FilterOp[]
+    +readonly defaultOp? : FilterOp
+  }
+
+  class FilterValue {
+    <<interface>>
+    +readonly op : FilterOp
+    +readonly value : unknown
+    +readonly value2? : unknown
+  }
+
+  class ColumnFilter {
+    <<interface>>
+    +readonly field : string
+    +readonly value : FilterValue | null
+  }
+
+  class FilterType {
+    <<type>>
+    text | number | date | boolean | enum |
+    multi-enum | range
+  }
+
+  class FilterOp {
+    <<type>>
+    contains | notContains | equals | notEquals |
+    startsWith | endsWith | lt | lte | gt | gte | between |
+    before | after | dateRange | inLast | is | isNot |
+    in | notIn | isEmpty | isNotEmpty
+  }
+
+  class RowAction~T~ {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly icon : string
+    +readonly severity? : Severity
+    +readonly disabled? : boolean | (row)=> boolean
+    +readonly visible? : boolean | (row)=> boolean
+    +readonly requiredPermission? : string
+  }
+
+  class BulkAction {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly icon : string
+    +readonly severity? : Severity
+    +readonly confirm? : boolean
+    +readonly confirmMessage? : string
+  }
+
+  class TableToolbarConfig {
+    <<interface>>
+    +readonly search? : boolean
+    +readonly searchPlaceholder? : string
+    +readonly refresh? : boolean
+    +readonly export? : boolean
+    +readonly chooser? : boolean
+    +readonly density? : boolean
+  }
+
+  class TableQuery {
+    <<interface>>
+    +readonly page : number
+    +readonly pageSize : number
+    +readonly sort : readonly SortState[]
+    +readonly filters : readonly ColumnFilter[]
+    +readonly globalFilter? : string
+    +readonly cursor? : string
+  }
+
+  class TablePage~T~ {
+    <<interface>>
+    +readonly rows : readonly T[]
+    +readonly total : number
+    +readonly nextCursor? : string
+    +readonly prevCursor? : string
+  }
+
+  class DataSource~T~ {
+    <<interface>>
+    +load(query: TableQuery) Observable~TablePage~T~~
+  }
+
+  class SortState {
+    <<interface>>
+    +readonly field : string
+    +readonly direction : SortDirection
+  }
+
+  class MultiSortState {
+    <<interface>>
+    +readonly fields : readonly SortState[]
+  }
+
+  class PaginationState {
+    <<interface>>
+    +readonly page : number
+    +readonly pageSize : number
+    +readonly total : number
+    +readonly pageSizes : readonly number[]
+  }
+
+  class OptionItem {
+    <<interface>>
+    +readonly label : string
+    +readonly value : unknown
+    +readonly icon? : string
+    +readonly disabled? : boolean
+    +readonly badge? : string
+    +readonly items? : readonly OptionItem[]
+  }
+
+  TableConfig *-- ColumnDef : "columns[]"
+  TableConfig o-- RowAction : "rowActions[]"
+  TableConfig o-- BulkAction : "bulkActions[]"
+  TableConfig o-- TableToolbarConfig : optional
+  ColumnDef --> CellType : uses
+  ColumnDef o-- CellOptions : optional
+  ColumnDef o-- FilterDef : optional
+  FilterDef --> FilterType : uses
+  FilterDef --> FilterOp : "ops[]"
+  FilterDef *-- OptionItem : "options[]"
+  FilterValue --> FilterOp : uses
+  ColumnFilter o-- FilterValue : optional
+  TableQuery *-- SortState : "sort[]"
+  TableQuery *-- ColumnFilter : "filters[]"
+  MultiSortState *-- SortState : "fields[]"
+  DataSource ..> TableQuery : consumes
+  DataSource ..> TablePage : returns
+  OptionItem o-- OptionItem : "items[] (nested)"
+
+  note for TableConfig "Recursive: nestedConfig(row) returns\nanother TableConfig — sub-tables inside\nrow detail. cursorMode toggles offset/cursor pagination."
+  note for SortState "Tri-state SortDirection here\n('asc' | 'desc' | null) — converts\nto wire two-state by skipping null."

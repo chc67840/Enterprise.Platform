@@ -1,0 +1,287 @@
+---
+title: DPH UI Kit — Overlays · Lists · Trees · Media · Files · Primitives
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class Severity {
+    <<type>>
+    'success' | 'warning' | 'danger' | 'info' | 'neutral'
+  }
+
+  class Size {
+    <<type>>
+    'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  }
+
+  class Variant {
+    <<type>>
+    'primary' | 'secondary' | 'ghost' |
+    'outline' | 'link' | 'danger'
+  }
+
+  class DialogConfig {
+    <<interface>>
+    +readonly header? : string
+    +readonly width? : string
+    +readonly position? : DialogPosition
+    +readonly modal? : boolean
+    +readonly dismissableMask? : boolean
+    +readonly closable? : boolean
+    +readonly draggable? : boolean
+    +readonly resizable? : boolean
+    +readonly maximizable? : boolean
+    +readonly closeOnEscape? : boolean
+    +readonly footerAlign? : 'left'|'center'|'right'|'between'
+    +readonly loading? : boolean
+  }
+
+  class DrawerConfig {
+    <<interface>>
+    +readonly position : 'left'|'right'|'top'|'bottom'
+    +readonly size? : DrawerSize
+    +readonly width? : string
+    +readonly height? : string
+    +readonly modal? : boolean
+    +readonly dismissableMask? : boolean
+    +readonly closable? : boolean
+    +readonly showCloseInHeader? : boolean
+    +readonly header? : string
+    +readonly subheader? : string
+    +readonly footerDivider? : boolean
+    +readonly closeOnEscape? : boolean
+  }
+
+  class DrawerSize {
+    <<type>>
+    'sm' | 'md' | 'lg' | 'xl' | 'full'
+  }
+
+  class PopoverConfig {
+    <<interface>>
+    +readonly trigger? : 'click' | 'hover' | 'focus'
+    +readonly position? : 'top'|'bottom'|'left'|'right'|'auto'
+    +readonly offset? : number
+    +readonly showDelay? : number
+    +readonly hideDelay? : number
+    +readonly dismissable? : boolean
+    +readonly maxWidth? : string
+  }
+
+  class PanelConfig {
+    <<interface>>
+    +readonly variant? : 'default'|'elevated'|'flat'|'ghost'|'glass'
+    +readonly header? : string
+    +readonly subheader? : string
+    +readonly icon? : string
+    +readonly collapsible? : boolean
+    +readonly defaultCollapsed? : boolean
+    +readonly closable? : boolean
+    +readonly loading? : boolean
+    +readonly loadingContent? : 'skeleton'|'spinner'|'overlay'
+    +readonly padding? : 'none'|'sm'|'md'|'lg'
+    +readonly borderRadius? : 'sm'|'md'|'lg'|'xl'
+    +readonly footerAlign? : 'left'|'center'|'right'|'between'
+  }
+
+  class MessageDescriptor {
+    <<interface>>
+    +readonly id? : string
+    +readonly severity : Severity
+    +readonly summary : string
+    +readonly detail? : string
+    +readonly life? : number
+    +readonly sticky? : boolean
+    +readonly closable? : boolean
+    +readonly icon? : string
+  }
+
+  class InlineMessageConfig {
+    <<interface>>
+    +readonly severity : Severity
+    +readonly summary? : string
+    +readonly detail? : string
+    +readonly icon? : string
+    +readonly closable? : boolean
+    +readonly life? : number
+    +readonly actions? : readonly InlineMessageAction[]
+    +readonly compact? : boolean
+    +readonly filled? : boolean
+    +readonly rounded? : boolean
+  }
+
+  class MenuItem {
+    <<interface>>
+    +readonly id : string
+    +readonly label : string
+    +readonly icon? : string
+    +readonly routePath? : string
+    +readonly externalUrl? : string
+    +readonly badge? : string
+    +readonly badgeSeverity? : Severity
+    +readonly disabled? : boolean
+    +readonly separator? : boolean
+    +readonly items? : readonly MenuItem[]
+    +readonly command? : ()=> void
+    +readonly queryParams? : Record~string,string~
+    +readonly requiredPermission? : string
+    +readonly visible? : boolean
+  }
+
+  class DropdownMenuConfig {
+    <<interface>>
+    +readonly items : readonly MenuItem[]
+    +readonly trigger? : 'click' | 'hover'
+  }
+
+  class ContextMenuConfig {
+    <<interface>>
+    +readonly items : readonly MenuItem[]
+    +readonly global? : boolean
+  }
+
+  class ListConfig~T~ {
+    <<interface>>
+    +readonly variant : 'simple'|'ordered'|'data'|'selectable'|'checklist'|'draggable'
+    +readonly itemTemplate? : TemplateRef
+    +readonly emptyMessage? : string
+    +readonly dividers? : boolean
+    +readonly striped? : boolean
+    +readonly compact? : boolean
+    +readonly virtualScroll? : boolean
+    +readonly selectionMode? : 'single' | 'multiple' | null
+    +readonly idField? : string
+    +readonly filterable? : boolean
+    +readonly groupBy? : string
+    +readonly maxHeight? : string
+  }
+
+  class TreeNode~T~ {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly data? : T
+    +readonly icon? : string
+    +readonly children? : readonly TreeNode~T~[]
+    +readonly leaf? : boolean
+    +readonly selectable? : boolean
+    +readonly expanded? : boolean
+    +readonly styleClass? : string
+  }
+
+  class TreeConfig~T~ {
+    <<interface>>
+    +readonly selectionMode? : 'single'|'multiple'|'checkbox'|null
+    +readonly filter? : boolean
+    +readonly filterMode? : 'lenient' | 'strict'
+    +readonly scrollable? : boolean
+    +readonly virtualScroll? : boolean
+    +readonly lazy? : boolean
+    +readonly indentation? : number
+    +readonly nodeTemplate? : TemplateRef
+    +readonly emptyMessage? : string
+  }
+
+  class ImageConfig {
+    <<interface>>
+    +readonly src : string
+    +readonly alt : string
+    +readonly width? : number | string
+    +readonly height? : number | string
+    +readonly objectFit? : 'cover'|'contain'|'fill'|'none'
+    +readonly loading? : 'lazy' | 'eager'
+    +readonly fallbackSrc? : string
+    +readonly preview? : boolean
+    +readonly skeleton? : boolean
+    +readonly rounded? : boolean | 'full'
+    +readonly aspectRatio? : '1/1'|'4/3'|'16/9'|'3/2'|'auto'
+  }
+
+  class AvatarConfig {
+    <<interface>>
+    +readonly src? : string
+    +readonly name? : string
+    +readonly label? : string
+    +readonly icon? : string
+    +readonly size? : 'xs'|'sm'|'md'|'lg'|'xl'|'2xl'
+    +readonly shape? : 'circle' | 'square'
+    +readonly badge.value? : string
+    +readonly badge.severity? : Severity
+    +readonly badge.position? : 'topleft'|'topright'|'bottomleft'|'bottomright'
+    +readonly bgColor? : string
+    +readonly textColor? : string
+  }
+
+  class GalleryConfig {
+    <<interface>>
+    +readonly items : readonly GalleryItem[]
+    +readonly columns? : 2 | 3 | 4 | 5
+    +readonly gap? : Size
+    +readonly aspect? : '1/1' | '4/3' | '16/9'
+    +readonly lightbox? : boolean
+    +readonly lazy? : boolean
+  }
+
+  class FileItem {
+    <<interface>>
+    +readonly id : string
+    +readonly name : string
+    +readonly size : number
+    +readonly type : string
+    +readonly url? : string
+    +readonly previewUrl? : string
+    +readonly uploadProgress? : number
+    +readonly status : 'pending'|'uploading'|'complete'|'error'
+    +readonly error? : string
+  }
+
+  class FileUploadConfig {
+    <<interface>>
+    +readonly variant : 'dropzone' | 'button' | 'inline'
+    +readonly accept? : string
+    +readonly multiple? : boolean
+    +readonly maxFileSize? : number
+    +readonly maxFiles? : number
+    +readonly autoUpload? : boolean
+    +readonly showPreview? : boolean
+    +readonly showProgress? : boolean
+    +readonly showFileList? : boolean
+    +readonly customUpload? : boolean
+    +readonly uploadUrl? : string
+    +readonly headers? : Record~string,string~
+  }
+
+  class ButtonConfig {
+    <<interface>>
+    +readonly variant? : Variant | 'icon'
+    +readonly size? : Size
+    +readonly type? : 'button'|'submit'|'reset'
+    +readonly disabled? : boolean
+    +readonly loading? : boolean
+    +readonly loadingText? : string
+    +readonly icon? : string
+    +readonly iconPosition? : 'left' | 'right'
+    +readonly fullWidth? : boolean
+    +readonly rounded? : boolean
+    +readonly raised? : boolean
+    +readonly badge? : string
+    +readonly badgeSeverity? : Severity
+  }
+
+  DrawerConfig --> DrawerSize : "size?"
+  ButtonConfig --> Variant : "variant?"
+  ButtonConfig --> Size : "size?"
+  ButtonConfig --> Severity : "badgeSeverity?"
+  MessageDescriptor --> Severity : "severity"
+  InlineMessageConfig --> Severity : "severity"
+  MenuItem --> Severity : "badgeSeverity?"
+  MenuItem o-- MenuItem : "items[] (nested)"
+  DropdownMenuConfig *-- MenuItem : "items[]"
+  ContextMenuConfig *-- MenuItem : "items[]"
+  TreeConfig ..> TreeNode : renders
+  TreeNode o-- TreeNode : "children[] (nested)"
+  AvatarConfig --> Severity : "badge.severity"
+  GalleryConfig --> Size : "gap?"
+
+  note for Severity "Canonical UI vocabulary across every dph-*\ncomponent. Chrome wire shape uses\nPrimeNG's 'secondary' instead of 'neutral' —\nNavbarConfigService normalises on hydrate."

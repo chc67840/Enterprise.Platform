@@ -1,0 +1,137 @@
+---
+title: Chrome — Navbar Configuration
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class ChromeConfig {
+    <<interface>>
+    +readonly navbar : NavbarConfig
+    +readonly footer : FooterConfig
+  }
+
+  class NavbarConfig {
+    <<interface>>
+    +readonly variant? : 'sticky' | 'floating' | 'static'
+    +readonly heightPx? : number
+    +readonly leftZone : NavLeftZoneConfig
+    +readonly centerZone.menu : NavMenuConfig
+    +readonly rightZone : NavRightZoneConfig
+    +readonly mobile.breakpointPx? : number
+  }
+
+  class NavLeftZoneConfig {
+    <<interface>>
+    +readonly logo : NavLogoConfig
+    +readonly tenantSwitcher? : NavTenantSwitcherConfig
+  }
+
+  class NavLogoConfig {
+    <<interface>>
+    +readonly imageSrc? : string
+    +readonly alt : string
+    +readonly brandName : string
+    +readonly subLabel? : string
+    +readonly homeRoute? : RoutePath
+    +readonly envBadge? : EnvBadge
+  }
+
+  class NavTenantSwitcherConfig {
+    <<interface>>
+    +readonly currentTenantId : string
+    +readonly tenants : readonly TenantOption[]
+    +readonly switchActionKey? : string
+  }
+
+  class TenantOption {
+    <<interface>>
+    +readonly id : string
+    +readonly displayName : string
+    +readonly domain? : string
+    +readonly envBadge? : EnvBadge
+  }
+
+  class NavMenuConfig {
+    <<interface>>
+    +readonly variant? : NavMenuVariant
+    +readonly items : readonly NavMenuItem[]
+    +readonly activeMatch? : NavActiveMatchStrategy
+    +readonly mobileBreakpointPx? : number
+  }
+
+  class NavRightZoneConfig {
+    <<interface>>
+    +readonly clock? : NavClockConfig
+    +readonly marketStatus? : NavMarketStatusConfig
+    +readonly shiftStatus? : NavShiftStatusConfig
+    +readonly globalSearch? : NavGlobalSearchConfig
+    +readonly aiAssistant? : NavAiAssistantConfig
+    +readonly quickActions? : NavQuickActionsConfig
+    +readonly notificationBell? : NavBellWidgetConfig
+    +readonly messagesBell? : NavBellWidgetConfig
+    +readonly help? : NavHelpConfig
+    +readonly themeToggle? : NavThemeToggleConfig
+    +readonly languageSwitcher? : NavLanguageSwitcherConfig
+    +readonly userMenu? : NavUserMenuConfig
+  }
+
+  class NavRightZoneWidgetBase {
+    <<interface>>
+    +readonly enabled : boolean
+    +readonly minViewport? : 'mobile' | 'tablet' | 'desktop'
+    +readonly order? : number
+    +readonly icon? : IconClass
+    +readonly tooltip? : string
+  }
+
+  class NavClockConfig
+  class NavMarketStatusConfig
+  class NavShiftStatusConfig
+  class NavGlobalSearchConfig
+  class NavAiAssistantConfig
+  class NavQuickActionsConfig
+  class NavBellWidgetConfig
+  class NavHelpConfig
+  class NavThemeToggleConfig
+  class NavLanguageSwitcherConfig
+  class NavUserMenuConfig
+
+  class EnvBadge {
+    <<type>>
+    'dev' | 'staging' | 'uat' | 'production'
+  }
+
+  ChromeConfig *-- NavbarConfig : composes
+  NavbarConfig *-- NavLeftZoneConfig : composes
+  NavbarConfig *-- NavMenuConfig : composes
+  NavbarConfig *-- NavRightZoneConfig : composes
+  NavLeftZoneConfig *-- NavLogoConfig : composes
+  NavLeftZoneConfig o-- NavTenantSwitcherConfig : optional
+  NavTenantSwitcherConfig o-- TenantOption : "tenants[]"
+  NavLogoConfig --> EnvBadge : uses
+
+  NavRightZoneWidgetBase <|-- NavClockConfig
+  NavRightZoneWidgetBase <|-- NavMarketStatusConfig
+  NavRightZoneWidgetBase <|-- NavShiftStatusConfig
+  NavRightZoneWidgetBase <|-- NavGlobalSearchConfig
+  NavRightZoneWidgetBase <|-- NavAiAssistantConfig
+  NavRightZoneWidgetBase <|-- NavQuickActionsConfig
+  NavRightZoneWidgetBase <|-- NavBellWidgetConfig
+  NavRightZoneWidgetBase <|-- NavHelpConfig
+  NavRightZoneWidgetBase <|-- NavThemeToggleConfig
+  NavRightZoneWidgetBase <|-- NavLanguageSwitcherConfig
+
+  NavRightZoneConfig o-- NavClockConfig : optional
+  NavRightZoneConfig o-- NavMarketStatusConfig : optional
+  NavRightZoneConfig o-- NavShiftStatusConfig : optional
+  NavRightZoneConfig o-- NavGlobalSearchConfig : optional
+  NavRightZoneConfig o-- NavAiAssistantConfig : optional
+  NavRightZoneConfig o-- NavQuickActionsConfig : optional
+  NavRightZoneConfig o-- NavBellWidgetConfig : "notification + messages"
+  NavRightZoneConfig o-- NavHelpConfig : optional
+  NavRightZoneConfig o-- NavThemeToggleConfig : optional
+  NavRightZoneConfig o-- NavLanguageSwitcherConfig : optional
+  NavRightZoneConfig o-- NavUserMenuConfig : optional
+
+  note for NavRightZoneWidgetBase "Every widget extends this base.\nadd a new widget? extend the base + slot it\ninto NavRightZoneConfig as optional."

@@ -1,0 +1,66 @@
+---
+title: Enterprise Platform — Model Hierarchy (Master Overview)
+---
+%%{init: {'theme':'neutral', 'flowchart':{'curve':'basis','nodeSpacing':40,'rankSpacing':70}}}%%
+flowchart TB
+  classDef domain fill:#1B3F73,stroke:#0E1F3B,color:#fff,stroke-width:2px
+  classDef sub fill:#FAFAF7,stroke:#1B3F73,color:#15140F,stroke-width:1.5px
+  classDef leaf fill:#F4F4ED,stroke:#7C7A6A,color:#3F3D34,stroke-width:1px
+
+  ROOT(["Enterprise Platform — TS Models"]):::domain
+
+  subgraph CORE [" Core Foundation "]
+    direction TB
+    BaseEntity[BaseEntity]:::sub
+    EntityDataState["EntityDataState&lt;T&gt;"]:::sub
+    RouteMetadata[RouteMetadata]:::sub
+    Auth[CurrentUser + EffectivePermissions]:::sub
+  end
+
+  subgraph API [" API Contracts "]
+    direction TB
+    PagedResponse["PagedResponse&lt;T&gt;"]:::sub
+    ApiResponse["ApiResponse&lt;T&gt;"]:::sub
+    ApiError[ApiError]:::sub
+    QueryParams[QueryParams + SortConfig]:::sub
+  end
+
+  subgraph CHROME [" Chrome (Layout) "]
+    direction TB
+    ChromeConfig[ChromeConfig]:::sub
+    NavbarConfig[NavbarConfig]:::sub
+    FooterConfig[FooterConfig]:::sub
+    LoginPageConfig[LoginPageConfig]:::sub
+    SubNav[BreadcrumbItem + PageHeaderConfig]:::sub
+    Events[Nav events + NavNotification]:::sub
+  end
+
+  subgraph DPH [" DPH UI Kit "]
+    direction TB
+    Forms[FormSchema + SchemaField + SchemaFormEvent]:::sub
+    DataTable["TableConfig&lt;T&gt; + ColumnDef&lt;T&gt;"]:::sub
+    Wizard[StepsConfig + StepDescriptor]:::sub
+    Components[Dialog/Drawer/Panel/Menu/Tree/...]:::sub
+    Chart[ChartWidgetConfig + ChartWidgetDataset]:::sub
+  end
+
+  subgraph FEATURES [" Feature DTOs "]
+    direction TB
+    Users[UserDto + ListUsersResponse + Create/Rename/...]:::sub
+  end
+
+  ROOT --> CORE
+  ROOT --> API
+  ROOT --> CHROME
+  ROOT --> DPH
+  ROOT --> FEATURES
+
+  BaseEntity -.->|"extends&nbsp;via&nbsp;feature&nbsp;types"| Users
+  PagedResponse -.->|"generic&nbsp;envelope"| Users
+  EntityDataState -.->|"normalised&nbsp;store"| BaseEntity
+  ChromeConfig --> NavbarConfig
+  ChromeConfig --> FooterConfig
+  RouteMetadata -.->|"PageHeader&nbsp;default"| SubNav
+  Forms -.->|"emits&nbsp;values"| ApiResponse
+  DataTable -.->|"requests"| QueryParams
+  DataTable -.->|"renders"| PagedResponse

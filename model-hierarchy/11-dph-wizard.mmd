@@ -1,0 +1,82 @@
+---
+title: DPH UI Kit — Wizard / Steps
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class StepsConfig {
+    <<interface>>
+    +readonly steps : readonly StepDescriptor[]
+    +readonly activeIndex : number
+    +readonly activeKey? : string
+    +readonly variant? : StepsVariant
+    +readonly orientation? : 'horizontal' | 'vertical'
+    +readonly readonly? : boolean
+    +readonly showLabels? : boolean
+    +readonly showConnectors? : boolean
+    +readonly showProgress? : boolean
+    +readonly showHelp? : boolean
+    +readonly allowFreeNav? : boolean
+    +readonly mobileMode? : 'collapse'|'dots'|'drawer'
+    +readonly animateConnectors? : boolean
+    +readonly compact? : boolean
+  }
+
+  class StepDescriptor {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly icon? : string
+    +readonly description? : string
+    +readonly state? : StepState
+    +readonly errorCount? : number
+    +readonly optional? : boolean
+    +readonly children? : readonly StepDescriptor[]
+    +readonly when? : ()=> boolean
+    +readonly help? : string
+    +readonly badge.value? : string
+    +readonly badge.severity? : Severity
+    +readonly time? : number
+    +readonly routePath? : string
+  }
+
+  class StepState {
+    <<type>>
+    pending | active | complete | error |
+    warning | skipped | disabled | loading
+  }
+
+  class StepsVariant {
+    <<type>>
+    horizontal | vertical | pill-bar | progress |
+    cards | split | accordion | dots
+  }
+
+  class WizardButtonsConfig {
+    <<interface>>
+    +readonly showBack? : boolean
+    +readonly showNext? : boolean
+    +readonly showCancel? : boolean
+    +readonly showSkip? : boolean
+    +readonly showFinish? : boolean
+    +readonly backLabel? : string
+    +readonly nextLabel? : string
+    +readonly cancelLabel? : string
+    +readonly skipLabel? : string
+    +readonly finishLabel? : string
+    +readonly nextDisabled? : boolean
+    +readonly nextLoading? : boolean
+    +readonly isLast? : boolean
+    +readonly isFirst? : boolean
+    +readonly canSkip? : boolean
+    +readonly sticky? : boolean
+  }
+
+  StepsConfig *-- StepDescriptor : "steps[]"
+  StepsConfig --> StepsVariant : "variant"
+  StepDescriptor --> StepState : "state"
+  StepDescriptor o-- StepDescriptor : "children[] (nested)"
+
+  note for StepDescriptor "when() conditional rendering: returns false\nto skip the step at runtime (e.g. role-gated\nstages)."
+  note for StepsVariant "8 variants — drives visual + responsive\nbehavior. mobileMode is independent\n(collapses any desktop variant)."

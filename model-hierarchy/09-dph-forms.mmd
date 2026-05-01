@@ -1,0 +1,151 @@
+---
+title: DPH UI Kit — Forms · Schema · Validators · Events
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class FormSchema {
+    <<interface>>
+    +readonly fields : readonly SchemaField[]
+    +readonly columns? : 1 | 2 | 3 | 4
+    +readonly gap? : Size
+    +readonly trim? : boolean
+    +readonly disableSubmitWhenPristine? : boolean
+  }
+
+  class SchemaField {
+    <<interface>>
+    +readonly key : string
+    +readonly label : string
+    +readonly type : SchemaFieldType
+    +readonly placeholder? : string
+    +readonly hint? : string
+    +readonly autocomplete? : string
+    +readonly prefixIcon? : string
+    +readonly suffixIcon? : string
+    +readonly rows? : number
+    +readonly disabled? : boolean
+    +readonly readonly? : boolean
+    +readonly clearable? : boolean
+    +readonly required? : boolean
+    +readonly maxLength? : number
+    +readonly minLength? : number
+    +readonly validators? : FieldValidatorSpec
+    +readonly trim? : boolean
+    +readonly nullIfEmpty? : boolean
+    +readonly defaultValue? : string | number | null
+    +readonly columnSpan? : 1 | 2 | 3 | 4 | 'full'
+    +readonly serverErrorKeys? : readonly string[]
+    +readonly statusErrorMessages? : Readonly~Record~number,string~~
+  }
+
+  class SchemaFieldType {
+    <<type>>
+    text | email | password | tel | url |
+    search | textarea | number
+  }
+
+  class FieldValidatorSpec {
+    <<interface>>
+    +readonly required? : boolean | string
+    +readonly minLength? : number | ValueWithMessage
+    +readonly maxLength? : number | ValueWithMessage
+    +readonly pattern? : RegExp | ValueWithMessage
+    +readonly email? : boolean | string
+    +readonly min? : number | ValueWithMessage
+    +readonly max? : number | ValueWithMessage
+  }
+
+  class ServerErrorIndex {
+    <<type>>
+    Readonly~Record~string,string~~
+  }
+
+  class SchemaFormEvent~T~ {
+    <<discriminated union>>
+    SchemaFormFormEvent | SchemaFormFieldEvent |
+    SchemaFormSectionEvent | SchemaFormActionEvent
+  }
+
+  class SchemaFormFormEvent~T~ {
+    <<union>>
+    +form:submit  → value: T
+    +form:cancel
+    +form:reset
+    +form:patch   → value$: T
+  }
+
+  class SchemaFormFieldEvent~T~ {
+    <<union>>
+    +field:change → key, value, value$: T
+    +field:blur   → key, value$: T
+    +field:focus  → key
+  }
+
+  class SchemaFormSectionEvent {
+    <<union>>
+    +section:toggle     → key, expanded
+    +section:tab-change → key, index
+  }
+
+  class SchemaFormActionEvent {
+    <<interface>>
+    +readonly type : 'action:click'
+    +readonly action : string
+    +readonly value$ : Readonly~Record~string,unknown~~
+  }
+
+  class FormSection {
+    <<interface>>
+    +readonly id : string
+    +readonly title? : string
+    +readonly description? : string
+    +readonly icon? : string
+    +readonly columns? : 1 | 2 | 3 | 4
+    +readonly collapsible? : boolean
+    +readonly defaultCollapsed? : boolean
+  }
+
+  class FormLayoutConfig {
+    <<interface>>
+    +readonly variant : 'grid'|'stacked'|'inline'|'wizard'|'tabbed'
+    +readonly columns? : 1 | 2 | 3 | 4
+    +readonly gap? : Size
+    +readonly labelPosition? : 'top'|'left'|'floating'
+    +readonly labelWidth? : string
+    +readonly sections? : readonly FormSection[]
+    +readonly dense? : boolean
+    +readonly readonly? : boolean
+    +readonly showRequiredIndicator? : boolean
+  }
+
+  class InputConfig {
+    <<interface>>
+    +readonly type : InputType
+    +readonly label? : string
+    +readonly size? : Size
+    +readonly variant? : 'outlined' | 'filled'
+    +readonly required? : boolean
+    +readonly disabled? : boolean
+    +readonly readonly? : boolean
+    +readonly clearable? : boolean
+    +readonly invalid? : boolean
+    +readonly errors? : readonly string[]
+    +readonly + 25 more options
+  }
+
+  FormSchema *-- SchemaField : "fields[]"
+  SchemaField --> SchemaFieldType : uses
+  SchemaField o-- FieldValidatorSpec : optional
+
+  SchemaFormEvent <|-- SchemaFormFormEvent
+  SchemaFormEvent <|-- SchemaFormFieldEvent
+  SchemaFormEvent <|-- SchemaFormSectionEvent
+  SchemaFormEvent <|-- SchemaFormActionEvent
+
+  FormLayoutConfig *-- FormSection : "sections[]"
+
+  note for SchemaFormEvent "Single discriminated-union output (P1.1)\nreplaces per-event @Output proliferation.\nHosts switch on event.type."
+  note for SchemaField "key = FormGroup control name +\nAPI field name (must match backend)."
+  note for ServerErrorIndex "Built once at component construction\n— constant-time per-field lookup\nfrom RFC-7807 errors[key]."

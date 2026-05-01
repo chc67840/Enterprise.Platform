@@ -1,0 +1,84 @@
+---
+title: Users Feature — DTOs · Requests · Responses
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class UserDto {
+    <<interface>>
+    +readonly id : string
+    +readonly email : string
+    +readonly firstName : string
+    +readonly lastName : string
+    +readonly externalIdentityId : string | null
+    +readonly isActive : boolean
+    +readonly lastLoginAt : string | null
+    +readonly isDeleted : boolean
+    +readonly deletedAt : string | null
+    +readonly deletedBy : string | null
+    +readonly createdAt : string
+    +readonly createdBy : string
+    +readonly modifiedAt : string | null
+    +readonly modifiedBy : string | null
+  }
+
+  class ListUsersResponse {
+    <<interface>>
+    +readonly items : readonly UserDto[]
+    +readonly pageNumber : number
+    +readonly pageSize : number
+    +readonly totalCount : number | null
+  }
+
+  class ListUsersParams {
+    <<interface>>
+    +readonly page : number
+    +readonly pageSize : number
+    +readonly search : string | null
+    +readonly activeOnly : boolean | null
+  }
+
+  class CreateUserRequest {
+    <<interface>>
+    +readonly email : string
+    +readonly firstName : string
+    +readonly lastName : string
+    +readonly externalIdentityId : string | null
+  }
+
+  class RenameUserRequest {
+    <<interface>>
+    +readonly firstName : string
+    +readonly lastName : string
+  }
+
+  class ChangeUserEmailRequest {
+    <<interface>>
+    +readonly email : string
+  }
+
+  class DeactivateUserRequest {
+    <<interface>>
+    +readonly reason : string
+  }
+
+  class DEFAULT_LIST_PARAMS {
+    <<const>>
+    +page = 1
+    +pageSize = 25
+    +search = null
+    +activeOnly = null
+  }
+
+  class RecordIndexSig {
+    <<interface>>
+    Record~string,unknown~
+  }
+
+  RecordIndexSig <|-- UserDto : extends
+  ListUsersResponse *-- UserDto : "items[]"
+
+  note for UserDto "Mirrors UserDto on the .NET side\n(emitted by tools/Enterprise.Platform.DtoGen).\nDate-fields land as ISO-8601 strings —\nnever materialised into Date in models."
+  note for ListUsersResponse "Different shape from PagedResponse&lt;T&gt;:\n  items / pageNumber / pageSize / totalCount\nvs. data / page / pageSize / total / totalPages.\nFeature-local translation, no global mapper."
+  note for ListUsersParams "Backend caps PageSize at 200.\nactiveOnly is null = include all,\ntrue = only active, false = only inactive."

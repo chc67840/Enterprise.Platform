@@ -1,0 +1,72 @@
+---
+title: Core Foundation — BaseEntity · EntityDataState · RouteMetadata · Auth
+---
+%%{init: {'theme':'neutral'}}%%
+classDiagram
+  direction LR
+
+  class BaseEntity {
+    <<interface>>
+    +readonly id : string
+    +readonly createdAt? : string
+    +readonly createdBy? : string
+    +readonly modifiedAt? : string
+    +readonly modifiedBy? : string
+    +readonly isActive? : boolean
+    +readonly version? : string
+  }
+
+  class EntityDataState~T extends BaseEntity~ {
+    <<interface>>
+    +readonly ids : readonly string[]
+    +readonly entities : Readonly~Record~string,T~~
+    +readonly activeId : string | null
+    +readonly lastLoadedAt : number
+    +readonly isStale : boolean
+  }
+
+  class CurrentUser {
+    <<interface>>
+    +readonly displayName : string
+    +readonly email : string
+  }
+
+  class EffectivePermissions {
+    <<interface>>
+    +readonly roles : readonly string[]
+    +readonly permissions : readonly string[]
+    +readonly bypass : boolean
+    +readonly ttlSeconds? : number
+  }
+
+  class RouteMetadata {
+    <<interface>>
+    +readonly label? : string
+    +readonly icon? : string
+    +readonly breadcrumb? : string | (params)=> string
+    +readonly requiredPermissions? : readonly string[]
+    +readonly requiredRoles? : readonly string[]
+    +readonly featureFlag? : string
+    +readonly showInNav? : boolean
+    +readonly group? : string
+    +readonly preload? : boolean
+    +readonly pageHeader? : unknown
+  }
+
+  class DEFAULT_CACHE_TTL_MS {
+    <<const>>
+    +5 * 60 * 1000 ms
+  }
+
+  class createInitialEntityState~T~ {
+    <<factory>>
+    +() EntityDataState~T~
+  }
+
+  EntityDataState ..> BaseEntity : T extends
+  createInitialEntityState ..> EntityDataState : returns
+  CurrentUser ..> EffectivePermissions : "session info + permissions"
+  RouteMetadata ..> EffectivePermissions : "guards consume"
+
+  note for BaseEntity "Mirrors backend AuditableEntity\nversion = optimistic-concurrency token"
+  note for RouteMetadata "Pinned via { ... } satisfies RouteMetadata\non Route.data — drives sidebar + breadcrumb"
